@@ -56,16 +56,11 @@ export const InfoView: React.FC = () => {
               {[
                 ['Technologies', 'React, TypeScript, Vite, Tailwind CSS, Node.js / Express, PostgreSQL (Drizzle ORM)'],
                 ['Sécurité', 'Connexion par email et mot de passe chiffré, session sécurisée, journal d’audit'],
-                ['Monnaie et fuseau', 'Ariary malgache (Ar) · Indian/Antananarivo (GMT+3)'],
-                ['Code source', APP_INFO.sourceUrl]
+                ['Monnaie et fuseau', 'Ariary malgache (Ar) · Indian/Antananarivo (GMT+3)']
               ].map(([label, value]) => (
                 <div key={label} className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2.5">
                   <dt className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">{label}</dt>
-                  <dd className="mt-0.5 text-[#0F172A] break-words">
-                    {label === 'Code source' ? (
-                      <a href={value} target="_blank" rel="noreferrer" className="text-[#0891B2] font-semibold hover:underline">{value.replace('https://', '')}</a>
-                    ) : value}
-                  </dd>
+                  <dd className="mt-0.5 text-[#0F172A] break-words">{value}</dd>
                 </div>
               ))}
             </dl>
@@ -90,8 +85,15 @@ export const InfoView: React.FC = () => {
               <span className="material-symbols-outlined text-[18px] text-[#06B6D4] shrink-0">mail</span>
               {APP_INFO.creatorEmail}
             </a>
+            <a
+              href={`tel:${APP_INFO.creatorPhoneIntl}`}
+              className="flex items-center gap-2 rounded-lg border border-[#E2E8F0] px-3 py-2.5 text-sm text-[#0F172A] hover:bg-slate-50"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#06B6D4] shrink-0">call</span>
+              <span className="font-mono-data">{APP_INFO.creatorPhone}</span>
+            </a>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Pour toute question, suggestion ou demande d'assistance concernant l'application, contactez le créateur à cette adresse.
+              Pour toute question, suggestion ou demande d'assistance concernant l'application, contactez le créateur par email ou par téléphone.
             </p>
             <p className="mt-auto text-[11px] text-slate-400">© {new Date().getFullYear()} {APP_INFO.creatorName}. Tous droits réservés.</p>
           </section>

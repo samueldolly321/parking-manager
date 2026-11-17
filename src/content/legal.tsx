@@ -7,7 +7,9 @@ export const APP_INFO = {
   version: '1.4.2',
   creatorName: 'Andrianirina Hariniaina Samuel',
   creatorEmail: 'hariniainasamuelandrianirina@gmail.com',
-  sourceUrl: 'https://github.com/samueldolly321/parking-manager',
+  creatorPhone: '034 21 890 51',
+  /** Same number, international format for tel: links */
+  creatorPhoneIntl: '+261342189051',
   cguUpdatedOn: '18 novembre 2026'
 };
 
@@ -23,7 +25,7 @@ export const CGU_SECTIONS: { title: string; body: string[] }[] = [
   {
     title: "2. Créateur de l'Application",
     body: [
-      `L'Application a été conçue et développée par ${APP_INFO.creatorName}, joignable à l'adresse ${APP_INFO.creatorEmail}.`,
+      `L'Application a été conçue et développée par ${APP_INFO.creatorName}, joignable à l'adresse ${APP_INFO.creatorEmail} ou au ${APP_INFO.creatorPhone}.`,
       `L'organisation qui exploite l'Application (l'« Exploitant ») est responsable de son utilisation, des comptes qu'elle attribue et des données qu'elle y enregistre.`
     ]
   },
@@ -98,7 +100,7 @@ export const CGU_SECTIONS: { title: string; body: string[] }[] = [
   {
     title: '13. Contact',
     body: [
-      `Pour toute question relative à l'Application ou aux présentes CGU : ${APP_INFO.creatorEmail}.`
+      `Pour toute question relative à l'Application ou aux présentes CGU : ${APP_INFO.creatorEmail} · ${APP_INFO.creatorPhone}.`
     ]
   }
 ];
