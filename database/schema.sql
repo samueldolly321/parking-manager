@@ -388,4 +388,9 @@ CREATE INDEX "users_site_id_idx" ON "users" USING btree ("site_id");--> statemen
 CREATE INDEX "users_role_idx" ON "users" USING btree ("role");--> statement-breakpoint
 CREATE UNIQUE INDEX "vehicles_plate_idx" ON "vehicles" USING btree ("license_plate");--> statement-breakpoint
 CREATE INDEX "vehicles_member_idx" ON "vehicles" USING btree ("member_id");--> statement-breakpoint
-CREATE INDEX "vehicles_site_idx" ON "vehicles" USING btree ("site_id");
+CREATE INDEX "vehicles_site_idx" ON "vehicles" USING btree ("site_id");--> statement-breakpoint
+CREATE TABLE "app_settings" (
+	"key" varchar(100) PRIMARY KEY NOT NULL,
+	"value" text NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);

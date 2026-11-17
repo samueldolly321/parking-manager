@@ -14,6 +14,7 @@ import {
   CheckCircle2
 } from 'lucide-react';
 import { ResetDataPanel } from './ResetDataPanel';
+import { BrandingPanel } from './BrandingPanel';
 
 interface AuditLogsViewProps {
   state: AppState;
@@ -23,6 +24,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ state }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [moduleFilter, setModuleFilter] = useState('all');
   const [selectedLog, setSelectedLog] = useState<AuditLogItem | null>(null);
+
+  const failedLogins = state.auditLogs.filter((l: AuditLogItem) => l.action === 'CONNEXION_ECHOUEE').length;
 
   const modules: string[] = Array.from(new Set(state.auditLogs.map((l: AuditLogItem) => l.module)));
 
@@ -75,12 +78,9 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ state }) => {
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
               <h1 className="text-xl sm:text-2xl font-bold font-title">Journal d'Audit & Traçabilité Sûreté</h1>
-              <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                Conformité ISO 27001
-              </span>
             </div>
             <p className="text-slate-400 text-sm mt-1">
-              Registre immuable des encaissements, mouvements de barrières, révocations de badges et accès administratifs
+              Actions enregistrées par le serveur : connexions, encaissements, dépenses, paie, créations, modifications et suppressions
             </p>
           </div>
         </div>
@@ -90,9 +90,11 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ state }) => {
           className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-colors"
         >
           <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
-          Exporter CSV Certifié
+          Exporter CSV
         </button>
       </div>
+
+      <BrandingPanel />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -114,10 +116,10 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ state }) => {
         </div>
         <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Intégrité Cryptographique</p>
-            <h3 className="text-xl font-black font-title text-emerald-600 mt-1">100% Vérifiée</h3>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-wider">Connexions échouées</p>
+            <h3 className={`text-xl font-black font-title mt-1 ${failedLogins > 0 ? 'text-[#DC2626]' : 'text-emerald-600'}`}>{failedLogins}</h3>
           </div>
-          <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+          <CheckCircle2 className={`w-5 h-5 ${failedLogins > 0 ? 'text-[#DC2626]' : 'text-emerald-600'}`} />
         </div>
       </div>
 

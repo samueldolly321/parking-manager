@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site } from '../types';
 import { PhotoInput, Avatar } from './PhotoInput';
 import { EntityActions } from './EntityActions';
@@ -50,6 +51,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
   startWithList = false,
   initialSelectedId
 }) => {
+  const { appName } = useBranding();
   const [viewMode, setViewMode] = useState<'list' | 'detail'>(startWithList && !initialSelectedId ? 'list' : 'detail');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(initialSelectedId || members[0]?.id || '');
   const [activeTab, setActiveTab] = useState<'vehicules' | 'abonnements' | 'historique' | 'cartes' | 'documents'>('vehicules');
@@ -767,11 +769,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     {/* Madagascar Micro Flag & Header */}
                     <div className="flex items-start justify-between relative z-10">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-cyan-500/20 flex items-center justify-center text-[#06B6D4] border border-[#06B6D4]/40">
-                          <span className="material-symbols-outlined text-[18px]">local_parking</span>
-                        </div>
+                        <BrandLogo size={28} />
                         <div>
-                          <div className="font-headline text-xs font-bold tracking-wider uppercase text-white leading-tight">Parking Mada</div>
+                          <div className="font-headline text-xs font-bold tracking-wider uppercase text-white leading-tight">{appName}</div>
                           <div className="font-mono-data text-[8px] text-[#06B6D4] uppercase">Réseau Central • Analakely</div>
                         </div>
                       </div>
@@ -896,7 +896,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
                       <div className="col-span-8 flex flex-col justify-between space-y-1.5 pl-1">
                         <p className="text-[8px] leading-[11px] text-slate-300 text-justify font-sans">
-                          Cette carte est strictement personnelle et demeure la propriété de Parking Manager Madagascar.
+                          Cette carte est strictement personnelle et demeure la propriété de {appName}.
                           En cas de perte, aviser immédiatement le poste de sécurité d'Analakely au{' '}
                           <strong className="text-white">+261 34 12 345 67</strong>.
                         </p>

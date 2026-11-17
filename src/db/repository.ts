@@ -1166,6 +1166,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS invoice_photo_url TEXT');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS quantity DOUBLE PRECISION');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS unit VARCHAR(30)');
+  await pool.query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT now())');
 }
 
 /** Next expense number for the current year: DEP-YYYY-NNNN (one more than the highest of that year). */
@@ -1176,4 +1177,40 @@ export function nextExpenseNumber(existing: { expenseNumber: string }[], year = 
     .filter((n) => Number.isFinite(n))
     .reduce((a, b) => Math.max(a, b), 0);
   return `${prefix}${String(max + 1).padStart(4, '0')}`;
+}
+
+// ===================== PARAMÈTRES DE L'APPLICATION =====================
+
+/** Values stored in app_settings (a missing key means "use the default"). */
+export async function getAppSettings(keys: string[]): Promise<Record<string, string>> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore() as AppState & { appSettings?: Record<string, string> };
+    return Object.fromEntries(keys.filter((k) => store.appSettings?.[k] !== undefined).map((k) => [k, store.appSettings![k]]));
+  }
+  const rows = await db.select().from(schema.appSettings);
+  return Object.fromEntries(rows.filter((r) => keys.includes(r.key)).map((r) => [r.key, r.value]));
+}
+
+/** Saves settings; a null value deletes the key (back to the default). */
+export async function setAppSettings(values: Record<string, string | null>): Promise<void> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore() as AppState & { appSettings?: Record<string, string> };
+    store.appSettings = { ...(store.appSettings || {}) };
+    for (const [k, v] of Object.entries(values)) {
+      if (v === null) delete store.appSettings[k];
+      else store.appSettings[k] = v;
+    }
+    saveLocalStore(store);
+    return;
+  }
+  for (const [key, value] of Object.entries(values)) {
+    if (value === null) {
+      await db.delete(schema.appSettings).where(eq(schema.appSettings.key, key));
+    } else {
+      await db.insert(schema.appSettings).values({ key, value })
+        .onConflictDoUpdate({ target: schema.appSettings.key, set: { value, updatedAt: new Date() } });
+    }
+  }
 }

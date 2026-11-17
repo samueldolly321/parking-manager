@@ -36,7 +36,9 @@ import {
   ensureSchemaUpgrades,
   nextExpenseNumber,
   nextGuardMatricule,
-  createGuardRecord
+  createGuardRecord,
+  getAppSettings,
+  setAppSettings
 } from './src/db/repository.ts';
 import type { GuardPersonnel } from './src/types/index.ts';
 import { AsyncLocalStorage } from 'async_hooks';
@@ -116,7 +118,10 @@ async function startServer() {
 
   /** Every /api route needs a valid session, except login/logout/health. */
   app.use('/api', async (req, res, next) => {
-    if (PUBLIC_API.has(req.path === '/' ? req.baseUrl : `${req.baseUrl}${req.path}`)) return next();
+    const fullPath = req.path === '/' ? req.baseUrl : `${req.baseUrl}${req.path}`;
+    if (PUBLIC_API.has(fullPath)) return next();
+    // Name and logo are readable before sign-in (sign-in page); changing them needs a session
+    if (req.method === 'GET' && fullPath === '/api/v1/settings/branding') return next();
     const userId = readSessionToken(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
     const found = userId ? await findUserById(userId).catch(() => null) : null;
     if (!found || !found.user.isActive) {
@@ -166,6 +171,50 @@ async function startServer() {
   });
 
   app.get('/api/v1/auth/me', (_req, res) => res.json(res.locals.user));
+
+  // ===================== IDENTITÉ DE L'APPLICATION (nom, logo) =====================
+  const DEFAULT_APP_NAME = 'Parking Mada';
+  const MAX_LOGO_CHARS = 400_000; // ≈ 300 Ko d'image
+
+  /** Public: the sign-in page shows the name and logo before any login. */
+  app.get('/api/v1/settings/branding', async (_req, res) => {
+    try {
+      const s = await getAppSettings(['branding.name', 'branding.logo']);
+      res.setHeader('Cache-Control', 'no-cache');
+      res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null });
+    } catch (error) {
+      console.error('Branding read error:', error);
+      res.json({ appName: DEFAULT_APP_NAME, logoUrl: null });
+    }
+  });
+
+  app.put('/api/v1/settings/branding', async (req, res) => {
+    try {
+      const user = res.locals.user;
+      if (!['super_admin', 'president_general'].includes(user?.role)) {
+        return res.status(403).json({ error: 'Seul un administrateur peut modifier le nom et le logo.' });
+      }
+      const name = typeof req.body?.appName === 'string' ? req.body.appName.trim().replace(/\s+/g, ' ') : '';
+      if (!name || name.length > 40) return res.status(400).json({ error: 'Le nom doit contenir entre 1 et 40 caractères.' });
+      const logo = req.body?.logoUrl;
+      if (logo !== null && logo !== undefined) {
+        if (typeof logo !== 'string' || !/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(logo)) {
+          return res.status(400).json({ error: 'Le logo doit être une image PNG, JPEG ou WebP.' });
+        }
+        if (logo.length > MAX_LOGO_CHARS) return res.status(400).json({ error: 'Le logo est trop lourd (300 Ko maximum).' });
+      }
+      await setAppSettings({
+        'branding.name': name === DEFAULT_APP_NAME ? null : name,
+        ...(logo === undefined ? {} : { 'branding.logo': logo })
+      });
+      await recordAudit('MODIFICATION_IDENTITE', 'Paramètres', `Nom de l'application : « ${name} »${logo === undefined ? '' : logo === null ? ', logo par défaut rétabli' : ', nouveau logo'}`);
+      const s = await getAppSettings(['branding.name', 'branding.logo']);
+      return res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null });
+    } catch (error) {
+      console.error('Branding write error:', error);
+      return res.status(500).json({ error: 'Enregistrement impossible.' });
+    }
+  });
 
   app.post('/api/v1/auth/change-password', async (req, res) => {
     try {

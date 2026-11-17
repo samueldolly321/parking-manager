@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import { PaymentReceipt } from '../types';
 
 interface ReceiptPrintModalProps {
@@ -7,6 +8,7 @@ interface ReceiptPrintModalProps {
 }
 
 export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ receipt, onClose }) => {
+  const { appName } = useBranding();
   if (!receipt) return null;
 
   const formatAr = (val: number) => {
@@ -30,7 +32,10 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ receipt, o
         <div className="p-4 bg-white border border-slate-300 rounded-xl space-y-3 font-mono-data text-xs text-[#0F172A]">
           {/* Header */}
           <div className="text-center pb-3 border-b border-dashed border-slate-300 space-y-0.5">
-            <div className="font-headline text-base font-bold tracking-tight text-[#0F172A]">PARKING MADA</div>
+            <div className="flex items-center justify-center gap-2">
+              <BrandLogo size={28} />
+              <div className="font-headline text-base font-bold tracking-tight text-[#0F172A] uppercase">{appName}</div>
+            </div>
             <div className="text-[10px] text-slate-500 uppercase tracking-widest">Gestion Régionale d'Antananarivo</div>
             <div className="text-[9px] text-slate-400">NIF: 400 128 903 • STAT: 52210 11 2023 0 10044</div>
             <div className="font-bold text-xs text-[#06B6D4] mt-1">{receipt.siteName}</div>

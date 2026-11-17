@@ -1,4 +1,5 @@
 import React, { useRef, useState } from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import { flushSync } from 'react-dom';
 import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
@@ -34,6 +35,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
   onOpenScanner,
   initialSelectedId
 }) => {
+  const { appName } = useBranding();
   const [selectedCardId, setSelectedCardId] = useState<string>(initialSelectedId || cards[0]?.id || '');
   const [currentSide, setCurrentSide] = useState<'recto' | 'verso'>('recto');
   const [filterType, setFilterType] = useState<'all' | 'actif' | 'a_renouveler' | 'bloquee_perdue'>('all');
@@ -116,11 +118,9 @@ export const CardsView: React.FC<CardsViewProps> = ({
       {/* Header: Logo, Title & Madagascar Flag */}
       <div className="relative z-10 flex items-start justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-[#06B6D4]">
-            <SquareParking size={20} strokeWidth={2.25} aria-hidden="true" />
-          </div>
+          <BrandLogo size={32} />
           <div className="flex flex-col">
-            <span className="font-headline text-xs tracking-wide text-black uppercase font-bold">Parking Mada</span>
+            <span className="font-headline text-xs tracking-wide text-black uppercase font-bold">{appName}</span>
             <span className="font-label-md text-[9px] tracking-widest text-black uppercase">
               Gestion Centrale · {currentCard.siteName.split('-')[1]?.trim() || 'Analakely'}
             </span>
@@ -278,7 +278,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
 
         <div className="col-span-8 flex flex-col justify-between space-y-1.5 pl-1">
           <p className="text-[8px] leading-[11px] text-black text-justify">
-            Cette carte est strictement personnelle et demeure la propriété de Parking Manager Madagascar.
+            Cette carte est strictement personnelle et demeure la propriété de {appName}.
             Tout stationnement implique l'acceptation sans réserve du règlement intérieur. En cas de perte, aviser immédiatement le poste d'Analakely au <strong className="text-black">+261 34 12 345 67</strong>.
           </p>
           <div className="grid grid-cols-2 gap-2 pt-0.5">

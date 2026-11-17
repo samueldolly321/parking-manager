@@ -4,7 +4,7 @@ const MAX_SIZE = 480; // px, longest side of the stored photo (default, e.g. mem
 const JPEG_QUALITY = 0.85;
 
 /** Draws a source (image or video frame) into a canvas, scaled down, and returns a JPEG data URL. */
-function toResizedDataUrl(source: CanvasImageSource, width: number, height: number, maxSize = MAX_SIZE): string {
+function toResizedDataUrl(source: CanvasImageSource, width: number, height: number, maxSize = MAX_SIZE, format: 'jpeg' | 'png' = 'jpeg'): string {
   const scale = Math.min(1, maxSize / Math.max(width, height));
   const canvas = document.createElement('canvas');
   canvas.width = Math.round(width * scale);
@@ -12,15 +12,16 @@ function toResizedDataUrl(source: CanvasImageSource, width: number, height: numb
   const ctx = canvas.getContext('2d');
   if (!ctx) return '';
   ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
-  return canvas.toDataURL('image/jpeg', JPEG_QUALITY);
+  // PNG keeps transparency (logos); JPEG is lighter for photos
+  return format === 'png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', JPEG_QUALITY);
 }
 
-function fileToDataUrl(file: File, maxSize = MAX_SIZE): Promise<string> {
+function fileToDataUrl(file: File, maxSize = MAX_SIZE, format: 'jpeg' | 'png' = 'jpeg'): Promise<string> {
   return new Promise((resolve, reject) => {
     const url = URL.createObjectURL(file);
     const img = new Image();
     img.onload = () => {
-      resolve(toResizedDataUrl(img, img.naturalWidth, img.naturalHeight, maxSize));
+      resolve(toResizedDataUrl(img, img.naturalWidth, img.naturalHeight, maxSize, format));
       URL.revokeObjectURL(url);
     };
     img.onerror = () => {
@@ -52,6 +53,8 @@ interface PhotoInputProps {
   facingMode?: 'user' | 'environment';
   /** Icon shown when there is no photo yet */
   emptyIcon?: string;
+  /** 'png' keeps transparency (logos) */
+  format?: 'jpeg' | 'png';
 }
 
 export const PhotoInput: React.FC<PhotoInputProps> = ({
@@ -60,7 +63,8 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
   fileNameHint,
   maxSize = MAX_SIZE,
   facingMode = 'user',
-  emptyIcon = 'person'
+  emptyIcon = 'person',
+  format = 'jpeg'
 }) => {
   const fileRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -100,7 +104,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
   const capture = () => {
     const video = videoRef.current;
     if (!video || !video.videoWidth) return;
-    const dataUrl = toResizedDataUrl(video, video.videoWidth, video.videoHeight, maxSize);
+    const dataUrl = toResizedDataUrl(video, video.videoWidth, video.videoHeight, maxSize, format);
     onChange(dataUrl);
     stopCamera();
   };
@@ -111,7 +115,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
     if (!file) return;
     setError('');
     try {
-      onChange(await fileToDataUrl(file, maxSize));
+      onChange(await fileToDataUrl(file, maxSize, format));
     } catch {
       setError("Ce fichier n'est pas une image valide.");
     }
@@ -124,7 +128,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
       <div className="flex items-center gap-3">
         <div className="w-20 h-20 rounded-lg border border-[#E2E8F0] bg-slate-50 overflow-hidden flex items-center justify-center shrink-0">
           {value ? (
-            <img src={value} alt="Photo" className="w-full h-full object-cover" />
+            <img src={value} alt="Photo" className={`w-full h-full ${format === 'png' ? 'object-contain' : 'object-cover'}`} />
           ) : (
             <span className="material-symbols-outlined text-slate-300 text-[36px]">{emptyIcon}</span>
           )}
@@ -150,7 +154,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
             <>
               <button
                 type="button"
-                onClick={() => downloadPhoto(value, `${safeName}.jpg`)}
+                onClick={() => downloadPhoto(value, `${safeName}.${format === 'png' ? 'png' : 'jpg'}`)}
                 className="px-3 py-1.5 text-xs font-bold rounded-lg border border-[#E2E8F0] bg-white hover:bg-slate-50 flex items-center gap-1"
               >
                 <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">download</span>

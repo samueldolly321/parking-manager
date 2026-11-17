@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import { EntityActions } from './EntityActions';
 import { AppState, PayrollRecord, PayrollBeneficiaryType } from '../types';
 import { addPayrollRecord, updatePayrollStatus, updatePayrollDeductions } from '../services/storage';
@@ -47,6 +48,7 @@ const isNetSlip = (p: PayrollRecord) =>
   p.baseSalaryAr + p.responsibilityBonusAr + p.nightShiftBonusAr + p.transportBonusAr + p.performanceBonusAr === p.netSalaryAr;
 
 export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
+  const { appName } = useBranding();
   // Months offered: the 12 last months + any month that already has payslips (newest first)
   const today = todayInTana();
   const currentMonthLabel = monthLabel(monthKey(today.year, today.monthIndex));
@@ -605,11 +607,9 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
             {/* EN-TÊTE BULLETIN DE PAIE OFFICIEL */}
             <div className="text-center space-y-1 pb-4 border-b-2 border-slate-900">
               <div className="flex items-center justify-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-cyan-500 text-slate-950 font-black flex items-center justify-center font-title">
-                  PM
-                </div>
-                <h2 className="text-xl font-bold font-title text-slate-900">
-                  PARKING MANAGER MADAGASCAR
+                <BrandLogo size={32} />
+                <h2 className="text-xl font-bold font-title text-slate-900 uppercase">
+                  {appName}
                 </h2>
               </div>
               <p className="text-xs text-slate-500">

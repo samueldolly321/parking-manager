@@ -1,4 +1,5 @@
 import React from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import { APP_INFO } from '../content/legal';
 
 export type NavPath =
@@ -31,6 +32,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, open = false, onClose }) => {
+  const { appName } = useBranding();
   const navSections = [
     {
       title: 'VUE GÉNÉRALE',
@@ -92,12 +94,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, open 
       {/* Brand Header */}
       <div className="p-4 flex items-center justify-between gap-2 border-b border-white/10 bg-[#0F172A]">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-lg bg-gradient-to-tr from-[#06B6D4] to-[#0EA5E9] flex items-center justify-center text-white shadow-md font-bold text-lg">
-            <span className="material-symbols-outlined text-[22px]">local_parking</span>
-          </div>
-          <div className="flex flex-col">
-            <span className="font-headline text-base font-bold text-white tracking-tight leading-tight">
-              Parking Mada
+          <BrandLogo size={36} className="shadow-md" />
+          <div className="flex flex-col min-w-0">
+            <span className="font-headline text-base font-bold text-white tracking-tight leading-tight truncate" title={appName}>
+              {appName}
             </span>
             <span className="font-mono-data text-[10px] text-[#06B6D4] uppercase tracking-wider font-semibold">
               GESTION CENTRALE

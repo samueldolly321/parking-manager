@@ -21,7 +21,7 @@ function download(blob: Blob, name: string) {
 }
 
 /** CSV with ";" separators and a BOM, so that Excel (French settings) opens it directly. */
-export function exportReportCsv(r: ReportData, siteLabel: string) {
+export function exportReportCsv(r: ReportData, siteLabel: string, appName = 'Parking Mada') {
   const rows: (string | number)[][] = [];
   const blank = () => rows.push([]);
   const section = (title: string) => { blank(); rows.push([title]); };
@@ -31,7 +31,7 @@ export function exportReportCsv(r: ReportData, siteLabel: string) {
     items.forEach((b) => rows.push([b.label, Math.round(b.valueAr), b.count]));
   };
 
-  rows.push(['Rapport Parking Manager', periodLabel(r.period)]);
+  rows.push([`Rapport ${appName}`, periodLabel(r.period)]);
   rows.push(['Site', siteLabel]);
   rows.push(['Généré le', new Date().toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' })]);
 
@@ -75,7 +75,7 @@ export function exportReportCsv(r: ReportData, siteLabel: string) {
 }
 
 /** A4 PDF with the summary and every table of the report. */
-export function exportReportPdf(r: ReportData, siteLabel: string) {
+export function exportReportPdf(r: ReportData, siteLabel: string, appName = 'Parking Mada') {
   const pdf = new jsPDF({ unit: 'mm', format: 'a4' });
   const W = 210;
   const M = 14;
@@ -137,7 +137,7 @@ export function exportReportPdf(r: ReportData, siteLabel: string) {
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(10);
   pdf.setTextColor(71, 85, 105);
-  pdf.text(`Parking Manager Madagascar — ${periodLabel(r.period)} — ${siteLabel}`, M, y);
+  pdf.text(`${appName} — ${periodLabel(r.period)} — ${siteLabel}`, M, y);
   y += 5;
   pdf.setFontSize(8);
   pdf.text(`Généré le ${new Date().toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' })} (GMT+3)`, M, y);

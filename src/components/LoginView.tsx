@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useBranding, BrandLogo } from '../services/branding';
 import type { User } from '../types';
 import { APP_INFO, CguContent } from '../content/legal';
 
@@ -10,6 +11,7 @@ interface LoginViewProps {
 
 /** Full-screen sign-in page: background photo, brand on the left, glass card with the form. */
 export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
+  const { appName } = useBranding();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -58,11 +60,9 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
         {/* Brand side */}
         <section className="max-w-md text-center lg:text-left">
           <div className="inline-flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-tr from-[#06B6D4] to-[#0EA5E9] flex items-center justify-center shadow-lg shadow-cyan-500/30">
-              <span className="material-symbols-outlined text-[28px]">local_parking</span>
-            </div>
+            <BrandLogo size={48} rounded="rounded-xl" className="shadow-lg shadow-cyan-500/30" />
             <div className="text-left">
-              <div className="font-headline text-xl font-bold leading-tight">Parking Mada</div>
+              <div className="font-headline text-xl font-bold leading-tight">{appName}</div>
               <div className="font-mono-data text-[11px] uppercase tracking-[0.2em] text-[#67E8F9]">Gestion centrale</div>
             </div>
           </div>

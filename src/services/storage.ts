@@ -2099,21 +2099,29 @@ export function setCurrentUser(user: User) {
   saveState(state);
 }
 
-export function addAuditLog(action: string, module: string, details: string, siteCode: string = 'GLOBAL') {
-  const state = loadState();
-  const log: AuditLogItem = {
-    id: `aud-${Date.now()}`,
-    timestamp: new Date().toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
-    userId: state.currentUser.id,
-    userName: state.currentUser.fullName,
-    action,
-    siteCode,
-    module,
-    details,
-    ipAddress: '192.168.1.100'
-  };
-  state.auditLogs = [log, ...state.auditLogs];
-  saveState(state);
+let auditRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * The server writes the real audit entry (user, IP) for every action it receives.
+ * After a client action, reload the journal from the server instead of adding a local copy.
+ * The arguments are kept so callers stay unchanged.
+ */
+export function addAuditLog(_action: string, _module: string, _details: string, _siteCode: string = 'GLOBAL') {
+  if (typeof window === 'undefined') return;
+  if (auditRefreshTimer) clearTimeout(auditRefreshTimer);
+  auditRefreshTimer = setTimeout(async () => {
+    auditRefreshTimer = null;
+    try {
+      const res = await fetch('/api/v1/audit-logs');
+      if (!res.ok) return;
+      const logs = (await res.json()) as AuditLogItem[];
+      const state = loadState();
+      state.auditLogs = logs;
+      saveState(state);
+    } catch {
+      // keep the current journal if the server is unreachable
+    }
+  }, 1200);
 }
 
 export function syncApi(endpoint: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'POST', body?: unknown) {

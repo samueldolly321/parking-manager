@@ -15,6 +15,7 @@ import {
 import { exportReportCsv, exportReportPdf } from '../services/reportExport';
 import { todayInTana } from '../services/dashboardMetrics';
 import { monthKey } from '../services/months';
+import { useBranding } from '../services/branding';
 
 interface ReportsViewProps {
   state: AppState;
@@ -115,6 +116,7 @@ const Kpi: React.FC<{ label: string; value: number; previous: number; prevLabel:
 };
 
 export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId }) => {
+  const { appName } = useBranding();
   const t = todayInTana();
   const currentMonth = monthKey(t.year, t.monthIndex);
   const [granularity, setGranularity] = useState<Granularity>('mois');
@@ -168,7 +170,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
-            onClick={() => exportReportCsv(report, siteLabel)}
+            onClick={() => exportReportCsv(report, siteLabel, appName)}
             className="px-3.5 py-2 rounded-lg bg-white border border-[#E2E8F0] shadow-sm hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px] text-[#16A34A]">table_view</span>
@@ -176,7 +178,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
           </button>
           <button
             type="button"
-            onClick={() => exportReportPdf(report, siteLabel)}
+            onClick={() => exportReportPdf(report, siteLabel, appName)}
             className="px-3.5 py-2 rounded-lg bg-[#0F172A] text-white hover:bg-slate-800 shadow-md text-xs font-bold flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">picture_as_pdf</span>

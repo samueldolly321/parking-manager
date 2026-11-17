@@ -425,3 +425,10 @@ export const vehiclesRelations = relations(vehicles, ({ one }) => ({
     references: [sites.id]
   })
 }));
+
+/** Application settings (key/value), e.g. branding.name, branding.logo. */
+export const appSettings = pgTable('app_settings', {
+  key: varchar('key', { length: 100 }).primaryKey(),
+  value: text('value').notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull()
+});
