@@ -47,6 +47,7 @@ import { PayrollView } from './components/PayrollView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { ReportsView } from './components/ReportsView';
 import { SitesView } from './components/SitesView';
+import { InfoView } from './components/InfoView';
 import { computeAlerts } from './services/dashboardMetrics';
 
 import { NewPaymentModal } from './components/NewPaymentModal';
@@ -412,6 +413,9 @@ export default function App() {
     switch (currentPath) {
       case 'rapports-et-statistiques':
         return <ReportsView key={viewKey} state={state} selectedSiteId={state.selectedSiteId} />;
+
+      case 'informations-et-cgu':
+        return <InfoView />;
 
       case 'sites-et-zones':
         return <SitesView key={viewKey} state={state} onNavigate={(p) => goTo(p as NavPath)} />;

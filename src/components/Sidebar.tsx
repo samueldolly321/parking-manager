@@ -1,4 +1,5 @@
 import React from 'react';
+import { APP_INFO } from '../content/legal';
 
 export type NavPath =
   | 'tableau-de-bord'
@@ -17,7 +18,8 @@ export type NavPath =
   | 'incidents-et-registre'
   | 'rapports-et-statistiques'
   | 'utilisateurs-et-roles'
-  | 'parametres-et-audit';
+  | 'parametres-et-audit'
+  | 'informations-et-cgu';
 
 interface SidebarProps {
   currentPath: NavPath;
@@ -69,7 +71,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, open 
       items: [
         { path: 'rapports-et-statistiques' as NavPath, label: 'Rapports & Statistiques', icon: 'analytics' },
         { path: 'utilisateurs-et-roles' as NavPath, label: 'Utilisateurs & Rôles', icon: 'manage_accounts' },
-        { path: 'parametres-et-audit' as NavPath, label: 'Paramètres & Audit', icon: 'settings' }
+        { path: 'parametres-et-audit' as NavPath, label: 'Paramètres & Audit', icon: 'settings' },
+        { path: 'informations-et-cgu' as NavPath, label: 'Informations & CGU', icon: 'info' }
       ]
     }
   ];
@@ -156,7 +159,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, open 
             <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
             <span className="font-mono-data text-xs text-[#06B6D4] font-medium">PostgreSQL 16 OK</span>
           </div>
-          <span className="font-mono-data text-[10px] text-slate-400">v1.4.2</span>
+          <span className="font-mono-data text-[10px] text-slate-400">v{APP_INFO.version}</span>
         </div>
         <div className="font-mono-data text-[10px] text-slate-400 truncate flex items-center justify-between">
           <span>Antananarivo Central DC</span>

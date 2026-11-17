@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import type { User } from '../types';
+import { APP_INFO, CguContent } from '../content/legal';
 
 interface LoginViewProps {
   onLoggedIn: (user: User) => void;
@@ -14,6 +15,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showCgu, setShowCgu] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -170,14 +172,42 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
             </form>
 
             <p className="mt-6 text-center text-[11px] text-slate-500">
+              En vous connectant, vous acceptez les{' '}
+              <button type="button" onClick={() => setShowCgu(true)} className="font-semibold text-[#0891B2] hover:underline">
+                conditions générales d'utilisation
+              </button>.
+            </p>
+            <p className="mt-2 text-center text-[11px] text-slate-500">
               Mot de passe oublié ? Contactez l'administrateur de l'application.
             </p>
           </div>
           <p className="mt-4 text-center text-[11px] text-slate-400">
-            Connexion sécurisée · Antananarivo (GMT+3)
+            Connexion sécurisée · Antananarivo (GMT+3) · Créé par {APP_INFO.creatorName}
           </p>
         </section>
       </div>
+
+      {showCgu && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-slate-950/70 backdrop-blur-sm" onClick={() => setShowCgu(false)}>
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cgu-title"
+            className="bg-white text-[#0F172A] rounded-2xl max-w-2xl w-full max-h-[88vh] flex flex-col shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-100">
+              <h2 id="cgu-title" className="font-headline text-base font-bold">Conditions générales d'utilisation</h2>
+              <button type="button" onClick={() => setShowCgu(false)} aria-label="Fermer" className="text-slate-400 hover:text-slate-700">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            <div className="overflow-y-auto px-5 sm:px-6 py-5">
+              <CguContent compact />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
