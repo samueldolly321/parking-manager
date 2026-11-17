@@ -46,6 +46,7 @@ import { IncidentsView } from './components/IncidentsView';
 import { PayrollView } from './components/PayrollView';
 import { AuditLogsView } from './components/AuditLogsView';
 import { ReportsView } from './components/ReportsView';
+import { SitesView } from './components/SitesView';
 import { computeAlerts } from './services/dashboardMetrics';
 
 import { NewPaymentModal } from './components/NewPaymentModal';
@@ -412,8 +413,10 @@ export default function App() {
       case 'rapports-et-statistiques':
         return <ReportsView key={viewKey} state={state} selectedSiteId={state.selectedSiteId} />;
 
-      case 'tableau-de-bord':
       case 'sites-et-zones':
+        return <SitesView key={viewKey} state={state} onNavigate={(p) => goTo(p as NavPath)} />;
+
+      case 'tableau-de-bord':
         return (
           <DashboardView
             sites={state.sites}

@@ -242,21 +242,36 @@ async function startServer() {
 
   app.post('/api/v1/sites', async (req, res) => {
     try {
+      const b = req.body || {};
+      const text = (v: unknown, max = 150) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const name = text(b.name);
+      const capacity = Number(b.totalCapacity);
+      if (!name) return res.status(400).json({ error: 'Le nom du site est obligatoire.' });
+      if (!Number.isInteger(capacity) || capacity <= 0) return res.status(400).json({ error: 'La capacité doit être un nombre entier supérieur à 0.' });
       const state = await getFullState();
+      // Next free number: S4, S5… (never reuses an id or a code, even after a deletion)
+      const nums = state.sites.map((s) => Number(/^S(\d+)$/.exec(s.id)?.[1] || 0));
+      const nextNum = Math.max(0, ...nums) + 1;
+      const id = `S${nextNum}`;
+      const code = (text(b.code, 30) || `S${nextNum}-${name.split(/\s+/)[0]}`).toUpperCase().replace(/[^A-Z0-9-]+/g, '-');
+      if (state.sites.some((s) => s.code.toUpperCase() === code)) {
+        return res.status(400).json({ error: `Le code ${code} est déjà utilisé par un autre site.` });
+      }
+      const STATUSES = new Set(['actif', 'maintenance', 'inactif']);
       const newSite = await createSiteRecord({
-        id: req.body.id || `S${state.sites.length + 1}`,
-        code: req.body.code || `S${state.sites.length + 1}`,
-        name: req.body.name,
-        address: req.body.address || '',
-        city: req.body.city || 'Antananarivo',
-        totalCapacity: Number(req.body.totalCapacity) || 100,
-        presidentName: req.body.presidentName || 'À désigner',
-        presidentPhone: req.body.presidentPhone || '',
-        tresorierName: req.body.tresorierName || 'À désigner',
-        guardCount: Number(req.body.guardCount) || 2,
-        status: 'actif'
+        id,
+        code,
+        name: name.startsWith('Site ') ? name : `Site ${String(nextNum).padStart(2, '0')} - ${name}`,
+        address: text(b.address, 300),
+        city: text(b.city, 100) || 'Antananarivo',
+        totalCapacity: capacity,
+        presidentName: text(b.presidentName) || 'À désigner',
+        presidentPhone: text(b.presidentPhone, 30),
+        tresorierName: text(b.tresorierName) || 'À désigner',
+        guardCount: Math.max(0, Number(b.guardCount) || 0),
+        status: STATUSES.has(b.status) ? b.status : 'actif'
       });
-      await recordAudit('CREATION_SITE', 'Sites', `Nouveau site créé : ${newSite.name} (${newSite.code})`);
+      await recordAudit('CREATION_SITE', 'Sites', `Nouveau site créé : ${newSite.name} (${newSite.code})`, newSite.code);
       res.status(201).json(newSite);
     } catch (error) {
       console.error('Create site error:', error);

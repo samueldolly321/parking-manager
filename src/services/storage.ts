@@ -2484,3 +2484,24 @@ export async function resetOperationalData(confirmation: string): Promise<ResetS
   await hydrateFromBackend();
   return body.summary as ResetSummary;
 }
+
+/** Creates a site on the server, then shows it. Throws with a readable message on failure. */
+export async function addSiteRecord(input: Partial<Site>): Promise<Site> {
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/sites', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+  } catch {
+    throw new Error('Serveur injoignable : le site n’a pas été créé.');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || `Création impossible (erreur ${res.status}).`);
+  const site = body as Site;
+  const state = loadState();
+  state.sites = [...state.sites.filter((s) => s.id !== site.id), site];
+  saveState(state);
+  return site;
+}
