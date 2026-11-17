@@ -1,0 +1,917 @@
+<!DOCTYPE html><html lang="fr" style=""><head><meta charset="utf-8"><meta content="width=device-width, initial-scale=1.0" name="viewport"><meta content="web_dashboard" name="shell-type"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"><link href="https://fonts.googleapis.com" rel="preconnect"><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-container-low": "#eff4ff", "on-primary-fixed": "#131b2e", "surface": "#f8f9ff", "primary-fixed-dim": "#bec6e0", "primary-container": "#131b2e", "on-secondary-fixed-variant": "#004e5c", "tertiary-fixed": "#c9e6ff", "surface-tint": "#565e74", "secondary-fixed-dim": "#4cd7f6", "on-secondary": "#ffffff", "surface-container-lowest": "#ffffff", "inverse-surface": "#213145", "surface-container-high": "#dce9ff", "on-primary-fixed-variant": "#3f465c", "outline": "#76777d", "tertiary-container": "#001e2f", "surface-container-highest": "#d3e4fe", "on-surface-variant": "#45464d", "on-secondary-container": "#006172", "on-primary": "#ffffff", "on-background": "#0b1c30", "on-tertiary": "#ffffff", "on-error": "#ffffff", "inverse-primary": "#bec6e0", "on-tertiary-fixed-variant": "#004c6e", "tertiary-fixed-dim": "#89ceff", "on-secondary-fixed": "#001f26", "secondary": "#00687a", "surface-bright": "#f8f9ff", "primary-fixed": "dae2fd", "on-tertiary-fixed": "#001e2f", "inverse-on-surface": "#eaf1ff", "on-surface": "#0b1c30", "secondary-container": "#57dffe", "secondary-fixed": "#acedff", "surface-dim": "#cbdbf5", "outline-variant": "#c6c6cd", "tertiary": "#000000", "primary": "#000000", "error-container": "#ffdad6", "surface-variant": "#d3e4fe", "error": "#ba1a1a", "background": "#f8f9ff", "on-primary-container": "#7c839b", "on-tertiary-container": "#008cc7", "on-error-container": "#93000a", "surface-container": "#e5eeff" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "margin": "1.5rem", "space-xl": "2rem", "space-md": "0.75rem", "margin-mobile": "1rem", "gutter": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "gutter-compact": "0.75rem", "space-lg": "1.25rem" }, "fontFamily": { "mono-metric": ["JetBrains Mono"], "label-md": ["Inter"], "headline-md": ["Space Grotesk"], "mono-plate": ["JetBrains Mono"], "display-lg-mobile": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "headline-sm": ["Space Grotesk"], "mono-data": ["JetBrains Mono"], "display-lg": ["Space Grotesk"], "body-sm": ["Inter"], "body-lg": ["Inter"], "label-lg": ["Inter"], "body-md": ["Inter"] }, "fontSize": { "mono-metric": ["20px", {"lineHeight": "26px", "letterSpacing": "-0.02em", "fontWeight": "600"}], "label-md": ["11px", {"lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600"}], "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "mono-plate": ["14px", {"lineHeight": "18px", "letterSpacing": "0.08em", "fontWeight": "700"}], "display-lg-mobile": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600"}], "headline-sm": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "600"}], "mono-data": ["13px", {"lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "500"}], "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}], "label-lg": ["13px", {"lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "500"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}] } } } };</script></head><body class="bg-background font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-screen w-72 bg-primary-container text-on-surface flex flex-col z-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="p-space-lg flex items-center justify-between gap-space-sm bg-primary-container"><div class="flex items-center gap-space-md"><img alt="Parking Manager Madagascar Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WJq3aAYJeiFbCroNA4K7u00d6_YI001QPp6NWRX0s5tb20puByBGq7OQN0oHO1CU1-3jGDon2N0VSJAaM4oQ9e06llctPPlnzgdcP_OjEK6s56Uq2TXvk8cYqzMKkiTALVNMdwxzIGNckZK5NTsn3aAyWXER4jZvghiOOcjj5e3laFpdkFGnJVJ-pDXhFgxZLNG1QiJ0TDJsOcbhDxqYskg98VKWzK4B2etCMcOkcO"><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-surface-container-lowest tracking-tight">Parking Mada</span><span class="font-label-md text-label-md text-on-primary-container">GESTION CENTRALE</span></div></div><span class="font-mono-data text-label-md px-space-xs py-0.5 rounded bg-tertiary-container text-secondary-fixed-dim uppercase tracking-wider font-semibold">PROD TANA</span></div><div class="flex-1 overflow-y-auto px-space-md py-space-sm space-y-space-lg"><nav class="space-y-space-lg" data-active-classes="bg-surface-container-lowest text-on-surface font-semibold rounded-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">VUE GÉNÉRALE</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">dashboard</span><span class="font-body-md text-body-md">Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="sites-et-zones" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">domain</span><span class="font-body-md text-body-md">Sites &amp; Zones</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">GESTION OPÉRATIONNELLE</div><div class="space-y-0.5"><a aria-current="page" class="flex items-center gap-space-md px-space-sm py-space-xs transition-all bg-surface-container-lowest text-on-surface font-semibold rounded-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]" data-path="emplacements-et-occupation" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">local_parking</span><span class="font-body-md text-body-md">Emplacements &amp; Occupation</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="vehicules" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">directions_car</span><span class="font-body-md text-body-md">Véhicules</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="membres-et-proprietaires" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">group</span><span class="font-body-md text-body-md">Membres &amp; Propriétaires</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="cartes-de-membres" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">badge</span><span class="font-body-md text-body-md">Cartes de membres</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="abonnements-et-tarifs" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">sell</span><span class="font-body-md text-body-md">Abonnements &amp; Tarifs</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">FINANCES &amp; TRÉSORERIE</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="encaissements-et-recus" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">receipt_long</span><span class="font-body-md text-body-md">Encaissements &amp; Reçus</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tresorerie-et-caisses" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">account_balance_wallet</span><span class="font-body-md text-body-md">Trésorerie &amp; Caisses</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="depenses-et-approbations" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">payments</span><span class="font-body-md text-body-md">Dépenses &amp; Approbations</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">SÉCURITÉ &amp; RESSOURCES</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="personnel-et-gardiens" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">security</span><span class="font-body-md text-body-md">Personnel &amp; Gardiens</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="comite-de-gestion" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">military_tech</span><span class="font-body-md text-body-md">Comité de Gestion</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="materiels-et-equipements" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">build</span><span class="font-body-md text-body-md">Matériels &amp; Équipements</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="incidents-et-registre" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">warning</span><span class="font-body-md text-body-md">Incidents &amp; Registre</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">PILOTAGE &amp; SYSTÈME</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="rapports-et-statistiques" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">analytics</span><span class="font-body-md text-body-md">Rapports &amp; Statistiques</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="utilisateurs-et-roles" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">manage_accounts</span><span class="font-body-md text-body-md">Utilisateurs &amp; Rôles</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="parametres-et-audit" href="#"><span class="material-symbols-outlined text-[18px]" style="color: rgb(231, 76, 60);">settings</span><span class="font-body-md text-body-md">Paramètres &amp; Audit</span></a></div></div></nav></div><div class="p-space-md bg-tertiary-container space-y-space-xs"><div class="flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span><span class="font-mono-data text-body-sm text-secondary-fixed-dim">PostgreSQL 16 OK</span></div><span class="font-mono-data text-label-md text-on-primary-container">v1.4.2</span></div><div class="font-body-sm text-body-sm text-on-primary-container truncate">Antananarivo Central DC</div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] px-space-lg flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md"><div class="relative"><select aria-label="Sélectionner un site" class="bg-surface-container-low text-on-surface font-label-lg text-label-lg rounded-lg py-space-xs pl-space-md pr-space-xl appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary"><option value="all">Tous les Sites (Consolidé)</option><option value="s1">Site 01 - Analakely Central</option><option value="s2">Site 02 - Ankorondrano Business</option><option value="s3">Site 03 - Ivato Aéroport Hub</option></select><span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span></div></div><div class="flex-1 max-w-xl"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-3 text-outline text-[20px]">search</span><input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg py-space-xs pl-10 pr-12 focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Rechercher immatriculation, membre, reçu..." type="text"><span class="absolute right-3 font-mono-data text-label-md text-outline px-1.5 py-0.5 rounded bg-surface-container-high">⌘K</span></div></div><div class="flex items-center gap-space-md"><a class="bg-secondary-container text-on-secondary-container font-headline-sm text-body-sm px-space-md py-space-xs rounded-lg hover:bg-secondary-fixed transition-colors flex items-center gap-space-xs" data-path="encaissements-et-recus" href="#" style="background-color: rgb(52, 152, 219); color: rgb(255, 255, 255);"><span class="material-symbols-outlined text-[18px]">add</span><span class="">Nouvel Encaissement</span></a><div class="hidden xl:flex flex-col text-right"><span class="font-label-lg text-label-lg text-on-surface font-semibold">15 Mai 2024</span><span class="font-mono-data text-label-md text-on-surface-variant">Mercredi (GMT+3)</span></div><button aria-label="Notifications système" class="relative p-space-xs rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-4 h-4 bg-error text-on-error font-mono-data text-[10px] font-bold rounded-full flex items-center justify-center">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWCGKnToDVy0AFXDKbIZSrB4cYfFru-TF00P0EffMz7UUte2VorhDkvpOjKzkVJJmKi0MWsZumbTuwxz4VtWfOiwdcCMtTxZQJJBVSBc9r8iu-bmmP-MVUOFTu-1TkrT5INpLcRh99XhJ4fKFRT7y4tk7khRqOjxHPsp2LhrxfsMWx7bNBzq_wlMgDGSFVWgaz120IOofEpeA-I6CCKtidlcC4ju5OJCcTBdVBcC4"><div class="hidden md:flex flex-col text-left"><span class="font-label-lg text-label-lg text-on-surface font-semibold">Rajaonarison Hery</span><span class="font-label-md text-label-md text-on-surface-variant">Super Admin</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="w-full px-space-lg py-space-lg space-y-space-md"><div class="flex items-center gap-space-xs font-label-md text-label-md text-outline"><a class="hover:text-on-surface transition-colors" data-path="tableau-de-bord" href="#">Parking Manager</a><span class="material-symbols-outlined text-[14px]">chevron_right</span><span class="text-on-surface font-semibold">Console d'Exploitation</span></div><div><div class="flex flex-col w-full gap-space-lg">
+<!-- Zone Filtres & Contrôles Supérieurs -->
+<div class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col xl:flex-row xl:items-center justify-between gap-space-md">
+<div class="space-y-space-xs">
+<div class="flex items-center gap-space-xs font-mono-data text-label-md text-on-surface-variant uppercase tracking-wider">
+<span class="w-2 h-2 rounded-full bg-secondary animate-ping"></span>
+        Supervision Cadastrale &amp; Télémétrie Voies
+      </div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">
+        Plan interactif &amp; occupation des places
+      </h1>
+</div>
+<!-- Sélecteurs et Filtres d'état -->
+<div class="flex flex-wrap items-center gap-space-sm">
+<!-- Site -->
+<div class="flex items-center bg-surface-container-low px-space-md py-space-xs rounded-lg">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant mr-1">location_on</span>
+<select class="bg-transparent font-label-lg text-label-lg text-on-surface focus:outline-none cursor-pointer" id="siteFilter">
+<option selected="" value="s1">Site 01 - Analakely Central</option>
+<option value="s2">Site 02 - Ankorondrano Business</option>
+<option value="s3">Site 03 - Ivato Hub Fret</option>
+</select>
+</div>
+<!-- Zone -->
+<div class="flex items-center bg-surface-container-low px-space-md py-space-xs rounded-lg">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant mr-1">layers</span>
+<select class="bg-transparent font-label-lg text-label-lg text-on-surface focus:outline-none cursor-pointer" id="zoneFilter">
+<option value="all">Toutes les zones</option>
+<option value="zone-a">Zone A : Couverte VIP</option>
+<option value="zone-b">Zone B : Extérieure Mixte</option>
+<option value="zone-c">Zone C : Deux-roues &amp; Flotte</option>
+</select>
+</div>
+<!-- Statut Tabs -->
+<div class="flex items-center bg-surface-container-low p-1 rounded-lg">
+<button class="status-tab-btn active-tab px-space-md py-1 rounded font-label-md text-label-md bg-primary text-on-primary font-semibold transition-all" data-filter="all" type="button">Tous</button>
+<button class="status-tab-btn px-space-md py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-filter="libre" type="button">Libres</button>
+<button class="status-tab-btn px-space-md py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-filter="occupe" type="button">Occupés</button>
+<button class="status-tab-btn px-space-md py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-filter="reserve" type="button">Réservés</button>
+<button class="status-tab-btn px-space-md py-1 rounded font-label-md text-label-md text-on-surface-variant hover:text-on-surface transition-all" data-filter="maintenance" type="button">Maintenance</button>
+</div>
+</div>
+</div>
+<!-- Télémétrie en Temps Réel (Barre KPI Cadencée) -->
+<div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-space-sm">
+<!-- Capacité Totale -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-on-surface-variant font-label-md text-label-md uppercase">
+<span class="">Capacité</span>
+<span class="material-symbols-outlined text-[16px]">grid_view</span>
+</div>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-display-lg text-display-lg font-bold text-on-surface">180</span>
+<span class="font-mono-data text-body-sm text-outline">places</span>
+</div>
+<div class="font-body-sm text-body-sm text-outline mt-1">Gabarit consolidé</div>
+</div>
+<!-- Places Libres -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between"><div class="flex items-center justify-between text-on-surface-variant font-label-md text-label-md uppercase"><span class="">Libres</span><span class="w-2.5 h-2.5 rounded-full" style="background-color: #2ECC71;"></span></div><div class="mt-2 flex items-baseline gap-1"><span class="font-display-lg text-display-lg font-bold" style="color: #2ECC71;">26</span><span class="font-mono-data text-body-sm" style="color: #2ECC71;">dispos</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded font-label-md text-[10px] font-semibold w-fit" style="background-color: rgb(234, 250, 241); color: rgb(30, 132, 73);">Flux entrant actif</span></div>
+<!-- Places Occupées -->
+<div class="bg-primary text-on-primary p-space-md rounded-xl shadow-sm flex flex-col justify-between">
+<div class="flex items-center justify-between text-surface-container-highest font-label-md text-label-md uppercase">
+<span class="">Occupées</span>
+<span class="material-symbols-outlined text-[16px] text-secondary-container">directions_car</span>
+</div>
+<div class="mt-2 flex items-baseline gap-1">
+<span class="font-display-lg text-display-lg font-bold text-on-primary">148</span>
+<span class="font-mono-data text-body-sm text-on-primary-container">véhicules</span>
+</div>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded font-label-md text-[10px] font-semibold bg-surface-container-low/10 text-secondary-fixed w-fit">
+        Taux stabilisé
+      </span>
+</div>
+<!-- Réservées -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between"><div class="flex items-center justify-between text-on-surface-variant font-label-md text-label-md uppercase"><span class="">Réservées</span><span class="w-2.5 h-2.5 rounded-full" style="background-color: #3498DB;"></span></div><div class="mt-2 flex items-baseline gap-1"><span class="font-display-lg text-display-lg font-bold" style="color: #3498DB;">04</span><span class="font-mono-data text-body-sm text-outline">VIP/Abo</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded font-label-md text-[10px] font-semibold w-fit" style="background-color: rgb(235, 245, 251); color: rgb(33, 97, 140);">Attente arrivée</span></div>
+<!-- Maintenance -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between"><div class="flex items-center justify-between text-on-surface-variant font-label-md text-label-md uppercase"><span class="">Travaux/Inertes</span><span class="material-symbols-outlined text-[16px]" style="color: #E74C3C;">build</span></div><div class="mt-2 flex items-baseline gap-1"><span class="font-display-lg text-display-lg font-bold" style="color: #E74C3C;">02</span><span class="font-mono-data text-body-sm" style="color: #E74C3C;">plots</span></div><span class="inline-flex items-center px-1.5 py-0.5 rounded font-label-md text-[10px] font-semibold w-fit" style="background-color: rgb(253, 237, 236); color: rgb(146, 43, 33);">Pavage &amp; borne</span></div>
+<!-- Jauge de Charge Globale -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col justify-between"><div class="flex items-center justify-between text-on-surface-variant font-label-md text-label-md uppercase"><span class="">Occupation</span><span class="font-mono-data text-label-md font-bold" style="color: #F39C12;">82.2%</span></div><div class="w-full bg-surface-container-high rounded-full h-3 mt-2 overflow-hidden flex"><div class="h-full" style="width: 82.2%; background-color: #F39C12;"></div></div><div class="flex justify-between items-center text-[10px] font-mono-data text-outline mt-2"><span class="">Zone A: 94%</span><span class="">Zone B: 79%</span></div></div>
+</div>
+<!-- Disposition Principale en 2 Colonnes Asymétriques -->
+<div class="grid grid-cols-1 xl:grid-cols-12 gap-space-lg items-start">
+<!-- Colonne Gauche : Plan de sol Spatial et Grille des Places (8 colonnes) -->
+<div class="xl:col-span-8 flex flex-col gap-space-md">
+<!-- Barre d'outils du Plan -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">Analakely Central - Niveau RDC</span>
+<span class="px-2 py-0.5 rounded font-mono-data text-label-md bg-[#eef2ff] text-[#4338ca] font-semibold">Portail Principal Ave. de l'Indépendance</span>
+</div>
+<div class="flex items-center gap-space-xs font-mono-data text-body-sm text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">sensors</span>
+          Capteurs télémétriques LoRaWAN : <span class="font-bold" style="color: rgb(46, 204, 113);">Actifs (99.8%)</span>
+</div>
+</div>
+<!-- SECTION ZONE A : Couverte VIP -->
+<div class="spot-zone-container bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md" data-zone="zone-a">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-6 bg-primary rounded-full"></span>
+<div><h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Zone A - Couverte Intérieure (Placement Libre &amp; Banalisé)</h2><span class="font-body-sm text-body-sm text-outline">Travée A01 à A08 • Hauteur max 2.20m • Pas de place privative intérieure (1er arrivé, 1er servi - 120 000 Ar/mois)</span></div>
+</div>
+<span class="font-mono-data text-label-md px-space-sm py-1 bg-surface-container-low rounded text-on-surface-variant">
+            Occup.: <strong class="text-on-surface">7 / 8</strong> (87%)
+          </span>
+</div>
+<!-- Grille des Places Zone A -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+<!-- Spot A-01 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({ id: 'A-01', zone: 'Zone A - Intérieur Banalisé', typeRegime: 'Intérieur Libre (Placement Rotatif)', statut: 'occupé', plaque: '4512 TAB', modele: 'Toyota Hilux GR Sport', proprietaire: 'Andry Rabemananjara', societe: 'Groupe Sipromad', entree: '15 Mai 2024 - 07:42', duree: '3h 18min', abonnement: 'Pass Enceinte Banalisé (120 000 Ar/m)', badge: 'Puce RFID #88194', photo: 'placeholder', photoPrompt: 'Modern high-end black Toyota Hilux double cab pickup truck parked neatly inside a covered high-security parking garage in Antananarivo, concrete floor with painted yellow markers, bright directional led strip ceiling lighting, ultra sharp focus' })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">A-01</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">4512 TAB</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Toyota Hilux • Rabemananjara</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 07:42</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+</div>
+</button>
+<!-- Spot A-02 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'A-02',
+            zone: 'Zone A - VIP',
+            statut: 'occupé',
+            plaque: '8920 WWT',
+            modele: 'Peugeot 3008 GT Line',
+            proprietaire: 'Dr. Lova Randria',
+            societe: 'Clinique des Roses',
+            entree: '15 Mai 2024 - 08:15',
+            duree: '2h 45min',
+            abonnement: 'Professionnel Mensuel (#PR-410)',
+            badge: 'Puce RFID #20411',
+            photo: 'placeholder',
+            photoPrompt: 'Metallic grey Peugeot 3008 crossover vehicle parked inside a clean indoor premium parking slot with clean painted lines and clear signage, professional ambient lighting'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">A-02</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">8920 WWT</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Peugeot 3008 • Randria L.</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 08:15</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+<!-- Spot A-03 (Réservé) -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="reserve" onclick="showSpotDetail({ id: 'A-03', zone: 'Zone A - Intérieur Banalisé', typeRegime: 'Intérieur Libre (Rotatif)', statut: 'reserve', plaque: 'ROTATIF ACCUEIL', modele: 'Véhicule Visiteur Attendue', proprietaire: 'Visiteur Direction BNI', societe: 'BNI Madagascar', entree: 'Attendu vers 11:30', duree: 'En attente', abonnement: 'Abonnement Libre Enceinte (120 000 Ar/m)', badge: 'Capteur Sol Réservé', photo: 'placeholder', photoPrompt: 'Reserved parking spot with digital glowing blue LED display sign on the wall indicating reserved protocol VIP parking slot in modern business office garage' })" style="background-color: rgb(235, 245, 251);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #3498DB;">A-03</span><span class="w-2 h-2 rounded-full" style="background-color: #3498DB;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #21618c;">ROTATION RÉSERVÉE</span><span class="font-label-md text-label-md truncate mt-1" style="color: #3498DB;">Visiteur BNI (Banalisé)</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #21618c;"><span class="">Attente 11:30</span><span class="material-symbols-outlined text-[14px]">lock_clock</span></div></button>
+<!-- Spot A-04 (Libre) -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="libre" onclick="showSpotDetail({
+            id: 'A-04',
+            zone: 'Zone A - VIP',
+            statut: 'libre',
+            plaque: 'AUCUN',
+            modele: 'Emplacement disponible',
+            proprietaire: 'Aucun affectataire',
+            societe: 'N/A',
+            entree: 'Libre depuis 06:10',
+            duree: '00h 00m',
+            abonnement: 'Accessible VIP ou Visiteur Tarif A',
+            badge: 'Détecteur Vert',
+            photo: 'placeholder',
+            photoPrompt: 'Empty clean indoor parking lot stall with bright green overhead sensor light shining onto smooth polished grey concrete pavement marked with white lines'
+          })" style="background-color: rgb(234, 250, 241);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #2ECC71;">A-04</span><span class="w-2 h-2 rounded-full" style="background-color: #2ECC71;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #1e8449;">DISPONIBLE</span><span class="font-label-md text-label-md truncate mt-1" style="color: #2ECC71;">Gabarit Berline/SUV</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #2ECC71;"><span class="">Libre (Capteur OK)</span><span class="material-symbols-outlined text-[14px]">check_circle</span></div></button>
+<!-- Spot A-05 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'A-05',
+            zone: 'Zone A - VIP',
+            statut: 'occupé',
+            plaque: '1109 TBA',
+            modele: 'Mercedes Benz Classe C',
+            proprietaire: 'Rasoanaivo Mirana',
+            societe: 'Cabinet Juridique Lex',
+            entree: '15 Mai 2024 - 08:44',
+            duree: '2h 16min',
+            abonnement: 'VIP Mensuel (#VP-199)',
+            badge: 'Puce RFID #66201',
+            photo: 'placeholder',
+            photoPrompt: 'Black Mercedes Benz luxury sedan parked inside clean business garage stall, glossy floor reflections, well framed close-up shot'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">A-05</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">1109 TBA</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Mercedes C • Rasoanaivo M.</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 08:44</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+</div>
+</button>
+<!-- Spot A-06 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'A-06',
+            zone: 'Zone A - VIP',
+            statut: 'occupé',
+            plaque: '6743 TBD',
+            modele: 'Ford Ranger Wildtrak',
+            proprietaire: 'Rakotomalala Tsiry',
+            societe: 'Madagascar Oil Partner',
+            entree: '15 Mai 2024 - 09:02',
+            duree: '1h 58min',
+            abonnement: 'Flotte Affaires (#FL-088)',
+            badge: 'Scan QR Borne',
+            photo: 'placeholder',
+            photoPrompt: 'Orange Ford Ranger pickup truck in an underground parking lot space, well defined concrete pillars and industrial ceiling cable trays'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">A-06</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">6743 TBD</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Ford Ranger • Rakotomalala</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 09:02</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+<!-- Spot A-07 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'A-07',
+            zone: 'Zone A - VIP',
+            statut: 'occupé',
+            plaque: '0288 WUA',
+            modele: 'Audi Q5 Quattro',
+            proprietaire: 'Razafindrakoto Haja',
+            societe: 'Audit &amp; Conseil Océan Indien',
+            entree: '15 Mai 2024 - 09:30',
+            duree: '1h 30min',
+            abonnement: 'Ticket Rotatif QR Code',
+            badge: 'Ticket T-882190',
+            photo: 'placeholder',
+            photoPrompt: 'White Audi Q5 compact luxury SUV parked inside parking bay with bright LED daylight overhead lamp fixture, high definition car photography'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">A-07</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">0288 WUA</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Audi Q5 • Razafindrakoto</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 09:30</span>
+<span class="material-symbols-outlined text-[14px] text-outline">confirmation_number</span>
+</div>
+</button>
+<!-- Spot A-08 (Maintenance) -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="maintenance" onclick="showSpotDetail({
+            id: 'A-08',
+            zone: 'Zone A - VIP',
+            statut: 'maintenance',
+            plaque: 'HORS SERVICE',
+            modele: 'Capteur de sol défectueux',
+            proprietaire: 'En maintenance technique',
+            societe: 'Service Maintenance Infrastructure',
+            entree: 'Mis en arrêt 14 Mai - 18:00',
+            duree: 'Intervention planifiée',
+            abonnement: 'Ticket Incident #INC-302',
+            badge: 'Balise de chantier posée',
+            photo: 'placeholder',
+            photoPrompt: 'Parking space closed off with orange traffic cones and industrial yellow maintenance tape in modern parking facility, floor sensor under calibration'
+          })" style="background-color: rgb(253, 237, 236);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #E74C3C;">A-08</span><span class="w-2 h-2 rounded-full" style="background-color: #E74C3C;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #922b21;">MAINTENANCE</span><span class="font-label-md text-label-md truncate mt-1" style="color: #E74C3C;">Capteur ultrason HS</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #E74C3C;"><span class="">Plots posés</span><span class="material-symbols-outlined text-[14px]">engineering</span></div></button>
+</div>
+</div>
+<!-- SECTION ZONE B : Extérieure Mixte (Exemple Allées B01 à B08) -->
+<div class="spot-zone-container bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md" data-zone="zone-b">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-6 bg-secondary rounded-full"></span>
+<div><h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Zone B - Voirie Extérieure &amp; Emplacements Privatifs Dédiés (Hors Enceinte)</h2><span class="font-body-sm text-body-sm text-outline">Travée B01 à B12 • Emplacements privatifs numérotés &amp; réservés nominatifs • Formule Privative Dédiée : 180 000 Ar/mois</span></div>
+</div>
+<span class="font-mono-data text-label-md px-space-sm py-1 bg-surface-container-low rounded text-on-surface-variant">
+            Occup.: <strong class="text-on-surface">6 / 8</strong> (75%)
+          </span>
+</div>
+<!-- Grille des Places Zone B -->
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+<!-- Spot B-01 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({ id: 'B-01', zone: 'Zone B - Voirie Privative', typeRegime: 'Emplacement Privé Dédié Hors Enceinte', statut: 'occupé', plaque: '7842 TAD', modele: 'Renault Duster 4x4', proprietaire: 'Ranaivoson Tina', societe: 'Particulier Résident Titulaire', entree: '15 Mai 2024 - 08:50', duree: '2h 10min', abonnement: 'Voirie Privative Dédiée (180 000 Ar/m)', badge: 'Badge Nominatif #3002', photo: 'placeholder', photoPrompt: 'White compact SUV Renault Duster parked in an outdoor marked parking bay under sun canopy, clean paved lot in tropical sunny urban setting' })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-01</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">7842 TAD</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Renault Duster • Ranaivoson</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 08:50</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+</div>
+</button>
+<!-- Spot B-02 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'B-02',
+            zone: 'Zone B - Extérieur',
+            statut: 'occupé',
+            plaque: '3321 TAA',
+            modele: 'Peugeot 206 Urban',
+            proprietaire: 'Randriamalala Jean',
+            societe: 'Commerçant Pochard',
+            entree: '15 Mai 2024 - 07:15',
+            duree: '3h 45min',
+            abonnement: 'Ticket Rotatif Journalier',
+            badge: 'Ticket #TK-9942',
+            photo: 'placeholder',
+            photoPrompt: 'Silver compact Peugeot 206 hatchback car neatly parked in an open-air commercial parking slot in Antananarivo city center, daylight shot'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-02</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">3321 TAA</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Peugeot 206 • Randriamalala</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 07:15</span>
+<span class="material-symbols-outlined text-[14px] text-outline">confirmation_number</span>
+</div>
+</button>
+<!-- Spot B-03 (Libre) -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="libre" onclick="showSpotDetail({ id: 'B-03', zone: 'Zone B - Voirie Privative', typeRegime: 'Emplacement Privé Dédié Hors Enceinte', statut: 'libre', plaque: 'POSTE DISPONIBLE', modele: 'Place privative réservable', proprietaire: 'Disponible à l'attribution dédiée', societe: 'Voirie Extérieure Hors Enceinte', entree: 'Libéré à 10:14', duree: '00h 00m', abonnement: 'Formule Voirie Dédiée 180 000 Ar/mois', badge: 'Arceau Déverrouillé', photo: 'placeholder', photoPrompt: 'Empty outdoor parking spot between two parked cars in bright sunshine, asphalt pavement clearly painted with clean white parking boundary lines' })" style="background-color: rgb(234, 250, 241);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #2ECC71;">B-03</span><span class="w-2 h-2 rounded-full" style="background-color: #2ECC71;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #1e8449;">LIBRE (HORS ENCEINTE)</span><span class="font-label-md text-label-md truncate mt-1" style="color: #2ECC71;">Privatif Dédié • 180k Ar</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #2ECC71;"><span class="">Arceau disponible</span><span class="material-symbols-outlined text-[14px]">check_circle</span></div></button>
+<!-- Spot B-04 (Libre) -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="libre" onclick="showSpotDetail({
+            id: 'B-04',
+            zone: 'Zone B - Extérieur',
+            statut: 'libre',
+            plaque: 'AUCUN',
+            modele: 'Emplacement disponible',
+            proprietaire: 'Disponible pour affectation',
+            societe: 'N/A',
+            entree: 'Libre toute la matinée',
+            duree: '00h 00m',
+            abonnement: 'Visiteurs Horodatés',
+            badge: 'Disponible',
+            photo: 'placeholder',
+            photoPrompt: 'Clean wide parking slot with asphalt pavement in outdoor city parking lot during sunny clear sky day'
+          })" style="background-color: rgb(234, 250, 241);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #2ECC71;">B-04</span><span class="w-2 h-2 rounded-full" style="background-color: #2ECC71;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #1e8449;">DISPONIBLE</span><span class="font-label-md text-label-md truncate mt-1" style="color: #2ECC71;">Standard Berline</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #2ECC71;"><span class="">Libre immédiat</span><span class="material-symbols-outlined text-[14px]">check_circle</span></div></button>
+<!-- Spot B-05 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'B-05',
+            zone: 'Zone B - Extérieur',
+            statut: 'occupé',
+            plaque: '9082 WTB',
+            modele: 'Hyundai Tucson 2.0',
+            proprietaire: 'Raveloson Patrick',
+            societe: 'Logistique Madagascar S.A.',
+            entree: '15 Mai 2024 - 08:32',
+            duree: '2h 28min',
+            abonnement: 'Mensuel Travailleur (#MT-108)',
+            badge: 'Badge #6650',
+            photo: 'placeholder',
+            photoPrompt: 'Dark blue modern Hyundai Tucson SUV parked outdoors in a structured organized commercial parking facility with security booth visible in background'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-05</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">9082 WTB</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Hyundai Tucson • Raveloson</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 08:32</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+<!-- Spot B-06 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'B-06',
+            zone: 'Zone B - Extérieur',
+            statut: 'occupé',
+            plaque: '5420 TAB',
+            modele: 'Isuzu D-Max Pick-up',
+            proprietaire: 'BTP Madagascar Transit',
+            societe: 'Société BTP Mada',
+            entree: '15 Mai 2024 - 06:40',
+            duree: '4h 20min',
+            abonnement: 'Flotte Chantier Pro (#FL-014)',
+            badge: 'RFID #10294',
+            photo: 'placeholder',
+            photoPrompt: 'White commercial utility pickup truck parked in dedicated commercial stall in an open air parking lot in Antananarivo Madagascar'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-06</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">5420 TAB</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Isuzu D-Max • BTP Transit</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 06:40</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">verified</span>
+</div>
+</button>
+<!-- Spot B-07 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'B-07',
+            zone: 'Zone B - Extérieur',
+            statut: 'occupé',
+            plaque: '1904 WAA',
+            modele: 'Kia Sportage Rouge',
+            proprietaire: 'Andriamihaja Fara',
+            societe: 'Particulier',
+            entree: '15 Mai 2024 - 09:12',
+            duree: '1h 48min',
+            abonnement: 'Ticket Rotatif QR Code',
+            badge: 'Ticket T-882201',
+            photo: 'placeholder',
+            photoPrompt: 'Red Kia Sportage compact crossover parked outdoors in sunlit modern parking stall with clean painted asphalt lines'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-07</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">1904 WAA</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Kia Sportage • Fara A.</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 09:12</span>
+<span class="material-symbols-outlined text-[14px] text-outline">confirmation_number</span>
+</div>
+</button>
+<!-- Spot B-08 (Occupé) -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'B-08',
+            zone: 'Zone B - Extérieur',
+            statut: 'occupé',
+            plaque: '7110 TBG',
+            modele: 'Toyota Yaris Hybrid',
+            proprietaire: 'Rambelo Solo',
+            societe: 'Cabinet Comptable Tana',
+            entree: '15 Mai 2024 - 09:55',
+            duree: '1h 05min',
+            abonnement: 'Abonnement Mensuel Eco (#EC-44)',
+            badge: 'Badge #5512',
+            photo: 'placeholder',
+            photoPrompt: 'Silver Toyota Yaris compact hatchback car parked in outdoor business center parking spot, bright natural lighting, crisp clean composition'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">B-08</span>
+<span class="w-2 h-2 rounded-full bg-primary"></span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">7110 TBG</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Toyota Yaris • Rambelo S.</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 09:55</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+</div>
+</div>
+<!-- SECTION ZONE C : Deux-roues & Flotte dédiée -->
+<div class="spot-zone-container bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md" data-zone="zone-c">
+<div class="flex items-center justify-between pb-space-xs">
+<div class="flex items-center gap-space-xs">
+<span class="w-2.5 h-6 bg-[#00687a] rounded-full"></span>
+<div>
+<h2 class="font-headline-sm text-headline-sm font-bold text-on-surface">Zone C - Deux-roues, Motos &amp; Scooters</h2>
+<span class="font-body-sm text-body-sm text-outline">Box C01 à C04 • Emplacement dédié antivol certifié • Tarif Ar 1 000/jour</span>
+</div>
+</div>
+<span class="font-mono-data text-label-md px-space-sm py-1 bg-surface-container-low rounded text-on-surface-variant">
+            Occup.: <strong class="text-on-surface">3 / 4</strong> (75%)
+          </span>
+</div>
+<div class="grid grid-cols-2 sm:grid-cols-4 gap-space-sm">
+<!-- Spot C-01 -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'C-01',
+            zone: 'Zone C - Deux-roues',
+            statut: 'occupé',
+            plaque: '1249 TAZ',
+            modele: 'Yamaha FZ 150cc',
+            proprietaire: 'Razanajatovo Eric',
+            societe: 'Livreur Express Tana',
+            entree: '15 Mai 2024 - 08:00',
+            duree: '3h 00m',
+            abonnement: 'Forfait Moto Mensuel (#MO-12)',
+            badge: 'Badge #M01',
+            photo: 'placeholder',
+            photoPrompt: 'Yamaha black and blue standard motorcycle parked in dedicated motorcycle parking stall with ground anchor locks, security camera visible in indoor lighted area'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">C-01</span>
+<span class="material-symbols-outlined text-[18px] text-secondary">two_wheeler</span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">1249 TAZ</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Yamaha FZ • Razanajatovo</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 08:00</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+<!-- Spot C-02 -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'C-02',
+            zone: 'Zone C - Deux-roues',
+            statut: 'occupé',
+            plaque: '8841 TBH',
+            modele: 'Vespa Primavera 125',
+            proprietaire: 'Mlle Harisoa Niavo',
+            societe: 'Étudiante / Particulier',
+            entree: '15 Mai 2024 - 09:10',
+            duree: '1h 50m',
+            abonnement: 'Ticket Rotatif 2-Roues',
+            badge: 'Ticket #TK-M08',
+            photo: 'placeholder',
+            photoPrompt: 'Classic mint green modern Vespa scooter parked in covered parking bay, high quality photography, soft natural lighting'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">C-02</span>
+<span class="material-symbols-outlined text-[18px] text-secondary">two_wheeler</span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">8841 TBH</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">Vespa 125 • Harisoa N.</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 09:10</span>
+<span class="material-symbols-outlined text-[14px] text-outline">confirmation_number</span>
+</div>
+</button>
+<!-- Spot C-03 -->
+<button class="spot-card text-left p-space-sm rounded-lg transition-all flex flex-col justify-between h-28 relative group" data-status="libre" onclick="showSpotDetail({
+            id: 'C-03',
+            zone: 'Zone C - Deux-roues',
+            statut: 'libre',
+            plaque: 'LIBRE MOTO',
+            modele: 'Box Moto &amp; Trottinette',
+            proprietaire: 'Disponible',
+            societe: 'N/A',
+            entree: 'Dispo',
+            duree: '00h 00m',
+            abonnement: 'Ar 1 000 / Journée',
+            badge: 'Borne Libre',
+            photo: 'placeholder',
+            photoPrompt: 'Empty designated motorcycle parking slot with painted motorcycle icon on pavement and safety lock rack bar in modern garage'
+          })" style="background-color: rgb(234, 250, 241);" type="button"><div class="flex items-center justify-between"><span class="font-mono-metric text-headline-sm font-bold" style="color: #2ECC71;">C-03</span><span class="w-2 h-2 rounded-full" style="background-color: #2ECC71;"></span></div><div class="flex flex-col"><span class="font-label-md text-label-md font-bold tracking-wider uppercase bg-surface-container-lowest/80 px-1.5 py-0.5 rounded shadow-sm w-fit" style="color: #1e8449;">LIBRE MOTO</span><span class="font-label-md text-label-md truncate mt-1" style="color: #2ECC71;">Attache au sol dispo</span></div><div class="flex items-center justify-between font-mono-data text-[10px]" style="color: #2ECC71;"><span class="">Capteur Vert</span><span class="material-symbols-outlined text-[14px]">check_circle</span></div></button>
+<!-- Spot C-04 -->
+<button class="spot-card text-left p-space-sm rounded-lg bg-surface-container-low hover:bg-surface-container-high transition-all flex flex-col justify-between h-28 relative group" data-status="occupe" onclick="showSpotDetail({
+            id: 'C-04',
+            zone: 'Zone C - Deux-roues',
+            statut: 'occupé',
+            plaque: '0419 TBK',
+            modele: 'KTM Duke 200',
+            proprietaire: 'Ramiandrisoa Tovo',
+            societe: 'Particulier',
+            entree: '15 Mai 2024 - 10:05',
+            duree: '0h 55m',
+            abonnement: 'Abonnement Hebdo (#AH-20)',
+            badge: 'Badge #M44',
+            photo: 'placeholder',
+            photoPrompt: 'Sporty orange and black KTM Duke motorcycle parked precisely in marked parking slot, clear detail of wheels and chassis'
+          })" type="button">
+<div class="flex items-center justify-between">
+<span class="font-mono-metric text-headline-sm font-bold text-on-surface">C-04</span>
+<span class="material-symbols-outlined text-[18px] text-secondary">two_wheeler</span>
+</div>
+<div class="flex flex-col">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface tracking-wider bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm w-fit">0419 TBK</span>
+<span class="font-label-md text-label-md text-on-surface-variant truncate mt-1">KTM Duke • Ramiandrisoa</span>
+</div>
+<div class="flex items-center justify-between font-mono-data text-[10px] text-outline">
+<span class="">Arrivé 10:05</span>
+<span class="material-symbols-outlined text-[14px] text-secondary">badge</span>
+</div>
+</button>
+</div>
+</div>
+</div>
+<!-- Colonne Droite : Volet d'Actions Rapides & Panneau Détail Véhicule (4 colonnes) -->
+<div class="xl:col-span-4 flex flex-col gap-space-lg">
+<!-- CARTE DÉTAIL D'EMPLACEMENT SÉLECTIONNÉ (DYNAMIQUE) -->
+<div class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md" id="spotDetailPanel">
+<div class="flex items-center justify-between border-b pb-space-xs border-outline-variant/30">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[22px]">info</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">Fiche Emplacement</span>
+</div>
+<span class="font-mono-metric text-mono-metric px-space-sm py-0.5 rounded bg-primary text-on-primary" id="spotDetailIdBadge">A-01</span>
+</div>
+<!-- Image du Véhicule en Situation -->
+<div class="relative w-full h-36 rounded-lg overflow-hidden bg-surface-container-low shadow-sm">
+<img class="w-full h-full object-cover" data-alt="Modern high-end black Toyota Hilux double cab pickup truck parked neatly inside a covered high-security parking garage in Antananarivo, concrete floor with painted yellow markers, bright directional led strip ceiling lighting, ultra sharp focus" id="spotDetailImg" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJDxwPTad8S53G4Hun75ig2tPVAEKjO6o43Atf7_QcIRka7pCMguCxFy2PoiKPGX6feraqJlFpzpztCbuQSOK6yWZ3MmvjarKt2tKPifl-U9nozTfpcqwmpRDVAXO5FjOy6qmbFozCU_iSRMjF9Es32bAJati3NSJqrJZnzAvJ3yXV7lPFpeQ-lwGd2TvFQWPwW6B20RL-r8S4Cb5C0On_gVu2Nri-sJUAAPB2Ekk">
+<span class="absolute top-2 right-2 px-2 py-0.5 rounded font-label-md text-label-md font-bold uppercase bg-primary text-on-primary shadow" id="spotDetailStatusPill">
+            Occupé
+          </span>
+<div class="absolute bottom-2 left-2 bg-surface-container-lowest/90 backdrop-blur-sm px-2 py-0.5 rounded font-mono-plate text-mono-plate font-bold text-on-surface">
+<span id="spotDetailPlate" class="">4512 TAB</span>
+</div>
+</div>
+<!-- Grille d'attributs télémétriques -->
+<div class="space-y-space-xs font-body-md text-body-md"><div class="flex justify-between py-1 bg-surface-container-low/50 px-space-xs rounded border border-secondary/20"><span class="text-on-surface-variant font-label-md text-label-md uppercase font-semibold">Type d'emplacement :</span><span class="font-label-lg text-label-lg font-bold text-on-surface" id="spotDetailType">Emplacement Intérieur Libre / Non Privé (Placement Rotatif)</span></div>
+<div class="flex justify-between py-1 bg-surface-container-low/50 px-space-xs rounded">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Modèle :</span>
+<span class="font-label-lg text-label-lg font-semibold text-on-surface" id="spotDetailModel">Toyota Hilux GR Sport</span>
+</div>
+<div class="flex justify-between py-1 px-space-xs">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Titulaire :</span>
+<span class="font-label-lg text-label-lg font-medium text-on-surface" id="spotDetailOwner">Andry Rabemananjara</span>
+</div>
+<div class="flex justify-between py-1 bg-surface-container-low/50 px-space-xs rounded">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Organisation :</span>
+<span class="font-label-lg text-label-lg font-medium text-on-surface" id="spotDetailOrg">Groupe Sipromad</span>
+</div>
+<div class="flex justify-between py-1 px-space-xs">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Entrée horodatée :</span>
+<span class="font-mono-data text-mono-data text-on-surface" id="spotDetailEntry">15 Mai 2024 - 07:42</span>
+</div>
+<div class="flex justify-between py-1 bg-surface-container-low/50 px-space-xs rounded">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Durée stationnée :</span>
+<span class="font-mono-data text-mono-data font-bold text-secondary" id="spotDetailDuration">3h 18min</span>
+</div>
+<div class="flex justify-between py-1 px-space-xs">
+<span class="text-on-surface-variant font-label-md text-label-md uppercase">Formule active :</span>
+<span class="font-label-md text-label-md text-on-surface" id="spotDetailSub">Placement Libre Rotatif Enceinte (Tarif standard 120 000 Ar/mois)</span>
+</div>
+</div>
+<!-- Boutons d'Action Opérateur -->
+<div class="pt-space-xs grid grid-cols-2 gap-space-xs">
+<button class="bg-surface-container-low hover:bg-surface-container-high text-on-surface font-label-lg text-label-lg py-2 px-space-sm rounded-lg flex items-center justify-center gap-1 transition-all" onclick="triggerNotification('Ordre de mutation initié pour cet emplacement')" type="button">
+<span class="material-symbols-outlined text-[18px]">swap_horiz</span>
+            Changer place
+          </button>
+<button class="bg-primary hover:bg-[#1e293b] text-on-primary font-label-lg text-label-lg py-2 px-space-sm rounded-lg flex items-center justify-center gap-1 transition-all" onclick="triggerNotification('Validation sortie effectuée. Barrière levée pour le véhicule.')" type="button">
+<span class="material-symbols-outlined text-[18px]">eject</span>
+            Libérer la place
+          </button>
+</div>
+</div>
+<!-- FORMULAIRE RAPIDE : AFFECTATION VÉHICULE À UNE PLACE LIBRE -->
+<div class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[22px]">assignment_add</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">Affecter une place libre</span>
+</div>
+<form class="flex flex-col gap-space-sm" id="assignSpotForm" onsubmit="handleSpotAssignment(event)">
+<!-- Recherche Véhicule ou Membre -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold" for="assignVehicleSearch">Véhicule ou Membre</label>
+<div class="relative flex items-center">
+<span class="material-symbols-outlined absolute left-3 text-outline text-[18px]">search</span>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg py-space-xs pl-9 pr-3 focus:outline-none focus:ring-1 focus:ring-secondary" id="assignVehicleSearch" placeholder="Immatriculation (ex: 2901 TAG) ou Nom..." required="" type="text">
+</div>
+</div>
+<div class="grid grid-cols-2 gap-space-xs">
+<!-- Choix de la Place Disponible -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold" for="assignSpotSelect">Emplacement Libre</label>
+<select class="bg-surface-container-low text-on-surface font-label-lg text-label-lg rounded-lg py-space-xs px-2 focus:outline-none focus:ring-1 focus:ring-secondary" id="assignSpotSelect"><option value="A-04">A-04 (Intérieur Libre - Rotatif 120k Ar)</option><option selected="" value="B-03">B-03 (Extérieur Privatif Dédié 180k Ar)</option><option value="B-04">B-04 (Extérieur Privatif Dédié 180k Ar)</option><option value="C-03">C-03 (Box 2-Roues - 1 000 Ar/j)</option></select>
+</div>
+<!-- Date d'effet -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold" for="assignDateInput">Date &amp; Heure d'effet</label>
+<input class="bg-surface-container-low text-on-surface font-mono-data text-body-sm rounded-lg py-space-xs px-2 focus:outline-none focus:ring-1 focus:ring-secondary" id="assignDateInput" type="datetime-local" value="2024-05-15T11:00">
+</div>
+</div>
+<!-- Type d'Autorisation -->
+<div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface-variant uppercase font-semibold">Type de Séjour</label>
+<div class="grid grid-cols-3 gap-1"><label class="flex items-center gap-1 bg-surface-container-low p-2 rounded cursor-pointer text-body-sm font-label-md"><input checked="" class="text-secondary" name="passType" type="radio" value="rotatif"><span class="">Rotatif Enceinte (120k Ar)</span></label><label class="flex items-center gap-1 bg-surface-container-low p-2 rounded cursor-pointer text-body-sm font-label-md"><input class="text-secondary" name="passType" type="radio" value="mensuel"><span class="">Privatif Dédié (180k Ar)</span></label><label class="flex items-center gap-1 bg-surface-container-low p-2 rounded cursor-pointer text-body-sm font-label-md"><input class="text-secondary" name="passType" type="radio" value="vip"><span class="">Protocole / Flotte</span></label></div>
+</div>
+<button class="w-full bg-secondary-container hover:bg-secondary-fixed text-on-secondary-container font-headline-sm text-body-sm py-2 px-space-md rounded-lg flex items-center justify-center gap-space-xs transition-colors font-semibold mt-1" type="submit" style="background-color: rgb(52, 152, 219); color: rgb(255, 255, 255);">
+<span class="material-symbols-outlined text-[18px]">check</span>
+            Enregistrer l'Affectation
+          </button>
+</form>
+</div>
+<!-- HISTORIQUE RÉCENT DES MOUVEMENTS & GARDIEN EN POSTE -->
+<div class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[22px]">history</span>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">Mouvements Récents</span>
+</div>
+<span class="font-mono-data text-[10px] text-outline">Direct Barrière LPR</span>
+</div>
+<!-- Info Gardien en Poste -->
+<div class="flex items-center justify-between p-space-xs bg-surface-container-low rounded-lg">
+<div class="flex items-center gap-2">
+<div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-on-primary font-bold text-label-md">
+              RJ
+            </div>
+<div class="flex flex-col">
+<span class="font-label-lg text-label-lg font-semibold text-on-surface">Rasoanaivo Jean</span>
+<span class="font-label-md text-[10px] text-on-surface-variant">Gardien Chef Poste Nord • Shift 06h-14h</span>
+</div>
+</div>
+<span class="w-2 h-2 rounded-full bg-[#10b981]" title="En service" style="background-color: rgb(46, 204, 113);"></span>
+</div>
+<!-- Liste des flux d'entrées / sorties -->
+<div class="space-y-space-xs divide-y-0">
+<div class="flex items-center justify-between p-space-xs hover:bg-surface-container-low rounded transition-all">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-[#059669]">arrow_downward</span>
+<div class="flex flex-col">
+<span class="font-mono-plate text-body-sm font-bold text-on-surface">0419 TBK</span>
+<span class="font-label-md text-[11px] text-outline">Entrée • Emplacement C-04</span>
+</div>
+</div>
+<div class="flex flex-col text-right font-mono-data">
+<span class="text-body-sm text-on-surface font-semibold">10:05</span>
+<span class="text-[10px] text-outline">Arrivée validée</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-space-xs hover:bg-surface-container-low rounded transition-all">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-[#dc2626]" style="color: rgb(231, 76, 60);">arrow_upward</span>
+<div class="flex flex-col">
+<span class="font-mono-plate text-body-sm font-bold text-on-surface">9104 TAH</span>
+<span class="font-label-md text-[11px] text-outline">Sortie • Ex B-03 (Payé Ar 4 000)</span>
+</div>
+</div>
+<div class="flex flex-col text-right font-mono-data">
+<span class="text-body-sm text-on-surface font-semibold">10:14</span>
+<span class="text-[10px] text-[#059669]" style="color: rgb(46, 204, 113);">Reçu #88142</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-space-xs hover:bg-surface-container-low rounded transition-all">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-[#059669]">arrow_downward</span>
+<div class="flex flex-col">
+<span class="font-mono-plate text-body-sm font-bold text-on-surface">7110 TBG</span>
+<span class="font-label-md text-[11px] text-outline">Entrée • Emplacement B-08</span>
+</div>
+</div>
+<div class="flex flex-col text-right font-mono-data">
+<span class="text-body-sm text-on-surface font-semibold">09:55</span>
+<span class="text-[10px] text-outline">Badge #5512</span>
+</div>
+</div>
+<div class="flex items-center justify-between p-space-xs hover:bg-surface-container-low rounded transition-all">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-[#059669]">arrow_downward</span>
+<div class="flex flex-col">
+<span class="font-mono-plate text-body-sm font-bold text-on-surface">0288 WUA</span>
+<span class="font-label-md text-[11px] text-outline">Entrée • Emplacement A-07</span>
+</div>
+</div>
+<div class="flex flex-col text-right font-mono-data">
+<span class="text-body-sm text-on-surface font-semibold">09:30</span>
+<span class="text-[10px] text-outline">Ticket T-882190</span>
+</div>
+</div>
+</div>
+</div>
+<!-- ZONE TAMPON / VÉHICULES EN STATIONNEMENT SANS PLACE FIXE -->
+<div class="bg-surface-container-lowest p-space-lg rounded-xl shadow-sm flex flex-col gap-space-md">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-secondary text-[22px]">swap_calls</span>
+<div>
+<span class="font-headline-sm text-headline-sm font-bold text-on-surface">Zone Tampon &amp; En Attente</span>
+<p class="font-body-sm text-body-sm text-outline">Véhicules admis en attente d'attribution finale</p>
+</div>
+</div>
+<span class="px-2 py-0.5 rounded font-mono-data text-label-md bg-surface-container-low text-on-surface font-bold" style="background-color: rgb(254, 245, 231); color: rgb(243, 156, 18);">2 en file</span>
+</div>
+<div class="space-y-space-xs">
+<!-- Item Tampon 1 -->
+<div class="p-space-sm bg-surface-container-low rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm">4802 TBE</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Mitsubishi L200</span>
+<span class="font-label-md text-[10px] text-outline">Attente déchargement banque • 12 min</span>
+</div>
+</div>
+<button class="font-label-md text-label-md px-2 py-1 bg-primary text-on-primary rounded hover:bg-[#1e293b] transition-all" onclick="triggerNotification('Place B-04 automatiquement pré-réservée')" type="button">
+              Placer
+            </button>
+</div>
+<!-- Item Tampon 2 -->
+<div class="p-space-sm bg-surface-container-low rounded-lg flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="font-mono-plate text-mono-plate font-bold text-on-surface bg-surface-container-lowest px-1.5 py-0.5 rounded shadow-sm">6219 WUA</span>
+<div class="flex flex-col">
+<span class="font-label-md text-label-md font-semibold text-on-surface">Renault Clio 4</span>
+<span class="font-label-md text-[10px] text-outline">Visiteur Express Dépose • 5 min</span>
+</div>
+</div>
+<button class="font-label-md text-label-md px-2 py-1 bg-primary text-on-primary rounded hover:bg-[#1e293b] transition-all" onclick="triggerNotification('Place B-03 automatiquement pré-réservée')" type="button">
+              Placer
+            </button>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Notification Flottante Toast (Micro-interaction) -->
+<div class="fixed bottom-6 right-6 bg-primary text-on-primary px-space-md py-space-sm rounded-lg shadow-xl flex items-center gap-space-xs transition-opacity duration-300 opacity-0 pointer-events-none z-50" id="toastNotification">
+<span class="material-symbols-outlined text-[20px] text-secondary-container">check_circle</span>
+<span class="font-body-md text-body-md font-medium" id="toastMessage">Opération exécutée avec succès.</span>
+</div>
+</div>
+<!-- Scripts Logiques & Micro-Interactions Légères -->
+<script>
+  // 1. Gestion des onglets de filtres de statuts
+  const statusButtons = document.querySelectorAll('.status-tab-btn');
+  const spotCards = document.querySelectorAll('.spot-card');
+
+  statusButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      // Toggle styles d'onglet
+      statusButtons.forEach(b => {
+        b.classList.remove('bg-primary', 'text-on-primary', 'font-semibold');
+        b.classList.add('text-on-surface-variant');
+      });
+      btn.classList.add('bg-primary', 'text-on-primary', 'font-semibold');
+      btn.classList.remove('text-on-surface-variant');
+
+      const filter = btn.getAttribute('data-filter');
+      spotCards.forEach(card => {
+        if (filter === 'all' || card.getAttribute('data-status') === filter) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // 2. Gestion du filtre par zone
+  const zoneSelect = document.getElementById('zoneFilter');
+  const zoneContainers = document.querySelectorAll('.spot-zone-container');
+
+  zoneSelect.addEventListener('change', (e) => {
+    const selectedZone = e.target.value;
+    zoneContainers.forEach(container => {
+      if (selectedZone === 'all' || container.getAttribute('data-zone') === selectedZone) {
+        container.style.display = 'flex';
+      } else {
+        container.style.display = 'none';
+      }
+    });
+  });
+
+  // 3. Mise à jour dynamique du panneau latéral de détail
+  function showSpotDetail(data) {
+    document.getElementById('spotDetailIdBadge').textContent = data.id;
+    document.getElementById('spotDetailPlate').textContent = data.plaque;
+    document.getElementById('spotDetailModel').textContent = data.modele;
+    document.getElementById('spotDetailOwner').textContent = data.proprietaire;
+    document.getElementById('spotDetailOrg').textContent = data.societe;
+    document.getElementById('spotDetailEntry').textContent = data.entree;
+    document.getElementById('spotDetailDuration').textContent = data.duree;
+    document.getElementById('spotDetailSub').textContent = data.abonnement;
+
+    // Statut pill
+    const statusPill = document.getElementById('spotDetailStatusPill');
+    statusPill.textContent = data.statut.toUpperCase();
+
+    if (data.statut === 'libre') {
+      statusPill.className = 'absolute top-2 right-2 px-2 py-0.5 rounded font-label-md text-label-md font-bold uppercase bg-[#10b981] text-white shadow';
+    } else if (data.statut === 'reserve') {
+      statusPill.className = 'absolute top-2 right-2 px-2 py-0.5 rounded font-label-md text-label-md font-bold uppercase bg-[#06b6d4] text-white shadow';
+    } else if (data.statut === 'maintenance') {
+      statusPill.className = 'absolute top-2 right-2 px-2 py-0.5 rounded font-label-md text-label-md font-bold uppercase bg-[#dc2626] text-white shadow';
+    } else {
+      statusPill.className = 'absolute top-2 right-2 px-2 py-0.5 rounded font-label-md text-label-md font-bold uppercase bg-primary text-on-primary shadow';
+    }
+
+    // Image & data-alt
+    const imgElement = document.getElementById('spotDetailImg');
+    imgElement.setAttribute('data-alt', data.photoPrompt || 'Vehicle parked in Madagascar parking bay');
+    
+    // Feedback
+    triggerNotification(`Emplacement ${data.id} chargé en console`);
+  }
+
+  // 4. Toast notification micro-interaction
+  let toastTimer;
+  function triggerNotification(msg) {
+    const toast = document.getElementById('toastNotification');
+    const toastMsg = document.getElementById('toastMessage');
+    toastMsg.textContent = msg;
+    toast.classList.remove('opacity-0', 'pointer-events-none');
+    toast.classList.add('opacity-100');
+
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      toast.classList.remove('opacity-100');
+      toast.classList.add('opacity-0', 'pointer-events-none');
+    }, 2800);
+  }
+
+  // 5. Traitement soumission formulaire rapide
+  function handleSpotAssignment(e) {
+    e.preventDefault();
+    const query = document.getElementById('assignVehicleSearch').value;
+    const spot = document.getElementById('assignSpotSelect').value;
+    triggerNotification(`Véhicule "${query}" affecté avec succès à la place ${spot}`);
+    document.getElementById('assignVehicleSearch').value = '';
+  }
+</script></div></div></main></div>
+
+</body></html>

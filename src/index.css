@@ -1,0 +1,61 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary-navy: #0F172A;
+  --color-primary-cyan: #06B6D4;
+  --color-bg-main: #F8FAFC;
+  --color-border-main: #E2E8F0;
+  --color-success-green: #16A34A;
+  --color-warning-orange: #F59E0B;
+  --color-danger-red: #DC2626;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-headline: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+@layer base {
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg-main);
+    color: var(--color-primary-navy);
+  }
+
+  h1, h2, h3, h4, .font-headline {
+    font-family: 'Space Grotesk', sans-serif;
+  }
+
+  .font-mono-plate, .font-mono-data, .font-mono-metric {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* Material Symbols alignment helper */
+.material-symbols-outlined {
+  font-family: 'Material Symbols Outlined';
+  font-weight: normal;
+  font-style: normal;
+  font-size: 20px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-feature-settings: 'liga';
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Print styles for PVC card and receipts */
+@media print {
+  body {
+    background: white !important;
+  }
+  aside, header, .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+}

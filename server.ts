@@ -1,0 +1,884 @@
+/**
+ * Server entry point for Parking Manager Madagascar
+ * Express REST API (/api/v1/*) backed by Drizzle ORM (PostgreSQL) with local JSON persistence fallback
+ */
+
+import 'dotenv/config';
+import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createServer as createViteServer } from 'vite';
+import {
+  getStorageMode,
+  getFullState,
+  addAuditLogEntry,
+  createSiteRecord,
+  createMemberRecord,
+  createVehicleRecord,
+  updateSpotRecord,
+  createReceiptRecord,
+  toggleCardStatus,
+  createPayrollRecord,
+  updatePayrollRecordStatus,
+  broadcastGuardOrders,
+  updateEntityAvatar,
+  createExpenseRecord,
+  decideExpenseRecord,
+  createIncidentRecord,
+  updateIncidentRecordStatus,
+  createCommitteeMemberRecord,
+  createMeetingRecord,
+  updateRecord,
+  deleteRecord,
+  isEditableCollection,
+  RecordInUseError,
+  resetOperationalData,
+  ensureSchemaUpgrades,
+  nextExpenseNumber,
+  nextGuardMatricule,
+  createGuardRecord
+} from './src/db/repository.ts';
+import type { GuardPersonnel } from './src/types/index.ts';
+
+type GuardPersonnelShiftDays = GuardPersonnel['shiftDays'];
+
+/** Word the client must send to confirm a data reset. */
+const RESET_CONFIRMATION_WORD = 'REINITIALISER';
+
+/** Keeps only string ids from a request field that should be a list of ids. */
+const toIdList = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string' && v.length > 0) : [];
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+async function startServer() {
+  const app = express();
+  const PORT = parseInt(process.env.PORT || '3000', 10);
+  const isProd = process.env.NODE_ENV === 'production';
+
+  // Add columns introduced after the database was created (idempotent, keeps existing data)
+  await ensureSchemaUpgrades();
+
+  app.use(express.json({ limit: '2mb' }));
+
+  const recordAudit = async (action: string, module: string, details: string, siteCode = 'GLOBAL') => {
+    await addAuditLogEntry({
+      id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      timestamp: new Date().toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+      userId: 'usr-admin-01',
+      userName: 'Rajaonarison Hery',
+      action,
+      siteCode,
+      module,
+      details,
+      ipAddress: '127.0.0.1'
+    });
+  };
+
+  // ===================== REST API v1 ROUTES =====================
+
+  // System Health & Info
+  app.get('/api/v1/health', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      const mode = await getStorageMode();
+      res.json({
+        status: 'UP',
+        system: 'Parking Manager Madagascar - Multi-sites',
+        storageMode: mode,
+        timezone: 'Indian/Antananarivo (GMT+3)',
+        sitesCount: state.sites.length,
+        membersCount: state.members.length,
+        receiptsCount: state.receipts.length,
+        payrollsCount: state.payrolls.length
+      });
+    } catch (error) {
+      console.error('Health check error:', error);
+      res.status(500).json({ error: 'Erreur interne du serveur' });
+    }
+  });
+
+  // Full Application State Bootstrap (Hydration)
+  app.get('/api/v1/bootstrap', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state);
+    } catch (error) {
+      console.error('Bootstrap error:', error);
+      res.status(500).json({ error: 'Impossible de charger les données' });
+    }
+  });
+
+  // Auth
+  app.get('/api/v1/auth/me', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.currentUser);
+    } catch (error) {
+      console.error('Auth me error:', error);
+      res.status(500).json({ error: 'Erreur serveur' });
+    }
+  });
+
+  app.post('/api/v1/auth/login', async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      if (username && password) {
+        const state = await getFullState();
+        await recordAudit('CONNEXION_REUSSIE', 'Authentification', `Connexion utilisateur ${username}`);
+        return res.json({ token: 'session-token', user: state.currentUser });
+      }
+      return res.status(401).json({ error: 'Identifiants invalides' });
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({ error: 'Erreur serveur' });
+    }
+  });
+
+  // Sites
+  app.get('/api/v1/sites', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.sites);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des sites' });
+    }
+  });
+
+  app.post('/api/v1/sites', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const newSite = await createSiteRecord({
+        id: req.body.id || `S${state.sites.length + 1}`,
+        code: req.body.code || `S${state.sites.length + 1}`,
+        name: req.body.name,
+        address: req.body.address || '',
+        city: req.body.city || 'Antananarivo',
+        totalCapacity: Number(req.body.totalCapacity) || 100,
+        presidentName: req.body.presidentName || 'À désigner',
+        presidentPhone: req.body.presidentPhone || '',
+        tresorierName: req.body.tresorierName || 'À désigner',
+        guardCount: Number(req.body.guardCount) || 2,
+        status: 'actif'
+      });
+      await recordAudit('CREATION_SITE', 'Sites', `Nouveau site créé : ${newSite.name} (${newSite.code})`);
+      res.status(201).json(newSite);
+    } catch (error) {
+      console.error('Create site error:', error);
+      res.status(500).json({ error: 'Impossible de créer le site' });
+    }
+  });
+
+  // Members
+  app.get('/api/v1/members', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const { siteId, q } = req.query;
+      let result = state.members;
+      if (siteId && siteId !== 'all') {
+        result = result.filter((m) => m.primarySiteId === siteId);
+      }
+      if (q) {
+        const term = String(q).toLowerCase();
+        result = result.filter(
+          (m) =>
+            m.fullName.toLowerCase().includes(term) ||
+            m.memberNumber.toLowerCase().includes(term) ||
+            m.phone.includes(term) ||
+            m.cin.includes(term)
+        );
+      }
+      res.json(result);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des membres' });
+    }
+  });
+
+  app.post('/api/v1/members', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const nextNum = req.body.memberNumber || `MBR-2024-${String(state.members.length + 90).padStart(4, '0')}`;
+      const newMember = await createMemberRecord({
+        id: req.body.id || `mbr-${Date.now()}`,
+        memberNumber: nextNum,
+        fullName: req.body.fullName,
+        category: req.body.category || 'standard',
+        cin: req.body.cin || '101 000 000 000',
+        cinIssuedDate: req.body.cinIssuedDate,
+        cinIssuedLocation: req.body.cinIssuedLocation,
+        phone: req.body.phone,
+        mobileMoneyProvider: req.body.mobileMoneyProvider || 'MVola',
+        emergencyContactName: req.body.emergencyContactName,
+        emergencyContactPhone: req.body.emergencyContactPhone,
+        address: req.body.address || 'Antananarivo',
+        primarySiteId: req.body.primarySiteId || 'S1',
+        joinedDate: req.body.joinedDate || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        status: req.body.status || 'actif',
+        currentBalanceAr: Number(req.body.currentBalanceAr || 0),
+        avatarUrl: req.body.avatarUrl,
+        notes: req.body.notes || ''
+      });
+      await recordAudit('CREATION_MEMBRE', 'Membres', `Nouveau membre : ${newMember.fullName} (${newMember.memberNumber})`);
+      res.status(201).json(newMember);
+    } catch (error) {
+      console.error('Create member error:', error);
+      res.status(500).json({ error: 'Impossible de créer le membre' });
+    }
+  });
+
+  // Vehicles
+  app.get('/api/v1/vehicles', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const { memberId, siteId } = req.query;
+      let list = state.vehicles;
+      if (memberId) list = list.filter((v) => v.memberId === memberId);
+      if (siteId && siteId !== 'all') list = list.filter((v) => v.siteId === siteId);
+      res.json(list);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des véhicules' });
+    }
+  });
+
+  app.post('/api/v1/vehicles', async (req, res) => {
+    try {
+      const newVeh = await createVehicleRecord({
+        id: req.body.id || `veh-${Date.now()}`,
+        licensePlate: String(req.body.licensePlate || '').toUpperCase().trim(),
+        category: req.body.category || 'Voiture Légère (VL)',
+        brand: req.body.brand,
+        model: req.body.model,
+        color: req.body.color || 'Noir',
+        memberId: req.body.memberId,
+        siteId: req.body.siteId || 'S1',
+        spotId: req.body.spotId,
+        rfidTag: req.body.rfidTag || `#TAG-${Math.floor(1000 + Math.random() * 9000)}-PMM`,
+        barcode: req.body.barcode || `#BAR-${Math.floor(1000 + Math.random() * 9000)}`,
+        registeredAt: req.body.registeredAt || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        status: req.body.status || 'actif',
+        assignedSpotType: req.body.assignedSpotType || 'placement_libre_interieur'
+      });
+      await recordAudit('AJOUT_VEHICULE', 'Véhicules', `Plaque ${newVeh.licensePlate} (${newVeh.brand} ${newVeh.model})`);
+      res.status(201).json(newVeh);
+    } catch (error) {
+      console.error('Create vehicle error:', error);
+      res.status(500).json({ error: 'Impossible d\'ajouter le véhicule' });
+    }
+  });
+
+  // Parking spots
+  app.get('/api/v1/spots', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const { siteId } = req.query;
+      let list = state.spots;
+      if (siteId && siteId !== 'all') list = list.filter((s) => s.siteId === siteId);
+      res.json(list);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des emplacements' });
+    }
+  });
+
+  app.patch('/api/v1/spots/:id', async (req, res) => {
+    try {
+      const spot = await updateSpotRecord(req.params.id, req.body);
+      if (!spot) return res.status(404).json({ error: 'Emplacement introuvable' });
+      await recordAudit('MODIF_EMPLACEMENT', 'Occupation', `Place ${spot.code} changée en ${spot.status}`);
+      return res.json(spot);
+    } catch (error) {
+      console.error('Update spot error:', error);
+      return res.status(500).json({ error: 'Impossible de mettre à jour la place' });
+    }
+  });
+
+  // Payments and Receipts
+  app.get('/api/v1/receipts', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.receipts);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des reçus' });
+    }
+  });
+
+  app.post('/api/v1/receipts', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const receiptNum = req.body.receiptNumber || `REC-2024-${String(state.receipts.length + 513).padStart(4, '0')}`;
+      const amountDueAr = Number(req.body.amountDueAr || 0);
+      const amountPaidAr = Number(req.body.amountPaidAr || 0);
+      const remaining = req.body.remainingBalanceAr ?? Math.max(0, amountDueAr - amountPaidAr);
+      const paymentMethod = req.body.paymentMethod || 'Espèces';
+
+      const receipt = await createReceiptRecord({
+        id: req.body.id || `rec-${Date.now()}`,
+        receiptNumber: receiptNum,
+        dateTime:
+          req.body.dateTime ||
+          `${new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' })} ${new Date().toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Indian/Antananarivo'
+          })}`,
+        memberId: req.body.memberId,
+        memberName: req.body.memberName || 'Client Stationnement',
+        vehiclePlate: req.body.vehiclePlate,
+        siteId: req.body.siteId || 'S1',
+        siteName: req.body.siteName || 'Analakely Central',
+        purpose: req.body.purpose || 'Encaissement Stationnement',
+        period: req.body.period || 'Mai 2024',
+        amountDueAr,
+        amountPaidAr,
+        remainingBalanceAr: remaining,
+        paymentMethod,
+        cashierName: req.body.cashierName || 'RASOANAIVO Mirana',
+        transactionRef:
+          req.body.transactionRef ||
+          `TRX-${Math.floor(10000 + Math.random() * 90000)}-${String(paymentMethod).replace(/\s+/g, '').toUpperCase()}`,
+        status: req.body.status || 'confirme'
+      });
+
+      await recordAudit(
+        'ENCAISSEMENT_ENREGISTRE',
+        'Finances',
+        `Reçu ${receipt.receiptNumber} : ${receipt.amountPaidAr} Ar par ${receipt.paymentMethod} pour ${receipt.memberName}`,
+        receipt.siteId
+      );
+      res.status(201).json(receipt);
+    } catch (error) {
+      console.error('Create receipt error:', error);
+      res.status(500).json({ error: 'Impossible d\'enregistrer le paiement' });
+    }
+  });
+
+  // Cards
+  app.get('/api/v1/cards', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.cards);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des cartes' });
+    }
+  });
+
+  app.post('/api/v1/cards/:id/toggle-block', async (req, res) => {
+    try {
+      const card = await toggleCardStatus(req.params.id);
+      if (!card) return res.status(404).json({ error: 'Carte introuvable' });
+      await recordAudit('STATUT_CARTE_MODIFIE', 'Cartes', `Carte ${card.cardNumber} passée au statut ${card.status}`);
+      return res.json(card);
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de modifier le statut de la carte' });
+    }
+  });
+
+  app.post('/api/v1/cards/verify-qr', async (req, res) => {
+    try {
+      const { qrToken } = req.body;
+      const state = await getFullState();
+      const card = state.cards.find((c) => c.qrToken === qrToken);
+      if (!card) {
+        return res.status(404).json({ valid: false, message: 'Jeton QR inconnu ou non signé' });
+      }
+      const member = state.members.find((m) => m.id === card.memberId);
+      return res.json({
+        valid: card.status === 'actif',
+        status: card.status,
+        card,
+        member,
+        message:
+          card.status === 'actif'
+            ? "Signature cryptographique vérifiée. Droits d'accès valides."
+            : 'CARTE BLOQUÉE / EN OPPOSITION'
+      });
+    } catch (error) {
+      return res.status(500).json({ error: 'Erreur vérification QR' });
+    }
+  });
+
+  // Guards & Brigade Hierarchy
+  app.get('/api/v1/guards', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.guards);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des gardiens' });
+    }
+  });
+
+  // New staff member: team leader (new brigade) or guard placed under an existing leader
+  app.post('/api/v1/guards', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const text = (v: unknown, max = 150) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const fullName = text(b.fullName);
+      const cin = text(b.cin, 30);
+      const phoneFlotte = text(b.phoneFlotte, 30);
+      const title = text(b.title);
+      const siteId = text(b.siteId, 100);
+      const isTeamLeader = b.isTeamLeader === true;
+      if (!fullName || !cin || !phoneFlotte || !title || !siteId) {
+        return res.status(400).json({ error: 'Nom, CIN, téléphone, poste et site sont obligatoires.' });
+      }
+      const state = await getFullState();
+      if (!state.sites.some((s) => s.id === siteId)) {
+        return res.status(400).json({ error: 'Site inconnu.' });
+      }
+
+      let teamId: string;
+      let teamName: string;
+      let teamLeaderId: string | undefined;
+      let teamLeaderName: string | undefined;
+      let rankOrder = 1;
+      if (isTeamLeader) {
+        teamName = text(b.teamName) || `Brigade ${fullName}`;
+        teamId = `team-${siteId.toLowerCase()}-${Date.now().toString(36)}`;
+      } else {
+        const leader = state.guards.find((g) => g.id === b.teamLeaderId && g.isTeamLeader);
+        if (!leader) return res.status(400).json({ error: 'Choisissez le chef de brigade de ce gardien.' });
+        teamId = leader.teamId;
+        teamName = leader.teamName;
+        teamLeaderId = leader.id;
+        teamLeaderName = leader.fullName;
+        rankOrder = state.guards.filter((g) => g.teamId === leader.teamId).length + 1;
+      }
+
+      const DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const;
+      const CODES = new Set(['GARDE', 'REPOS', 'CONGE', 'ABSENT']);
+      const shiftDays = Object.fromEntries(
+        DAYS.map((d) => [d, CODES.has(b.shiftDays?.[d]) ? b.shiftDays[d] : 'REPOS'])
+      ) as GuardPersonnelShiftDays;
+
+      const matricule = nextGuardMatricule(state.guards);
+      const STATUSES = new Set(['en_poste', 'de_repos', 'en_conge', 'absent']);
+      const guard = await createGuardRecord({
+        id: `grd-${Date.now()}`,
+        matricule,
+        fullName,
+        title,
+        grade: text(b.grade, 100) || 'Agent de sécurité',
+        siteId,
+        teamId,
+        teamName,
+        isTeamLeader,
+        teamLeaderId,
+        teamLeaderName,
+        rankOrder,
+        ordersOfTheDay: [],
+        shiftHours: '06h → 06h (J+1)',
+        shiftName: 'Matin',
+        status: STATUSES.has(b.status) ? b.status : 'en_poste',
+        phoneFlotte,
+        cin,
+        residenceLot: text(b.residenceLot, 300) || '—',
+        recruitmentDate: text(b.recruitmentDate, 30) || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        badgeRfid: text(b.badgeRfid, 80) || `#TAG-${matricule}`,
+        avatarUrl: typeof b.avatarUrl === 'string' && b.avatarUrl.startsWith('data:image/') ? b.avatarUrl : undefined,
+        assignedEquipments: [],
+        shiftDays,
+        todayLog: []
+      });
+      await recordAudit(
+        'CREATION_PERSONNEL',
+        'Sécurité & Gardiennage',
+        `${isTeamLeader ? 'Chef de brigade' : 'Gardien'} ${fullName} (${matricule}) ajouté — ${teamName}${teamLeaderName ? `, sous les ordres de ${teamLeaderName}` : ''}`,
+        siteId
+      );
+      return res.status(201).json(guard);
+    } catch (error) {
+      console.error('Create guard error:', error);
+      return res.status(500).json({ error: 'Impossible d’enregistrer ce membre du personnel.' });
+    }
+  });
+
+  app.post('/api/v1/guards/orders', async (req, res) => {
+    try {
+      const { teamId, orderText } = req.body;
+      if (!teamId || !orderText) {
+        return res.status(400).json({ error: 'teamId et orderText requis' });
+      }
+      const updatedCount = await broadcastGuardOrders(teamId, orderText);
+      await recordAudit('ORDRE_DE_SERVICE_GARDIENS', 'Sécurité & Gardiennage', `Ordre diffusé à ${teamId}: "${orderText}"`);
+      return res.json({ updatedCount });
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de diffuser l\'ordre' });
+    }
+  });
+
+  // Profile Avatars
+  app.patch('/api/v1/profile/avatar', async (req, res) => {
+    try {
+      const { type, id, avatarUrl } = req.body;
+      if (!type || !id || !avatarUrl) {
+        return res.status(400).json({ error: 'type, id et avatarUrl requis' });
+      }
+      await updateEntityAvatar(type, id, avatarUrl);
+      await recordAudit('PHOTO_PROFIL_MODIFIEE', 'Administration', `Photo mise à jour pour ${type} #${id}`);
+      return res.json({ ok: true });
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de modifier la photo' });
+    }
+  });
+
+  // Equipments
+  app.get('/api/v1/equipments', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.equipments);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des équipements' });
+    }
+  });
+
+  // Cash Registers & Expenses
+  app.get('/api/v1/cash-registers', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.cashRegisters);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des caisses' });
+    }
+  });
+
+  app.get('/api/v1/expenses', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.expenses);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des dépenses' });
+    }
+  });
+
+  app.post('/api/v1/expenses', async (req, res) => {
+    try {
+      const state = await getFullState();
+      // Never reuse an existing number (the column is unique): fall back to the next free one
+      const requested = typeof req.body.expenseNumber === 'string' ? req.body.expenseNumber : '';
+      const expNum = requested && !state.expenses.some((e) => e.expenseNumber === requested)
+        ? requested
+        : nextExpenseNumber(state.expenses);
+      const invoicePhotoUrl =
+        typeof req.body.invoicePhotoUrl === 'string' && req.body.invoicePhotoUrl.startsWith('data:image/')
+          ? req.body.invoicePhotoUrl
+          : undefined;
+      const rawQuantity = Number(req.body.quantity);
+      const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : undefined;
+      const unit =
+        quantity !== undefined && typeof req.body.unit === 'string' && req.body.unit.trim()
+          ? req.body.unit.trim().slice(0, 30)
+          : undefined;
+      const newExp = await createExpenseRecord({
+        id: req.body.id || `exp-${Date.now()}`,
+        expenseNumber: expNum,
+        date:
+          req.body.date ||
+          `${new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' })} ${new Date().toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Indian/Antananarivo'
+          })}`,
+        siteId: req.body.siteId || 'S1',
+        category: req.body.category || 'Autre',
+        description: req.body.description || 'Dépense exploitation',
+        beneficiary: req.body.beneficiary || 'Prestataire',
+        amountAr: Number(req.body.amountAr || 50000),
+        paymentMethod: req.body.paymentMethod || 'Espèces',
+        requesterName: req.body.requesterName || state.currentUser.fullName,
+        status: 'en_attente',
+        justificatifRef: req.body.justificatifRef,
+        invoicePhotoUrl,
+        quantity,
+        unit
+      });
+      await recordAudit(
+        'DEMANDE_ENGAGEMENT_DEPENSE',
+        'Finances',
+        `Demande #${expNum} créée (${newExp.amountAr} Ar)` +
+          `${quantity !== undefined ? ` — ${quantity} ${unit || ''}`.trimEnd() : ''}` +
+          `${invoicePhotoUrl ? ' avec photo de facture' : ''}`
+      );
+      res.status(201).json(newExp);
+    } catch (error) {
+      console.error('Create expense error:', error);
+      res.status(500).json({ error: 'Impossible de créer la dépense' });
+    }
+  });
+
+  app.post('/api/v1/expenses/:id/approve', async (req, res) => {
+    try {
+      const approver = req.body?.approverName || 'Rasoanaivo Mirana (Trésorière Générale)';
+      const exp = await decideExpenseRecord(req.params.id, 'approuve', approver);
+      if (!exp) return res.status(404).json({ error: 'Dépense introuvable' });
+      await recordAudit('APPROBATION_DEPENSE', 'Trésorerie', `Dépense ${exp.expenseNumber} approuvée (${exp.amountAr} Ar)`);
+      return res.json(exp);
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible d\'approuver la dépense' });
+    }
+  });
+
+  app.post('/api/v1/expenses/:id/reject', async (req, res) => {
+    try {
+      const approver = req.body?.approverName || 'Rasoanaivo Mirana (Trésorière Générale)';
+      const exp = await decideExpenseRecord(req.params.id, 'rejete', approver);
+      if (!exp) return res.status(404).json({ error: 'Dépense introuvable' });
+      await recordAudit('REJET_DEPENSE', 'Trésorerie', `Dépense ${exp.expenseNumber} rejetée`);
+      return res.json(exp);
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de rejeter la dépense' });
+    }
+  });
+
+  // Incidents
+  app.get('/api/v1/incidents', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.incidents);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des incidents' });
+    }
+  });
+
+  app.post('/api/v1/incidents', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const ticketCode = req.body.ticketCode || `INC-${new Date().getFullYear()}-${String(state.incidents.length + 1).padStart(4, '0')}`;
+      const newInc = await createIncidentRecord({
+        id: req.body.id || `inc-${Date.now()}`,
+        ticketCode,
+        date:
+          req.body.date ||
+          `${new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' })} ${new Date().toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+            timeZone: 'Indian/Antananarivo'
+          })}`,
+        siteId: req.body.siteId || 'S1',
+        reporterName: req.body.reporterName || state.currentUser.fullName,
+        type: req.body.type || 'autre',
+        severity: req.body.severity || 'moyen',
+        title: req.body.title,
+        description: req.body.description,
+        assignedTo: req.body.assignedTo,
+        resolutionStatus: req.body.resolutionStatus || 'ouvert',
+        resolutionNotes: req.body.resolutionNotes,
+        memberIds: toIdList(req.body.memberIds),
+        vehicleIds: toIdList(req.body.vehicleIds)
+      });
+      await recordAudit('CREATION_INCIDENT', 'Sécurité', `Ticket ${ticketCode} ouvert: ${newInc.title}`, newInc.siteId);
+      res.status(201).json(newInc);
+    } catch (error) {
+      res.status(500).json({ error: 'Impossible de créer l\'incident' });
+    }
+  });
+
+  app.patch('/api/v1/incidents/:id', async (req, res) => {
+    try {
+      const updated = await updateIncidentRecordStatus(req.params.id, req.body.resolutionStatus, req.body.resolutionNotes);
+      if (!updated) return res.status(404).json({ error: 'Incident introuvable' });
+      await recordAudit('MISE_A_JOUR_INCIDENT', 'Sécurité', `Ticket ${updated.ticketCode} passé à ${updated.resolutionStatus}`, updated.siteId);
+      return res.json(updated);
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de mettre à jour l\'incident' });
+    }
+  });
+
+  // Governance (Committee & Meetings)
+  app.get('/api/v1/committee', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.committeeMembers);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement du comité' });
+    }
+  });
+
+  app.post('/api/v1/committee', async (req, res) => {
+    try {
+      const created = await createCommitteeMemberRecord({
+        id: req.body.id || `com-${Date.now()}`,
+        role: req.body.role,
+        fullName: req.body.fullName,
+        siteId: req.body.siteId,
+        phone: req.body.phone,
+        email: req.body.email,
+        avatarUrl: req.body.avatarUrl,
+        monthlyIndemnityAr: Number(req.body.monthlyIndemnityAr || 0),
+        mandateStart: req.body.mandateStart,
+        mandateEnd: req.body.mandateEnd,
+        status: req.body.status || 'actif'
+      });
+      await recordAudit('NOUVEAU_MEMBRE_COMITE', 'Gouvernance', `${created.role} nommé: ${created.fullName}`);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(500).json({ error: 'Impossible d\'ajouter le membre du comité' });
+    }
+  });
+
+  app.get('/api/v1/meetings', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.meetings);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement des réunions' });
+    }
+  });
+
+  app.post('/api/v1/meetings', async (req, res) => {
+    try {
+      const created = await createMeetingRecord({
+        id: req.body.id || `meet-${Date.now()}`,
+        date: req.body.date,
+        title: req.body.title,
+        location: req.body.location,
+        agenda: req.body.agenda,
+        summaryPV: req.body.summaryPV,
+        resolutionsCount: Number(req.body.resolutionsCount || 1),
+        documentPdfUrl: req.body.documentPdfUrl
+      });
+      await recordAudit('REUNION_GOUVERNANCE_AJOUTEE', 'Gouvernance', `PV Réunion enregistré: ${created.title}`);
+      res.status(201).json(created);
+    } catch (error) {
+      res.status(500).json({ error: 'Impossible d\'enregistrer la réunion' });
+    }
+  });
+
+  // Payrolls (Personnel & Bureau)
+  app.get('/api/v1/payrolls', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.payrolls);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement de la paie' });
+    }
+  });
+
+  app.post('/api/v1/payrolls', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const slipNumber = req.body.slipNumber || `PAY-${new Date().getFullYear()}-${String(state.payrolls.length + 1).padStart(3, '0')}`;
+      const created = await createPayrollRecord({
+        ...req.body,
+        id: req.body.id || `pay-${Date.now()}`,
+        slipNumber,
+        generatedDate: req.body.generatedDate || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' })
+      });
+      await recordAudit(
+        'EMISSION_BULLETIN_PAIE',
+        'Paie & Rémunérations',
+        `Bulletin #${slipNumber} émis pour ${created.beneficiaryName} (${created.netSalaryAr} Ar)`,
+        created.siteId
+      );
+      res.status(201).json(created);
+    } catch (error) {
+      console.error('Create payroll error:', error);
+      res.status(500).json({ error: 'Impossible de créer le bulletin de paie' });
+    }
+  });
+
+  app.patch('/api/v1/payrolls/:id/status', async (req, res) => {
+    try {
+      const { status, approverName, transactionRef } = req.body;
+      const updated = await updatePayrollRecordStatus(req.params.id, status, approverName, transactionRef);
+      if (!updated) return res.status(404).json({ error: 'Bulletin introuvable' });
+      await recordAudit(
+        'STATUT_PAIE_MIS_A_JOUR',
+        'Paie & Rémunérations',
+        `Bulletin #${updated.slipNumber} (${updated.beneficiaryName}) passé à statut: ${status}`,
+        updated.siteId
+      );
+      return res.json(updated);
+    } catch (error) {
+      return res.status(500).json({ error: 'Impossible de mettre à jour le bulletin' });
+    }
+  });
+
+  // Generic edit / delete for every managed collection
+  app.put('/api/v1/:collection/:id', async (req, res) => {
+    const { collection, id } = req.params;
+    if (!isEditableCollection(collection)) {
+      return res.status(404).json({ error: 'Collection inconnue' });
+    }
+    try {
+      const ok = await updateRecord(collection, id, req.body || {});
+      if (!ok) return res.status(404).json({ error: 'Enregistrement introuvable' });
+      await recordAudit('MODIFICATION', collection, `Modification de ${collection} / ${id}`);
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error(`Update ${collection} error:`, error);
+      return res.status(500).json({ error: 'Impossible d’enregistrer la modification' });
+    }
+  });
+
+  app.delete('/api/v1/:collection/:id', async (req, res) => {
+    const { collection, id } = req.params;
+    if (!isEditableCollection(collection)) {
+      return res.status(404).json({ error: 'Collection inconnue' });
+    }
+    try {
+      const ok = await deleteRecord(collection, id);
+      if (!ok) return res.status(404).json({ error: 'Enregistrement introuvable' });
+      await recordAudit('SUPPRESSION', collection, `Suppression de ${collection} / ${id}`);
+      return res.json({ ok: true });
+    } catch (error) {
+      if (error instanceof RecordInUseError) {
+        return res.status(409).json({ error: error.message });
+      }
+      console.error(`Delete ${collection} error:`, error);
+      return res.status(500).json({ error: 'Impossible de supprimer cet enregistrement' });
+    }
+  });
+
+  // Data reset: wipes operational data, keeps configuration (sites, spots, tariffs, staff, equipment)
+  app.post('/api/v1/admin/reset', async (req, res) => {
+    if (req.body?.confirmation !== RESET_CONFIRMATION_WORD) {
+      return res.status(400).json({ error: `Confirmation invalide : tapez ${RESET_CONFIRMATION_WORD}` });
+    }
+    try {
+      const summary = await resetOperationalData();
+      await recordAudit(
+        'REINITIALISATION_DONNEES',
+        'Système',
+        `Remise à zéro : ${summary.members} membres, ${summary.vehicles} véhicules, ${summary.receipts} reçus, ` +
+          `${summary.expenses} dépenses, ${summary.payrolls} paies, ${summary.incidents} incidents supprimés ; ` +
+          `${summary.spotsFreed} places libérées, ${summary.cashRegistersZeroed} caisse(s) remise(s) à 0 Ar.`
+      );
+      return res.json({ ok: true, summary });
+    } catch (error) {
+      console.error('Reset error:', error);
+      return res.status(500).json({ error: 'La remise à zéro a échoué, aucune donnée n’a été modifiée.' });
+    }
+  });
+
+  // Audit logs
+  app.get('/api/v1/audit-logs', async (_req, res) => {
+    try {
+      const state = await getFullState();
+      res.json(state.auditLogs);
+    } catch (error) {
+      res.status(500).json({ error: 'Erreur lors du chargement du journal d\'audit' });
+    }
+  });
+
+  // Mount Vite middleware in development
+  if (!isProd) {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+  } else {
+    app.use(express.static(path.resolve(__dirname, 'dist')));
+    app.get('*', (_req, res) => {
+      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+    });
+  }
+
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`[Parking Manager Madagascar] Full-Stack server running on http://0.0.0.0:${PORT}`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error('Failed to start server:', err);
+});

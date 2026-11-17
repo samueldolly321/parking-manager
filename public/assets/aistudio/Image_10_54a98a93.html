@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+
+<html lang="fr"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><meta content="web_dashboard" name="shell-type"/><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/><link href="https://fonts.googleapis.com" rel="preconnect"/><link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@500;600;700&amp;family=Space+Grotesk:wght@600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config = { darkMode: "class", theme: { extend: { "colors": { "surface-container-low": "#eff4ff", "on-primary-fixed": "#131b2e", "surface": "#f8f9ff", "primary-fixed-dim": "#bec6e0", "primary-container": "#131b2e", "on-secondary-fixed-variant": "#004e5c", "tertiary-fixed": "#c9e6ff", "surface-tint": "#565e74", "secondary-fixed-dim": "#4cd7f6", "on-secondary": "#ffffff", "surface-container-lowest": "#ffffff", "inverse-surface": "#213145", "surface-container-high": "#dce9ff", "on-primary-fixed-variant": "#3f465c", "outline": "#76777d", "tertiary-container": "#001e2f", "surface-container-highest": "#d3e4fe", "on-surface-variant": "#45464d", "on-secondary-container": "#006172", "on-primary": "#ffffff", "on-background": "#0b1c30", "on-tertiary": "#ffffff", "on-error": "#ffffff", "inverse-primary": "#bec6e0", "on-tertiary-fixed-variant": "#004c6e", "tertiary-fixed-dim": "#89ceff", "on-secondary-fixed": "#001f26", "secondary": "#00687a", "surface-bright": "#f8f9ff", "primary-fixed": "dae2fd", "on-tertiary-fixed": "#001e2f", "inverse-on-surface": "#eaf1ff", "on-surface": "#0b1c30", "secondary-container": "#57dffe", "secondary-fixed": "#acedff", "surface-dim": "#cbdbf5", "outline-variant": "#c6c6cd", "tertiary": "#000000", "primary": "#000000", "error-container": "#ffdad6", "surface-variant": "#d3e4fe", "error": "#ba1a1a", "background": "#f8f9ff", "on-primary-container": "#7c839b", "on-tertiary-container": "#008cc7", "on-error-container": "#93000a", "surface-container": "#e5eeff" }, "borderRadius": { "DEFAULT": "0.125rem", "lg": "0.25rem", "xl": "0.5rem", "full": "0.75rem" }, "spacing": { "margin": "1.5rem", "space-xl": "2rem", "space-md": "0.75rem", "margin-mobile": "1rem", "gutter": "1rem", "space-sm": "0.5rem", "space-xs": "0.25rem", "gutter-compact": "0.75rem", "space-lg": "1.25rem" }, "fontFamily": { "mono-metric": ["JetBrains Mono"], "label-md": ["Inter"], "headline-md": ["Space Grotesk"], "mono-plate": ["JetBrains Mono"], "display-lg-mobile": ["Space Grotesk"], "headline-lg": ["Space Grotesk"], "headline-sm": ["Space Grotesk"], "mono-data": ["JetBrains Mono"], "display-lg": ["Space Grotesk"], "body-sm": ["Inter"], "body-lg": ["Inter"], "label-lg": ["Inter"], "body-md": ["Inter"] }, "fontSize": { "mono-metric": ["20px", {"lineHeight": "26px", "letterSpacing": "-0.02em", "fontWeight": "600"}], "label-md": ["11px", {"lineHeight": "16px", "letterSpacing": "0.04em", "fontWeight": "600"}], "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}], "mono-plate": ["14px", {"lineHeight": "18px", "letterSpacing": "0.08em", "fontWeight": "700"}], "display-lg-mobile": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "headline-lg": ["24px", {"lineHeight": "32px", "letterSpacing": "-0.015em", "fontWeight": "600"}], "headline-sm": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "600"}], "mono-data": ["13px", {"lineHeight": "18px", "letterSpacing": "0.02em", "fontWeight": "500"}], "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}], "body-sm": ["12px", {"lineHeight": "16px", "letterSpacing": "0.01em", "fontWeight": "400"}], "body-lg": ["16px", {"lineHeight": "24px", "letterSpacing": "0em", "fontWeight": "400"}], "label-lg": ["13px", {"lineHeight": "18px", "letterSpacing": "0.01em", "fontWeight": "500"}], "body-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0em", "fontWeight": "400"}] } } } };</script></head><body class="bg-background font-body-md text-on-surface antialiased"><aside class="fixed left-0 top-0 h-screen w-72 bg-primary-container text-on-surface flex flex-col z-50 shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="p-space-lg flex items-center justify-between gap-space-sm bg-primary-container"><div class="flex items-center gap-space-md"><img alt="Parking Manager Madagascar Logo" class="h-8 w-auto object-contain" src="https://lh3.googleusercontent.com/aida/AEtjO1WJq3aAYJeiFbCroNA4K7u00d6_YI001QPp6NWRX0s5tb20puByBGq7OQN0oHO1CU1-3jGDon2N0VSJAaM4oQ9e06llctPPlnzgdcP_OjEK6s56Uq2TXvk8cYqzMKkiTALVNMdwxzIGNckZK5NTsn3aAyWXER4jZvghiOOcjj5e3laFpdkFGnJVJ-pDXhFgxZLNG1QiJ0TDJsOcbhDxqYskg98VKWzK4B2etCMcOkcO"/><div class="flex flex-col"><span class="font-headline-sm text-headline-sm text-surface-container-lowest tracking-tight">Parking Mada</span><span class="font-label-md text-label-md text-on-primary-container">GESTION CENTRALE</span></div></div><span class="font-mono-data text-label-md px-space-xs py-0.5 rounded bg-tertiary-container text-secondary-fixed-dim uppercase tracking-wider font-semibold">PROD TANA</span></div><div class="flex-1 overflow-y-auto px-space-md py-space-sm space-y-space-lg"><nav class="space-y-space-lg" data-active-classes="bg-surface-container-lowest text-on-surface font-semibold rounded-lg shadow-[0_1px_8px_rgba(0,0,0,0.04)]"><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">VUE GÉNÉRALE</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tableau-de-bord" href="#"><span class="material-symbols-outlined text-[18px]">dashboard</span><span class="font-body-md text-body-md">Tableau de bord</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="sites-et-zones" href="#"><span class="material-symbols-outlined text-[18px]">domain</span><span class="font-body-md text-body-md">Sites &amp; Zones</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">GESTION OPÉRATIONNELLE</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="emplacements-et-occupation" href="#"><span class="material-symbols-outlined text-[18px]">local_parking</span><span class="font-body-md text-body-md">Emplacements &amp; Occupation</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="vehicules" href="#"><span class="material-symbols-outlined text-[18px]">directions_car</span><span class="font-body-md text-body-md">Véhicules</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="membres-et-proprietaires" href="#"><span class="material-symbols-outlined text-[18px]">group</span><span class="font-body-md text-body-md">Membres &amp; Propriétaires</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="cartes-de-membres" href="#"><span class="material-symbols-outlined text-[18px]">badge</span><span class="font-body-md text-body-md">Cartes de membres</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="abonnements-et-tarifs" href="#"><span class="material-symbols-outlined text-[18px]">sell</span><span class="font-body-md text-body-md">Abonnements &amp; Tarifs</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">FINANCES &amp; TRÉSORERIE</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="encaissements-et-recus" href="#"><span class="material-symbols-outlined text-[18px]">receipt_long</span><span class="font-body-md text-body-md">Encaissements &amp; Reçus</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="tresorerie-et-caisses" href="#"><span class="material-symbols-outlined text-[18px]">account_balance_wallet</span><span class="font-body-md text-body-md">Trésorerie &amp; Caisses</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="depenses-et-approbations" href="#"><span class="material-symbols-outlined text-[18px]">payments</span><span class="font-body-md text-body-md">Dépenses &amp; Approbations</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">SÉCURITÉ &amp; RESSOURCES</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="personnel-et-gardiens" href="#"><span class="material-symbols-outlined text-[18px]">security</span><span class="font-body-md text-body-md">Personnel &amp; Gardiens</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="comite-de-gestion" href="#"><span class="material-symbols-outlined text-[18px]">military_tech</span><span class="font-body-md text-body-md">Comité de Gestion</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="materiels-et-equipements" href="#"><span class="material-symbols-outlined text-[18px]">build</span><span class="font-body-md text-body-md">Matériels &amp; Équipements</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="incidents-et-registre" href="#"><span class="material-symbols-outlined text-[18px]">warning</span><span class="font-body-md text-body-md">Incidents &amp; Registre</span></a></div></div><div class="space-y-space-xs"><div class="px-space-sm font-label-md text-label-md uppercase tracking-wider text-on-primary-container font-semibold">PILOTAGE &amp; SYSTÈME</div><div class="space-y-0.5"><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="rapports-et-statistiques" href="#"><span class="material-symbols-outlined text-[18px]">analytics</span><span class="font-body-md text-body-md">Rapports &amp; Statistiques</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="utilisateurs-et-roles" href="#"><span class="material-symbols-outlined text-[18px]">manage_accounts</span><span class="font-body-md text-body-md">Utilisateurs &amp; Rôles</span></a><a class="flex items-center gap-space-md px-space-sm py-space-xs rounded-lg text-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" data-path="parametres-et-audit" href="#"><span class="material-symbols-outlined text-[18px]">settings</span><span class="font-body-md text-body-md">Paramètres &amp; Audit</span></a></div></div></nav></div><div class="p-space-md bg-tertiary-container space-y-space-xs"><div class="flex items-center justify-between"><div class="flex items-center gap-space-xs"><span class="w-2 h-2 rounded-full bg-secondary-container animate-pulse"></span><span class="font-mono-data text-body-sm text-secondary-fixed-dim">PostgreSQL 16 OK</span></div><span class="font-mono-data text-label-md text-on-primary-container">v1.4.2</span></div><div class="font-body-sm text-body-sm text-on-primary-container truncate">Antananarivo Central DC</div></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-16 bg-surface-container-lowest/90 backdrop-blur-xl z-40 shadow-[0_1px_8px_rgba(0,0,0,0.04)] px-space-lg flex items-center justify-between gap-space-lg"><div class="flex items-center gap-space-md"><div class="relative"><select aria-label="Sélectionner un site" class="bg-surface-container-low text-on-surface font-label-lg text-label-lg rounded-lg py-space-xs pl-space-md pr-space-xl appearance-none cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary"><option value="all">Tous les Sites (Consolidé)</option><option value="s1">Site 01 - Analakely Central</option><option value="s2">Site 02 - Ankorondrano Business</option><option value="s3">Site 03 - Ivato Aéroport Hub</option></select><span class="material-symbols-outlined absolute right-2 top-2 text-on-surface-variant pointer-events-none text-[18px]">expand_more</span></div></div><div class="flex-1 max-w-xl"><div class="relative flex items-center"><span class="material-symbols-outlined absolute left-3 text-outline text-[20px]">search</span><input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg py-space-xs pl-10 pr-12 focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Rechercher immatriculation, membre, reçu..." type="text"/><span class="absolute right-3 font-mono-data text-label-md text-outline px-1.5 py-0.5 rounded bg-surface-container-high">⌘K</span></div></div><div class="flex items-center gap-space-md"><a class="bg-secondary-container text-on-secondary-container font-headline-sm text-body-sm px-space-md py-space-xs rounded-lg hover:bg-secondary-fixed transition-colors flex items-center gap-space-xs" data-path="encaissements-et-recus" href="#"><span class="material-symbols-outlined text-[18px]">add</span><span>Nouvel Encaissement</span></a><div class="hidden xl:flex flex-col text-right"><span class="font-label-lg text-label-lg text-on-surface font-semibold">15 Mai 2024</span><span class="font-mono-data text-label-md text-on-surface-variant">Mercredi (GMT+3)</span></div><button aria-label="Notifications système" class="relative p-space-xs rounded-lg text-on-surface-variant hover:bg-surface-container-low transition-colors" type="button"><span class="material-symbols-outlined text-[22px]">notifications</span><span class="absolute top-1 right-1 w-4 h-4 bg-error text-on-error font-mono-data text-[10px] font-bold rounded-full flex items-center justify-center">3</span></button><div class="flex items-center gap-space-sm pl-space-xs"><img alt="Profile" class="w-8 h-8 rounded-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCWCGKnToDVy0AFXDKbIZSrB4cYfFru-TF00P0EffMz7UUte2VorhDkvpOjKzkVJJmKi0MWsZumbTuwxz4VtWfOiwdcCMtTxZQJJBVSBc9r8iu-bmmP-MVUOFTu-1TkrT5INpLcRh99XhJ4fKFRT7y4tk7khRqOjxHPsp2LhrxfsMWx7bNBzq_wlMgDGSFVWgaz120IOofEpeA-I6CCKtidlcC4ju5OJCcTBdVBcC4"/><div class="hidden md:flex flex-col text-left"><span class="font-label-lg text-label-lg text-on-surface font-semibold">Rajaonarison Hery</span><span class="font-label-md text-label-md text-on-surface-variant">Super Admin</span></div></div></div></header><main class="relative pt-16 bg-surface min-h-screen"><div class="flex flex-col w-full">
+<script>
+    (function highlightActiveNav() {
+      const activeLink = document.querySelector('aside nav a[data-path="personnel-et-gardiens"]');
+      if (activeLink) {
+        document.querySelectorAll('aside nav a').forEach(el => {
+          el.classList.remove('bg-surface-container-lowest', 'text-on-surface', 'font-semibold', 'shadow-[0_1px_8px_rgba(0,0,0,0.04)]');
+          el.classList.add('text-surface-variant');
+        });
+        activeLink.classList.remove('text-surface-variant');
+        activeLink.classList.add('bg-surface-container-lowest', 'text-on-surface', 'font-semibold', 'shadow-[0_1px_8px_rgba(0,0,0,0.04)]');
+      }
+    })();
+  </script>
+<div class="p-space-lg lg:p-space-xl space-y-space-lg">
+<!-- Top Bar / Page Header -->
+<div class="flex flex-col xl:flex-row xl:items-center justify-between gap-space-lg bg-surface-container-lowest p-space-lg rounded-xl shadow-sm">
+<div class="space-y-space-xs">
+<div class="flex items-center gap-space-sm">
+<span class="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-surface-container-high text-on-surface">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">security</span>
+</span>
+<span class="font-mono-data text-label-md uppercase tracking-wider text-on-surface-variant">Module RH &amp; Opérations Terrain</span>
+</div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface font-bold tracking-tight">Gestion du Personnel &amp; Gardiens</h1>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-3xl">Suivi des effectifs, affectations par site, plannings de relève et registres de présence journaliers.</p>
+</div>
+<div class="flex flex-wrap items-center gap-space-sm">
+<button class="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-lg bg-surface-container-lowest text-on-surface font-label-lg text-label-lg hover:bg-surface-container-low transition-colors shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">download</span>
+<span>Exporter Registre RH</span>
+</button>
+<button class="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-lg bg-[#2ECC71] text-surface-container-lowest font-label-lg text-label-lg font-semibold hover:brightness-95 transition-all shadow-sm" type="button">
+<span class="material-symbols-outlined text-[18px]">verified</span>
+<span>Valider Présences du Jour</span>
+</button>
+<button class="inline-flex items-center gap-space-xs px-space-md py-space-xs rounded-lg bg-[#3498DB] text-surface-container-lowest font-headline-sm text-body-sm font-semibold hover:brightness-95 transition-all shadow-md" type="button">
+<span class="material-symbols-outlined text-[18px]">person_add</span>
+<span>+ Nouveau Gardien / Agent</span>
+</button>
+</div>
+</div>
+<!-- KPI Metric Strip -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-space-md">
+<!-- KPI 1 -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm space-y-space-xs relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">Effectif Total Actif</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">100% opérationnel</span>
+</div>
+<div class="flex items-baseline gap-space-xs pt-1">
+<span class="font-display-lg text-display-lg font-bold text-on-surface">18</span>
+<span class="font-mono-metric text-headline-sm text-on-surface-variant">agents</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">14 gardiens, 2 trésoriers, 2 superviseurs</p>
+<div class="w-full bg-surface-container-high h-1 rounded-full overflow-hidden mt-2">
+<div class="bg-[#2ECC71] h-full w-full"></div>
+</div>
+</div>
+<!-- KPI 2 -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm space-y-space-xs relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">En Poste Actuellement</span>
+<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#2ECC71] animate-ping"></span>
+            LIVE
+          </span>
+</div>
+<div class="flex items-baseline gap-space-xs pt-1">
+<span class="font-display-lg text-display-lg font-bold text-on-surface">9</span>
+<span class="font-mono-metric text-headline-sm text-on-surface-variant">en faction</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Shift Jour actuel : 06h00 – 14h00</p>
+<div class="w-full bg-surface-container-high h-1 rounded-full overflow-hidden mt-2">
+<div class="bg-secondary h-full w-[64%]"></div>
+</div>
+</div>
+<!-- KPI 3 -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm space-y-space-xs relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">Relèves Aujourd'hui</span>
+<span class="font-mono-data text-label-md text-secondary font-semibold">SYNCHRO OK</span>
+</div>
+<div class="flex items-baseline gap-space-xs pt-1">
+<span class="font-display-lg text-display-lg font-bold text-on-surface">3/3</span>
+<span class="font-mono-metric text-headline-sm text-on-surface-variant">sites</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Passations consignées sans retard</p>
+<div class="w-full bg-surface-container-high h-1 rounded-full overflow-hidden mt-2">
+<div class="bg-[#3498DB] h-full w-full"></div>
+</div>
+</div>
+<!-- KPI 4 -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm space-y-space-xs relative overflow-hidden">
+<div class="flex items-center justify-between">
+<span class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">Incidents / Absences</span>
+<span class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-mono-data font-semibold bg-[#F39C12]/15 text-[#F39C12]">1 Retard notifié</span>
+</div>
+<div class="flex items-baseline gap-space-xs pt-1">
+<span class="font-display-lg text-display-lg font-bold text-[#F39C12]">0</span>
+<span class="font-mono-metric text-headline-sm text-on-surface-variant">absent</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant truncate">Zone Analakely (justifié pluie torrentielle)</p>
+<div class="w-full bg-surface-container-high h-1 rounded-full overflow-hidden mt-2">
+<div class="bg-[#F39C12] h-full w-[15%]"></div>
+</div>
+</div>
+</div>
+<!-- Filters & Search Toolbar -->
+<div class="bg-surface-container-lowest p-space-md rounded-xl shadow-sm flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-space-md">
+<div class="relative flex-1 max-w-xl">
+<span class="material-symbols-outlined absolute left-3 top-2.5 text-outline text-[18px]">search</span>
+<input class="w-full bg-surface-container-low text-on-surface placeholder:text-outline font-body-md text-body-md rounded-lg py-2 pl-9 pr-4 focus:outline-none focus:ring-1 focus:ring-secondary" placeholder="Rechercher un agent par nom, matricule GRD-..., téléphone" type="text"/>
+</div>
+<div class="flex flex-wrap items-center gap-space-sm">
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant">Site :</span>
+<select aria-label="Filtrer par site" class="bg-surface-container-low text-on-surface font-label-lg text-label-lg rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-secondary">
+<option>Tous les sites</option>
+<option>Site 01 - Analakely</option>
+<option>Site 02 - Ankorondrano</option>
+<option>Site 03 - Ivato</option>
+</select>
+</div>
+<div class="flex items-center gap-space-xs">
+<span class="font-label-md text-label-md uppercase text-on-surface-variant">Statut :</span>
+<select aria-label="Filtrer par statut" class="bg-surface-container-low text-on-surface font-label-lg text-label-lg rounded-lg py-1.5 px-3 focus:outline-none focus:ring-1 focus:ring-secondary">
+<option>Tous</option>
+<option>En service</option>
+<option>De repos</option>
+<option>En congé</option>
+</select>
+</div>
+<button class="p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface transition-colors" title="Réinitialiser filtres" type="button">
+<span class="material-symbols-outlined text-[18px]">restart_alt</span>
+</button>
+</div>
+</div>
+<!-- Main 2-Column Content Layout -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-space-lg items-start">
+<!-- Left Column: Guard & Agent Registry Table -->
+<div class="lg:col-span-7 bg-surface-container-lowest rounded-xl shadow-sm overflow-hidden flex flex-col">
+<div class="p-space-md bg-surface-container-low flex items-center justify-between">
+<div class="flex items-center gap-space-sm">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">Effectifs Déployés</span>
+<span class="px-2 py-0.5 rounded-full bg-surface-container-high font-mono-data text-label-md text-on-surface font-semibold">5 affichés / 18</span>
+</div>
+<span class="font-mono-data text-body-sm text-on-surface-variant">Antananarivo Time: 10:42 AM</span>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant font-label-md text-label-md uppercase tracking-wider">
+<th class="py-space-sm px-space-md">Matricule &amp; Agent</th>
+<th class="py-space-sm px-space-sm">Fonction</th>
+<th class="py-space-sm px-space-sm">Site</th>
+<th class="py-space-sm px-space-sm">Shift</th>
+<th class="py-space-sm px-space-sm">Statut</th>
+<th class="py-space-sm px-space-md text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-surface-container-low">
+<!-- Row 1 (Selected) -->
+<tr class="bg-surface-container-high/40 hover:bg-surface-container-high/60 transition-colors cursor-pointer" onclick="selectAgent('GRD-2024-001')">
+<td class="py-space-sm px-space-md">
+<div class="flex items-center gap-space-sm">
+<img class="w-9 h-9 rounded-full object-cover shadow-sm ring-2 ring-[#3498DB]" data-alt="Portrait professionnel de face d'un gardien de sécurité malgache sérieux en uniforme haute visibilité bleu nuit avec insigne officiel dans un bureau de contrôle moderne éclairé de lumière diffuse neutre." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAl8zxHDrOUhSlzt4ew0rQQ51OWIw05ilA_K3CclAYPEPKl-4dMaxtkGXkw-ZocLswzcLozQjiV5YnPtJEeTBFvkVmsXsNDUL_13h4YdJ32O4PRB-LEUYBE0lQdNZHyUoJ4Go2HG9jzn_NCXieNoIdGICkbR0BY253qeydrwSGDNDDdxrvjv3UGBJr_xxSC3lbo-PLco0QzPMRRWG-vIz8l86dw7Zb3wMhmivtWBi7VNpj70lV8gyRe"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-bold truncate">Rasoanaivo Jean</span>
+<span class="font-mono-plate text-body-sm text-secondary">GRD-2024-001</span>
+</div>
+</div>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-body-md text-body-md text-on-surface font-medium block truncate">Chef de Poste Nord</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Assermenté</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-data font-semibold bg-surface-container-high text-on-surface">Analakely</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-mono-data text-body-sm text-on-surface font-medium block">06h-14h</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Matin</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-label-md font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#2ECC71] animate-pulse"></span>
+                    En poste
+                  </span>
+</td>
+<td class="py-space-sm px-space-md text-right">
+<button class="px-2.5 py-1 rounded bg-[#3498DB] text-surface-container-lowest font-label-md text-label-md font-semibold hover:brightness-95 transition-all" type="button">
+                    Actif
+                  </button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="selectAgent('GRD-2024-008')">
+<td class="py-space-sm px-space-md">
+<div class="flex items-center gap-space-sm">
+<img class="w-9 h-9 rounded-full object-cover shadow-sm" data-alt="Portrait en plan moyen d'un agent de sécurité malgache souriant portant une casquette d'uniforme et un badge de sécurité à la barrière du parking sous la lumière du jour d'Antananarivo." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBgvRPp6ChuhO0mSiBM2RRr5joeYseUJ54SsnsjmvMaW8ECmYCj6JPXbVxHdnWO-YD_neCHk2Z2lN8DGSdonHqeDxr5Foi80yxp3tIdHH0Bl16prncq7tbqbzjNCo_p8XV56bjL4Cd4bVAN7CblOwiahdLe29-dJDUPzT5W_2fP60-O4LjqqFWXExsWmnkia8hqPpax0-Xm5Neg2n_5kj0eUQDP_3Z8kfDFvfeHhfrzkZVcfK7SmsaD"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold truncate">Rakotoarisoa Haja</span>
+<span class="font-mono-plate text-body-sm text-on-surface-variant">GRD-2024-008</span>
+</div>
+</div>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-body-md text-body-md text-on-surface truncate block">Ronde &amp; Barrière</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Contrôle barrière B1</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-data font-semibold bg-surface-container-high text-on-surface">Analakely</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-mono-data text-body-sm text-on-surface block">06h-14h</span>
+<span class="font-label-md text-label-md text-[#F39C12] font-semibold">+14m retard</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-label-md font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#2ECC71] animate-pulse"></span>
+                    En poste
+                  </span>
+</td>
+<td class="py-space-sm px-space-md text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-low text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-all" type="button">
+                    Fiche
+                  </button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="selectAgent('GRD-2024-012')">
+<td class="py-space-sm px-space-md">
+<div class="flex items-center gap-space-sm">
+<img class="w-9 h-9 rounded-full object-cover shadow-sm" data-alt="Portrait en gros plan d'un veilleur de nuit malgache expérimenté en tenue de service sobre, fond sombre de poste de contrôle avec écrans de vidéosurveillance flous en arrière-plan." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_3GGb97LfN6TgPPt67pl5Jn_nAV-6oi25Tvt_FNJ1ZDZ2nahpEt--30ngBzJAe-jasY-oUQqnCd4enn5pC-vbCRE5RQN4QxUQ5V7Pe_dyTPK_thHNPw2TznOQ5MDDd14tmQXWKaPIzC27oc7lrnMaaaFbJE5kDkdAOMRQc0Clzw9Oaw96nUs_pT2EKRg_r4OArU59siedE8kVkXEyg7byg7Cub3KWBDrg_9qelpIIBeVcmsYCz7r6"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold truncate">Randrianasolo Patrick</span>
+<span class="font-mono-plate text-body-sm text-on-surface-variant">GRD-2024-012</span>
+</div>
+</div>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-body-md text-body-md text-on-surface truncate block">Gardien de Nuit</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Vidéosurveillance</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-data font-semibold bg-surface-container-high text-on-surface">Ankorondrano</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-mono-data text-body-sm text-on-surface-variant block">18h-06h</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Nuit</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full text-label-md font-mono-data font-semibold bg-surface-container-high text-on-surface-variant">
+                    De repos
+                  </span>
+</td>
+<td class="py-space-sm px-space-md text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-low text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-all" type="button">
+                    Fiche
+                  </button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="selectAgent('AGT-2024-003')">
+<td class="py-space-sm px-space-md">
+<div class="flex items-center gap-space-sm">
+<img class="w-9 h-9 rounded-full object-cover shadow-sm" data-alt="Portrait professionnel d'une jeune opératrice de caisse malgache professionnelle et attentive avec polo corporatif brodé dans un guichet d'accueil vitré moderne." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChsOLovesxqvmYYbx529YyMgrPKgOYHh-mPocr9MYDfETxI_JJf-F_BfHa86GEzaQbrpKXRHT2MaKp4Mboi18ASKLkL37g7Zsk7WowXKI1czvuMOBooaeHIcwGkcaBOEeMdY3XSEEeuShVoX8SySUOjPdtL6J6xNyXFt8uFRdFBp9NUuykoGSI9j1KC_Byzjmw6Xvhni51NRn336ljYi20OJWKhz98c-2dvkM9vk5x_aCP8GCz-cnP"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold truncate">Razafindrakoto Fara</span>
+<span class="font-mono-plate text-body-sm text-on-surface-variant">AGT-2024-003</span>
+</div>
+</div>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-body-md text-body-md text-on-surface truncate block">Opératrice Caisse</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Gestion Monétique</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-data font-semibold bg-surface-container-high text-on-surface">Analakely</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-mono-data text-body-sm text-on-surface block">07h-15h</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Guichet</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-label-md font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#2ECC71] animate-pulse"></span>
+                    En poste
+                  </span>
+</td>
+<td class="py-space-sm px-space-md text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-low text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-all" type="button">
+                    Fiche
+                  </button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-low transition-colors cursor-pointer" onclick="selectAgent('GRD-2024-019')">
+<td class="py-space-sm px-space-md">
+<div class="flex items-center gap-space-sm">
+<img class="w-9 h-9 rounded-full object-cover shadow-sm" data-alt="Portrait en extérieur d'un agent de sécurité patrouilleur malgache vigoureux en uniforme de sécurité avec gilet de visibilité sur l'esplanade du parking aéroportuaire d'Ivato." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD1mOKAuK-0Pn0jXA-XtbndNmHTv2mqAeDWo1RBr4RZ2F-D6JWsdN2cLWpKdCs6G4k-hyu86iy_6xWx7FXiGFpYP1EDOjUTbd3mdd83TEJZ9mzBUe4PUxMKHpJbBTomf0w3hBFfC0PYHJxE-TnKFhwTjZemg_5cj_ZZSst1n5G9lJHsbY4KqyuhPm6KV300ebTJfV93snG8_8GQmXhM4dDB92KvisBVdvzzjprQTwGnHXZWN2RAGwDK"/>
+<div class="flex flex-col min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold truncate">Andriamihaja Tojo</span>
+<span class="font-mono-plate text-body-sm text-on-surface-variant">GRD-2024-019</span>
+</div>
+</div>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-body-md text-body-md text-on-surface truncate block">Gardien Patrouille</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Zone Fret &amp; Voyageurs</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-mono-data font-semibold bg-surface-container-high text-on-surface">Ivato Hub</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="font-mono-data text-body-sm text-on-surface block">06h-14h</span>
+<span class="font-label-md text-label-md text-on-surface-variant">Matin</span>
+</td>
+<td class="py-space-sm px-space-sm">
+<span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-label-md font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">
+<span class="w-1.5 h-1.5 rounded-full bg-[#2ECC71] animate-pulse"></span>
+                    En poste
+                  </span>
+</td>
+<td class="py-space-sm px-space-md text-right">
+<button class="px-2.5 py-1 rounded bg-surface-container-low text-on-surface font-label-md text-label-md hover:bg-surface-container-high transition-all" type="button">
+                    Fiche
+                  </button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Quick Summary Footer in Left Card -->
+<div class="p-space-sm px-space-md bg-surface-container-low border-t border-surface-container-high flex flex-wrap items-center justify-between text-body-sm text-on-surface-variant">
+<div class="flex items-center gap-space-md">
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#2ECC71]"></span> 9 En poste</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-surface-tint"></span> 7 Repos</span>
+<span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-[#3498DB]"></span> 2 Congés</span>
+</div>
+<div class="font-mono-data text-label-md">Taux de présence du jour : 100%</div>
+</div>
+</div>
+<!-- Right Column: Selected Employee Detailed Record -->
+<div class="lg:col-span-5 space-y-space-md">
+<!-- Main Profile Details Card -->
+<div class="bg-surface-container-lowest rounded-xl shadow-sm p-space-lg space-y-space-md">
+<div class="flex items-start justify-between">
+<div class="flex items-center gap-space-md">
+<div class="relative">
+<img class="w-16 h-16 rounded-xl object-cover shadow-md ring-2 ring-[#2ECC71]" data-alt="Portrait officiel haute résolution du chef de poste malgache Rasoanaivo Jean portant l'uniforme de sécurité corporatif bleu et argent, insigne métallique sur la poitrine, regard professionnel et déterminé." src="https://lh3.googleusercontent.com/aida-public/AB6AXuChN4aEUjrtBdmA_200TCa8k-SW252sQKIWLJFOcrkqqvhx4h9tib1AxZynNHiI1l5JimzdLU6CKKHXczyUkCnmYjH5lIJGGC3ObwPX1HVlT20hQh8BstK0xmGf9AVrKR1Fx0JbEVOvZf6KsnttP3eGXPQL5lblLfekYSz4sjnq3Xve_rW3YexfVWctZhjoMNAhxSSS3pnQxxvc_Qv29SvLTfaYFg9s137PGta5PPtUF-47e07W-JlP"/>
+<span class="absolute -bottom-1 -right-1 w-4 h-4 bg-[#2ECC71] border-2 border-surface-container-lowest rounded-full" title="En service actif"></span>
+</div>
+<div class="space-y-0.5">
+<div class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-data font-bold bg-[#2ECC71]/15 text-[#2ECC71] uppercase tracking-wider">
+                  EN SERVICE - CHEF DE POSTE
+                </div>
+<h2 class="font-headline-md text-headline-md text-on-surface font-bold">Rasoanaivo Jean</h2>
+<div class="font-mono-plate text-body-sm text-secondary">MATRICULE : GRD-2024-001</div>
+</div>
+</div>
+<div class="text-right">
+<span class="inline-flex items-center px-2 py-1 rounded bg-surface-container-high font-mono-data text-label-md text-on-surface font-semibold">
+                Poste Central Analakely
+              </span>
+</div>
+</div>
+<!-- Metadata Grid -->
+<div class="grid grid-cols-2 gap-space-sm p-space-md bg-surface-container-low rounded-lg text-body-sm">
+<div>
+<span class="font-label-md text-label-md uppercase text-on-surface-variant block">Téléphone Flotte :</span>
+<span class="font-mono-data text-body-md text-on-surface font-semibold">+261 34 88 901 23</span>
+<span class="font-label-md text-label-md text-secondary block">Ligne Flotte Telma</span>
+</div>
+<div>
+<span class="font-label-md text-label-md uppercase text-on-surface-variant block">CIN &amp; Résidence :</span>
+<span class="font-mono-data text-body-md text-on-surface font-semibold">101 241 089 312</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant truncate block">Lot IVG 12 Antohomadinika</span>
+</div>
+<div>
+<span class="font-label-md text-label-md uppercase text-on-surface-variant block">Ancienneté &amp; Recrutement :</span>
+<span class="font-mono-data text-body-md text-on-surface font-semibold">15 Mars 2021</span>
+<span class="font-body-sm text-body-sm text-[#2ECC71] font-medium block">3 ans d'ancienneté</span>
+</div>
+<div>
+<span class="font-label-md text-label-md uppercase text-on-surface-variant block">Habilitation &amp; Statut :</span>
+<span class="font-body-md text-body-md text-on-surface font-semibold block">Garde Assermenté</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Badge RFID #RF-9941</span>
+</div>
+</div>
+<!-- Matériels Confiés & Signés -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-secondary">inventory_2</span>
+                Matériels Confiés &amp; Signés
+              </span>
+<span class="font-mono-data text-label-md text-secondary font-semibold">4 dotations actives</span>
+</div>
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-space-xs pt-1">
+<div class="p-2.5 rounded bg-surface-container-low flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">radio</span>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold block truncate">Talkie-Walkie Baofeng Pro</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Inv: MAT-RAD-04</span>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-low flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">settings_remote</span>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold block truncate">Télécommande Barrière B1</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Inv: MAT-BAR-02</span>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-low flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">key</span>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold block truncate">Clés Armoire Caisse Secours</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Inv: MAT-CLE-11</span>
+</div>
+</div>
+<div class="p-2.5 rounded bg-surface-container-low flex items-start gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-on-surface-variant">arrow_left</span>
+<div class="min-w-0">
+<span class="font-label-lg text-label-lg text-on-surface font-semibold block truncate">Uniforme Haute Visibilité</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Dotation 2024 / Badge brodé</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Weekly Schedule Rotation (Planning Hebdomadaire) -->
+<div class="space-y-space-xs">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-secondary">calendar_month</span>
+                Planning de la Semaine (S20)
+              </span>
+<span class="font-mono-data text-label-md text-on-surface-variant">Cycle 3x8 Rotatif</span>
+</div>
+<div class="grid grid-cols-7 gap-1 pt-1 text-center font-mono-data">
+<div class="p-1.5 rounded bg-surface-container-low">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Lun</span>
+<span class="font-mono-data text-label-md font-bold text-on-surface">06-14</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-low">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Mar</span>
+<span class="font-mono-data text-label-md font-bold text-on-surface">06-14</span>
+</div>
+<div class="p-1.5 rounded bg-[#3498DB]/15 ring-1 ring-[#3498DB]">
+<span class="font-label-md text-[10px] text-[#3498DB] font-bold block uppercase">Mer</span>
+<span class="font-mono-data text-label-md font-bold text-[#3498DB]">06-14</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-low">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Jeu</span>
+<span class="font-mono-data text-label-md font-bold text-on-surface">06-14</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-low">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Ven</span>
+<span class="font-mono-data text-label-md font-bold text-on-surface">06-14</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-high/60">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Sam</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">REPOS</span>
+</div>
+<div class="p-1.5 rounded bg-surface-container-high/60">
+<span class="font-label-md text-[10px] text-on-surface-variant block uppercase">Dim</span>
+<span class="font-mono-data text-label-md text-on-surface-variant">REPOS</span>
+</div>
+</div>
+</div>
+<!-- Journal de Garde & Pointages en Direct -->
+<div class="space-y-space-xs pt-2">
+<div class="flex items-center justify-between">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold flex items-center gap-space-xs">
+<span class="material-symbols-outlined text-[18px] text-[#2ECC71]">history_edu</span>
+                Journal de Garde &amp; Pointages (Aujourd'hui)
+              </span>
+<span class="font-mono-data text-label-md text-[#2ECC71] font-semibold">Poste Central #01</span>
+</div>
+<div class="space-y-space-xs border-l-2 border-surface-container-high pl-space-md ml-2 pt-1">
+<!-- Event 1 -->
+<div class="relative group">
+<span class="absolute -left-[21px] top-1 w-2.5 h-2.5 rounded-full bg-[#2ECC71] ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-data text-body-sm font-bold text-on-surface">05h55</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-mono-data font-semibold bg-[#2ECC71]/15 text-[#2ECC71]">Prise de service validée</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Scan du badge RFID au Poste Central Analakely. Armement du poste et synchronisation barrière B1.</p>
+</div>
+<!-- Event 2 -->
+<div class="relative group pt-1">
+<span class="absolute -left-[21px] top-2 w-2.5 h-2.5 rounded-full bg-[#3498DB] ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-data text-body-sm font-bold text-on-surface">08h30</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-mono-data font-semibold bg-[#3498DB]/15 text-[#3498DB]">Tournée d'inspection</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Ronde Zone C (Deux-roues &amp; Voie de dégagement) - Rien à signaler. Extincteurs et issues dégagées.</p>
+</div>
+<!-- Event 3 -->
+<div class="relative group pt-1">
+<span class="absolute -left-[21px] top-2 w-2.5 h-2.5 rounded-full bg-[#F39C12] ring-4 ring-surface-container-lowest"></span>
+<div class="flex items-center gap-space-xs">
+<span class="font-mono-data text-body-sm font-bold text-on-surface">10h14</span>
+<span class="px-1.5 py-0.2 rounded text-[10px] font-mono-data font-semibold bg-[#F39C12]/15 text-[#F39C12]">Incident régularisé</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Signalement véhicule stationné sans ticket en zone extérieure B-03, régularisé avec encaissement #88142.</p>
+</div>
+</div>
+</div>
+<!-- Action Buttons for the Guard -->
+<div class="pt-space-sm flex flex-wrap items-center gap-space-xs">
+<button class="flex-1 inline-flex items-center justify-center gap-1.5 px-space-md py-2 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg font-semibold hover:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">edit</span>
+              Modifier Fiche RH
+            </button>
+<button class="flex-1 inline-flex items-center justify-center gap-1.5 px-space-md py-2 rounded-lg bg-surface-container-low text-on-surface font-label-lg text-label-lg font-semibold hover:bg-surface-container-high transition-colors" type="button">
+<span class="material-symbols-outlined text-[18px]">assignment_turned_in</span>
+              Attribuer Matériel
+            </button>
+<button class="inline-flex items-center justify-center p-2 rounded-lg bg-surface-container-low text-on-surface-variant hover:text-on-surface transition-colors" title="Historique Absences &amp; Congés" type="button">
+<span class="material-symbols-outlined text-[20px]">event_busy</span>
+</button>
+</div>
+</div>
+<!-- Secondary Operational Note Card -->
+<div class="p-space-md rounded-xl bg-surface-container-lowest shadow-sm flex items-start gap-space-md">
+<span class="p-2 rounded-lg bg-surface-container-low text-secondary flex-shrink-0">
+<span class="material-symbols-outlined text-[22px]">verified_user</span>
+</span>
+<div class="space-y-1">
+<span class="font-headline-sm text-headline-sm text-on-surface font-bold">Consigne Générale de Poste</span>
+<p class="font-body-sm text-body-sm text-on-surface-variant">
+              Les gardiens chefs de poste doivent obligatoirement contresigner la feuille de caisse manuelle lors de la relève de 14h00 et vérifier l'intégrité du scellé de secours barrière.
+            </p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<script>
+    function selectAgent(matricule) {
+      // Micro-interaction for demo row selection
+      const rows = document.querySelectorAll('tbody tr');
+      rows.forEach(r => r.classList.remove('bg-surface-container-high/40'));
+      event.currentTarget.classList.add('bg-surface-container-high/40');
+    }
+  </script>
+</div></main></div></body></html>

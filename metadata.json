@@ -1,0 +1,6 @@
+{
+  "name": "Parking Manager Madagascar",
+  "description": "Application web complète de gestion de parking multi-sites à Madagascar (Analakely, Ankorondrano, Ivato) : membres, véhicules, emplacements, abonnements, caisses, gardiens, matériel et gouvernance.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
