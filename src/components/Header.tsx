@@ -364,11 +364,17 @@ export const Header: React.FC<HeaderProps> = ({
               aria-expanded={showRoleMenu}
               className="flex items-center gap-2 pl-1 py-1 rounded-lg hover:bg-[#F1F5F9] transition-colors"
             >
-              <img
-                src={currentUser.avatarUrl}
-                alt=""
-                className="w-8 h-8 rounded-full object-cover ring-2 ring-[#06B6D4] shrink-0"
-              />
+              {currentUser.avatarUrl ? (
+                <img
+                  src={currentUser.avatarUrl}
+                  alt=""
+                  className="w-8 h-8 rounded-full object-cover ring-2 ring-[#06B6D4] shrink-0"
+                />
+              ) : (
+                <span className="w-8 h-8 rounded-full bg-[#0F172A] text-white ring-2 ring-[#06B6D4] flex items-center justify-center text-[11px] font-bold shrink-0" aria-hidden="true">
+                  {currentUser.fullName.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join('')}
+                </span>
+              )}
               <div className="hidden xl:flex flex-col text-left max-w-[150px]">
                 <span className="text-xs text-[#0F172A] font-semibold leading-tight truncate">{currentUser.fullName}</span>
                 <span className="font-mono-data text-[10px] text-[#06B6D4] font-medium leading-tight truncate">

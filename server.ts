@@ -60,8 +60,14 @@ import {
   setUserEmail,
   setUserPassword,
   touchLastLogin,
-  verifyPassword
+  verifyPassword,
+  AccountError,
+  listUsers,
+  createAccount,
+  updateAccount,
+  deleteAccount
 } from './src/db/auth.ts';
+import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 
 /** User of the request being handled (for the audit log). */
 const requestContext = new AsyncLocalStorage<{ id: string; name: string; ip: string }>();
@@ -191,7 +197,7 @@ async function startServer() {
   app.put('/api/v1/settings/branding', async (req, res) => {
     try {
       const user = res.locals.user;
-      if (!['super_admin', 'president_general'].includes(user?.role)) {
+      if (!ADMIN_ROLES.includes(user?.role)) {
         return res.status(403).json({ error: 'Seul un administrateur peut modifier le nom et le logo.' });
       }
       const name = typeof req.body?.appName === 'string' ? req.body.appName.trim().replace(/\s+/g, ' ') : '';
@@ -213,6 +219,83 @@ async function startServer() {
     } catch (error) {
       console.error('Branding write error:', error);
       return res.status(500).json({ error: 'Enregistrement impossible.' });
+    }
+  });
+
+  // ===================== GESTION DES UTILISATEURS (administrateurs) =====================
+  const requireAdmin = (req: express.Request, res: express.Response): boolean => {
+    if (!ADMIN_ROLES.includes(res.locals.user?.role)) {
+      res.status(403).json({ error: 'Réservé aux administrateurs (Super Admin, Président Général).' });
+      return false;
+    }
+    return true;
+  };
+  const accountCtx = async () => {
+    const state = await getFullState();
+    return { validRoles: USER_ROLES, siteIds: state.sites.map((s) => s.id), adminRoles: ADMIN_ROLES as string[] };
+  };
+  const sendAccountError = (res: express.Response, error: unknown, fallback: string) => {
+    if (error instanceof AccountError) return res.status(error.status).json({ error: error.message });
+    console.error(fallback, error);
+    return res.status(500).json({ error: fallback });
+  };
+  const roleLabel = (role: string) => USER_ROLES.find((r) => r.role === role)?.label || role;
+
+  app.get('/api/v1/users', async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      return res.json(await listUsers());
+    } catch (error) {
+      return sendAccountError(res, error, 'Impossible de charger les utilisateurs.');
+    }
+  });
+
+  app.post('/api/v1/users', async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const user = await createAccount(req.body || {}, await accountCtx());
+      await recordAudit('CREATION_UTILISATEUR', 'Utilisateurs', `Compte créé : ${user.fullName} (${user.email}) — ${roleLabel(user.role)}`);
+      return res.status(201).json(user);
+    } catch (error) {
+      return sendAccountError(res, error, 'Impossible de créer le compte.');
+    }
+  });
+
+  app.put('/api/v1/users/:id', async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const { password: _ignored, ...fields } = req.body || {};
+      const user = await updateAccount(req.params.id, fields, { ...(await accountCtx()), actorId: res.locals.user.id });
+      await recordAudit('MODIFICATION_UTILISATEUR', 'Utilisateurs', `Compte modifié : ${user.fullName} (${user.email}) — ${roleLabel(user.role)}${user.isActive ? '' : ', désactivé'}`);
+      return res.json(user);
+    } catch (error) {
+      return sendAccountError(res, error, 'Impossible de modifier le compte.');
+    }
+  });
+
+  app.post('/api/v1/users/:id/password', async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const found = await findUserById(req.params.id);
+      if (!found) return res.status(404).json({ error: 'Compte introuvable.' });
+      const problem = passwordProblem(String(req.body?.password || ''));
+      if (problem) return res.status(400).json({ error: problem });
+      await setUserPassword(found.user.id, String(req.body.password));
+      await recordAudit('REINITIALISATION_MOT_DE_PASSE', 'Utilisateurs', `Nouveau mot de passe défini pour ${found.user.fullName} (${found.user.email})`);
+      return res.json({ ok: true });
+    } catch (error) {
+      return sendAccountError(res, error, 'Impossible de changer le mot de passe.');
+    }
+  });
+
+  app.delete('/api/v1/users/:id', async (req, res) => {
+    if (!requireAdmin(req, res)) return;
+    try {
+      const user = await deleteAccount(req.params.id, { adminRoles: ADMIN_ROLES as string[], actorId: res.locals.user.id });
+      await recordAudit('SUPPRESSION_UTILISATEUR', 'Utilisateurs', `Compte supprimé : ${user.fullName} (${user.email})`);
+      return res.json({ ok: true });
+    } catch (error) {
+      return sendAccountError(res, error, 'Impossible de supprimer le compte.');
     }
   });
 

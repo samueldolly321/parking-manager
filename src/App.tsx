@@ -48,6 +48,7 @@ import { AuditLogsView } from './components/AuditLogsView';
 import { ReportsView } from './components/ReportsView';
 import { SitesView } from './components/SitesView';
 import { InfoView } from './components/InfoView';
+import { UsersView } from './components/UsersView';
 import { computeAlerts } from './services/dashboardMetrics';
 
 import { NewPaymentModal } from './components/NewPaymentModal';
@@ -540,8 +541,17 @@ export default function App() {
         );
 
       case 'comite-de-gestion':
-      case 'utilisateurs-et-roles':
         return <GovernanceView state={state} />;
+
+      case 'utilisateurs-et-roles':
+        return (
+          <UsersView
+            key={viewKey}
+            currentUser={state.currentUser}
+            sites={state.sites}
+            onSelfUpdated={(u) => { setCurrentUser({ ...state.currentUser, ...u }); setState(loadState()); }}
+          />
+        );
 
       case 'materiels-et-equipements':
         return (

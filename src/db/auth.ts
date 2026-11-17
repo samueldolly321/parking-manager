@@ -197,3 +197,143 @@ export async function ensureAdminCredentials(): Promise<void> {
   }).where(eq(schema.users.id, admin.id));
   console.log(`[auth] Mot de passe initial appliqué au compte ${process.env.ADMIN_EMAIL || admin.email}.`);
 }
+
+// ---------------- Gestion des comptes (PostgreSQL) ----------------
+
+export class AccountError extends Error {
+  constructor(message: string, public status = 400) { super(message); }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function requireDb() {
+  const db = getDb();
+  if (!db) throw new AccountError('La gestion des comptes nécessite une base PostgreSQL (DATABASE_URL).', 501);
+  return db;
+}
+
+export async function listUsers(): Promise<User[]> {
+  const db = requireDb();
+  const rows = await db.select().from(schema.users);
+  return rows.map(toUser).sort((a, b) => a.fullName.localeCompare(b.fullName));
+}
+
+async function countActiveAdmins(adminRoles: string[], exceptId?: string): Promise<number> {
+  const db = requireDb();
+  const rows = await db.select().from(schema.users);
+  return rows.filter((r) => r.isActive && adminRoles.includes(r.role) && r.id !== exceptId).length;
+}
+
+/** username from the email (unique): "jean.rabe@x.mg" -> "jean.rabe", "jean.rabe2"… */
+async function uniqueUsername(email: string): Promise<string> {
+  const db = requireDb();
+  const base = email.split('@')[0].toLowerCase().replace(/[^a-z0-9._-]/g, '').slice(0, 40) || 'utilisateur';
+  const taken = new Set((await db.select({ u: schema.users.username }).from(schema.users)).map((r) => r.u));
+  let name = base;
+  for (let i = 2; taken.has(name); i++) name = `${base}${i}`;
+  return name;
+}
+
+export interface AccountInput {
+  fullName?: string;
+  email?: string;
+  role?: string;
+  siteId?: string | null;
+  phone?: string;
+  isActive?: boolean;
+  password?: string;
+}
+
+function cleanAccount(input: AccountInput, validRoles: { role: string; needsSite: boolean }[], siteIds: string[]) {
+  const out: Partial<{ fullName: string; email: string; role: string; siteId: string | null; phone: string; isActive: boolean }> = {};
+  if (input.fullName !== undefined) {
+    const v = String(input.fullName).trim().replace(/\s+/g, ' ');
+    if (v.length < 2 || v.length > 150) throw new AccountError('Le nom doit contenir entre 2 et 150 caractères.');
+    out.fullName = v;
+  }
+  if (input.email !== undefined) {
+    const v = String(input.email).trim().toLowerCase();
+    if (!EMAIL_RE.test(v) || v.length > 150) throw new AccountError('Adresse email invalide.');
+    out.email = v;
+  }
+  if (input.role !== undefined) {
+    if (!validRoles.some((r) => r.role === input.role)) throw new AccountError('Rôle inconnu.');
+    out.role = String(input.role);
+  }
+  if (input.siteId !== undefined) {
+    if (input.siteId && !siteIds.includes(input.siteId)) throw new AccountError('Site inconnu.');
+    out.siteId = input.siteId || null;
+  }
+  if (input.phone !== undefined) out.phone = String(input.phone).trim().slice(0, 30);
+  if (input.isActive !== undefined) out.isActive = input.isActive === true;
+  return out;
+}
+
+export async function createAccount(
+  input: AccountInput,
+  ctx: { validRoles: { role: string; needsSite: boolean }[]; siteIds: string[] }
+): Promise<User> {
+  const db = requireDb();
+  if (!input.fullName || !input.email || !input.role) throw new AccountError('Nom, email et rôle sont obligatoires.');
+  const data = cleanAccount(input, ctx.validRoles, ctx.siteIds);
+  const roleDef = ctx.validRoles.find((r) => r.role === data.role)!;
+  if (roleDef.needsSite && !data.siteId) throw new AccountError('Ce rôle est rattaché à un site : choisissez le site.');
+  const problem = passwordProblem(String(input.password || ''));
+  if (problem) throw new AccountError(problem);
+  if (await findUserByEmail(data.email!)) throw new AccountError('Cette adresse email est déjà utilisée.');
+  const id = `usr-${Date.now().toString(36)}-${crypto.randomBytes(3).toString('hex')}`;
+  await db.insert(schema.users).values({
+    id,
+    username: await uniqueUsername(data.email!),
+    fullName: data.fullName!,
+    email: data.email!,
+    passwordHash: hashPassword(String(input.password)),
+    role: data.role!,
+    siteId: roleDef.needsSite ? data.siteId! : (data.siteId ?? null),
+    phone: data.phone || '',
+    isActive: data.isActive ?? true
+  });
+  return (await findUserById(id))!.user;
+}
+
+export async function updateAccount(
+  id: string,
+  input: AccountInput,
+  ctx: { validRoles: { role: string; needsSite: boolean }[]; siteIds: string[]; adminRoles: string[]; actorId: string }
+): Promise<User> {
+  const db = requireDb();
+  const current = await findUserById(id);
+  if (!current) throw new AccountError('Compte introuvable.', 404);
+  const data = cleanAccount(input, ctx.validRoles, ctx.siteIds);
+  if (data.email && data.email !== current.user.email.toLowerCase()) {
+    const other = await findUserByEmail(data.email);
+    if (other && other.user.id !== id) throw new AccountError('Cette adresse email est déjà utilisée.');
+  }
+  const role = data.role ?? current.user.role;
+  const roleDef = ctx.validRoles.find((r) => r.role === role);
+  const siteId = data.siteId !== undefined ? data.siteId : current.user.siteId ?? null;
+  if (roleDef?.needsSite && !siteId) throw new AccountError('Ce rôle est rattaché à un site : choisissez le site.');
+
+  const losesAdmin = ctx.adminRoles.includes(current.user.role) && current.user.isActive &&
+    (!ctx.adminRoles.includes(role) || data.isActive === false);
+  if (id === ctx.actorId && (data.isActive === false || losesAdmin)) {
+    throw new AccountError('Vous ne pouvez pas désactiver votre propre compte ni retirer vos droits d’administrateur.');
+  }
+  if (losesAdmin && (await countActiveAdmins(ctx.adminRoles, id)) === 0) {
+    throw new AccountError('Il doit rester au moins un administrateur actif.');
+  }
+  await db.update(schema.users).set({ ...data, siteId }).where(eq(schema.users.id, id));
+  return (await findUserById(id))!.user;
+}
+
+export async function deleteAccount(id: string, ctx: { adminRoles: string[]; actorId: string }): Promise<User> {
+  const db = requireDb();
+  const current = await findUserById(id);
+  if (!current) throw new AccountError('Compte introuvable.', 404);
+  if (id === ctx.actorId) throw new AccountError('Vous ne pouvez pas supprimer votre propre compte.');
+  if (ctx.adminRoles.includes(current.user.role) && current.user.isActive && (await countActiveAdmins(ctx.adminRoles, id)) === 0) {
+    throw new AccountError('Il doit rester au moins un administrateur actif.');
+  }
+  await db.delete(schema.users).where(eq(schema.users.id, id));
+  return current.user;
+}

@@ -13,6 +13,26 @@ export type UserRole =
   | 'auditeur'
   | 'proprietaire_membre';
 
+/** Label and scope of each role (shared by the server and the interface). */
+export const USER_ROLES: { role: UserRole; label: string; needsSite: boolean }[] = [
+  { role: 'super_admin', label: 'Super Admin', needsSite: false },
+  { role: 'president_general', label: 'Président Général', needsSite: false },
+  { role: 'tresorier_general', label: 'Trésorier Général', needsSite: false },
+  { role: 'secretaire', label: 'Secrétaire Général', needsSite: false },
+  { role: 'membre_comite', label: 'Membre du comité', needsSite: false },
+  { role: 'auditeur', label: 'Auditeur', needsSite: false },
+  { role: 'gestionnaire_materiel', label: 'Gestionnaire matériel', needsSite: false },
+  { role: 'president_site', label: 'Président de site', needsSite: true },
+  { role: 'tresorier_site', label: 'Trésorier de site', needsSite: true },
+  { role: 'chef_poste_gardien', label: 'Chef de poste gardien', needsSite: true },
+  { role: 'gardien', label: 'Gardien', needsSite: true },
+  { role: 'agent_caisse', label: 'Agent de caisse', needsSite: true },
+  { role: 'proprietaire_membre', label: 'Propriétaire / membre', needsSite: true }
+];
+
+/** Roles allowed to manage accounts and application settings. */
+export const ADMIN_ROLES: UserRole[] = ['super_admin', 'president_general'];
+
 export interface User {
   id: string;
   username: string;

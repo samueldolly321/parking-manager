@@ -86,6 +86,13 @@ function buildInitialState(): AppState {
   };
 }
 
+/** "18/11/2026 00:32:13" (fr-FR, Antananarivo) -> sortable number; 0 if unreadable. Newest entries first. */
+function auditTime(ts: string): number {
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:[ ,]+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/.exec(ts || '');
+  if (!m) return 0;
+  return Date.UTC(+m[3], +m[2] - 1, +m[1], +(m[4] || 0), +(m[5] || 0), +(m[6] || 0));
+}
+
 let memoryStore: AppState | null = null;
 
 function loadLocalStore(): AppState {
@@ -447,7 +454,7 @@ export async function getFullState(): Promise<AppState> {
       module: a.module,
       details: a.details,
       ipAddress: a.ipAddress
-    })),
+    })).sort((x, y) => auditTime(y.timestamp) - auditTime(x.timestamp)),
     payrolls: payrollRows.map((p): PayrollRecord => ({
       id: p.id,
       slipNumber: p.slipNumber,
