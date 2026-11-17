@@ -40,6 +40,7 @@ import {
 } from './src/db/repository.ts';
 import type { GuardPersonnel } from './src/types/index.ts';
 import { AsyncLocalStorage } from 'async_hooks';
+import { seedDatabaseIfEmpty } from './src/db/seed.ts';
 import {
   SESSION_COOKIE,
   clearFailures,
@@ -82,13 +83,16 @@ async function startServer() {
 
   // Add columns introduced after the database was created (idempotent, keeps existing data)
   await ensureSchemaUpgrades();
-  // First start: give the admin account the password set in .env (ADMIN_INITIAL_PASSWORD)
+  // Demo data on an empty database, then the admin password from .env (ADMIN_INITIAL_PASSWORD)
+  await seedDatabaseIfEmpty();
   await ensureAdminCredentials();
 
   app.disable('x-powered-by');
+  // Behind Render's proxy: real client IP and HTTPS detection
+  if (isProd) app.set('trust proxy', 1);
   app.use(express.json({ limit: '2mb' }));
 
-  const clientIp = (req: express.Request) => (req.socket.remoteAddress || '').replace(/^::ffff:/, '') || 'inconnue';
+  const clientIp = (req: express.Request) => (req.ip || req.socket.remoteAddress || '').replace(/^::ffff:/, '') || 'inconnue';
 
   /** Writes to the audit log, signed with the user of the current request. */
   const recordAudit = async (action: string, module: string, details: string, siteCode = 'GLOBAL', who?: { id: string; name: string; ip: string }) => {

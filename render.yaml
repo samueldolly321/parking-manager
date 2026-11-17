@@ -1,0 +1,37 @@
+# Render Blueprint — Parking Manager Madagascar
+# Dashboard Render > New > Blueprint > choisir ce dépôt GitHub.
+# Crée : 1 service web Node + 1 base PostgreSQL, reliés automatiquement.
+
+databases:
+  - name: parking-manager-db
+    databaseName: parking_mada
+    user: parking_mada
+    plan: free
+    region: frankfurt
+
+services:
+  - type: web
+    name: parking-manager
+    runtime: node
+    plan: free
+    region: frankfurt
+    # --include=dev : tsx, vite et TypeScript sont nécessaires pour compiler et démarrer
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/v1/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: parking-manager-db
+          property: connectionString
+      # Clé de signature des sessions, générée par Render
+      - key: SESSION_SECRET
+        generateValue: true
+      # Demandés à la création du Blueprint (non stockés dans le dépôt)
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_INITIAL_PASSWORD
+        sync: false

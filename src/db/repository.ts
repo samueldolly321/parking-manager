@@ -1145,6 +1145,24 @@ export async function resetOperationalData(): Promise<ResetSummary> {
 export async function ensureSchemaUpgrades(): Promise<void> {
   const pool = getPool();
   if (!pool) return;
+  // Brand-new database (e.g. first deploy on Render): create the tables from database/migrations
+  const { rows } = await pool.query("SELECT to_regclass('public.sites') AS t");
+  if (!rows[0]?.t) {
+    // Full schema generated from src/db/schema.ts (always in sync with the code)
+    const file = path.resolve(process.cwd(), 'database', 'schema.sql');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(fs.readFileSync(file, 'utf-8'));
+      await client.query('COMMIT');
+      console.log('[db] Base vide : tables créées depuis database/schema.sql.');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS invoice_photo_url TEXT');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS quantity DOUBLE PRECISION');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS unit VARCHAR(30)');

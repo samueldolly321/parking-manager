@@ -115,3 +115,25 @@ Le sélecteur de rôle dans l'en-tête permet de basculer instantanément entre 
 - **Trésorier de Site :** Rakotomalala Sitraka
 - **Chef de Poste Gardien :** Rasoanaivo Jean
 - **Opératrice Caisse :** Razafindrakoto Fara
+
+---
+
+## Déploiement sur Render
+
+Le fichier `render.yaml` (Render Blueprint) crée automatiquement le service web et la base PostgreSQL.
+
+1. Sur https://dashboard.render.com : **New > Blueprint**, puis choisir ce dépôt GitHub.
+2. Renseigner les deux valeurs demandées :
+   - `ADMIN_EMAIL` : l'email de connexion de l'administrateur ;
+   - `ADMIN_INITIAL_PASSWORD` : son mot de passe initial (8 caractères min., lettres et chiffres).
+3. Valider (**Apply**). Render installe, compile (`npm run build`) puis démarre (`npm start`).
+
+Au premier démarrage, sur la base vide, le serveur crée les tables à partir de `database/schema.sql`,
+insère les données de démonstration et applique le mot de passe administrateur.
+Ensuite, chaque `git push` sur `main` redéploie automatiquement l'application.
+
+Variables d'environnement utilisées en production : `NODE_ENV=production`, `DATABASE_URL` (fournie par Render),
+`SESSION_SECRET` (générée par Render), `ADMIN_EMAIL`, `ADMIN_INITIAL_PASSWORD`.
+
+> Si `src/db/schema.ts` change, régénérer `database/schema.sql` :
+> `npx drizzle-kit generate --dialect postgresql --schema ./src/db/schema.ts --out ./tmp-schema` puis copier le fichier SQL produit.
