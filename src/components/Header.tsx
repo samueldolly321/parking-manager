@@ -18,6 +18,9 @@ interface HeaderProps {
   onOpenSearchResult: (target: SearchTarget) => void;
   /** Opens the side menu (small screens) */
   onOpenMenu: () => void;
+  /** Opens the "Mon compte" window (email / password) */
+  onOpenAccount: () => void;
+  onLogout: () => void;
   /** Alerts computed from the data (subscriptions, incidents, pending expenses). */
   alerts: DashboardAlert[];
   onNavigate: (path: string) => void;
@@ -177,6 +180,8 @@ export const Header: React.FC<HeaderProps> = ({
   searchState,
   onOpenSearchResult,
   onOpenMenu,
+  onOpenAccount,
+  onLogout,
   alerts,
   onNavigate
 }) => {
@@ -397,6 +402,24 @@ export const Header: React.FC<HeaderProps> = ({
                       <span className="text-[10px] text-slate-400 font-normal">{item.desc}</span>
                     </button>
                   ))}
+                </div>
+                <div className="pt-1 mt-1 border-t border-[#E2E8F0] space-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => { setShowRoleMenu(false); onOpenAccount(); }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-slate-100 text-slate-700 flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">manage_accounts</span>
+                    Mon compte (email, mot de passe)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setShowRoleMenu(false); onLogout(); }}
+                    className="w-full text-left px-3 py-2 rounded-lg text-xs hover:bg-red-50 text-[#DC2626] font-semibold flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-[18px]">logout</span>
+                    Se déconnecter
+                  </button>
                 </div>
               </div>
             )}

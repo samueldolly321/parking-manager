@@ -2044,6 +2044,12 @@ export function loadState(): AppState {
   return structuredClone(defaultState);
 }
 
+/** On sign-out: forget every piece of data kept in this browser. */
+export function clearLocalCache() {
+  memoryState = null;
+  try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+}
+
 /** Copy of the state without embedded pictures (data URLs), small enough for a full localStorage. */
 function withoutEmbeddedImages(state: AppState): AppState {
   return JSON.parse(

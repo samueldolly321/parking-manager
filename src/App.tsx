@@ -13,18 +13,22 @@ import {
   Vehicle, 
   ParkingSpot, 
   SpotStatus, 
-  ExpenseRecord 
+  ExpenseRecord,
+  User
 } from './types';
-import { 
-  loadState, 
-  saveState, 
-  subscribeToState, 
-  setSelectedSite, 
-  setCurrentUser, 
+import {
+  loadState,
+  saveState,
+  subscribeToState,
+  setSelectedSite,
+  setCurrentUser,
   addAuditLog,
   hydrateFromBackend,
-  syncApi
+  syncApi,
+  clearLocalCache
 } from './services/storage';
+import { LoginView } from './components/LoginView';
+import { AccountModal } from './components/AccountModal';
 
 import { Sidebar, NavPath } from './components/Sidebar';
 import { Header } from './components/Header';
@@ -70,13 +74,54 @@ export default function App() {
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
 
-  // Subscribe to storage updates & hydrate from backend API
+  // Authentication: nothing is shown before the server has confirmed the session
+  const [authStatus, setAuthStatus] = useState<'checking' | 'out' | 'in'>('checking');
+  const [authNotice, setAuthNotice] = useState<string | null>(null);
+  const [accountOpen, setAccountOpen] = useState(false);
+
+  /** Called once the user is known: loads the data from the server. */
+  const enterApp = async (user: User) => {
+    setCurrentUser(user);
+    await hydrateFromBackend();
+    setState(loadState());
+    setAuthNotice(null);
+    setAuthStatus('in');
+  };
+
+  const handleLogout = async () => {
+    try { await fetch('/api/v1/auth/logout', { method: 'POST' }); } catch { /* ignore */ }
+    clearLocalCache();
+    setAccountOpen(false);
+    setCurrentPath('tableau-de-bord');
+    setAuthNotice(null);
+    setAuthStatus('out');
+  };
+
+  // Subscribe to storage updates, then check the session
   useEffect(() => {
     const unsubscribe = subscribeToState((newState) => {
       setState({ ...newState });
     });
-    hydrateFromBackend();
+    fetch('/api/v1/auth/me')
+      .then(async (res) => (res.ok ? enterApp((await res.json()) as User) : setAuthStatus('out')))
+      .catch(() => setAuthStatus('out'));
     return () => unsubscribe();
+  }, []);
+
+  // Any API call answered "401" (session expired) sends back to the sign-in page
+  useEffect(() => {
+    const originalFetch = window.fetch;
+    window.fetch = async (...args: Parameters<typeof fetch>) => {
+      const res = await originalFetch(...args);
+      const url = typeof args[0] === 'string' ? args[0] : args[0] instanceof URL ? args[0].href : args[0].url;
+      if (res.status === 401 && url.includes('/api/') && !url.includes('/auth/')) {
+        clearLocalCache();
+        setAuthNotice('Votre session a expiré. Reconnectez-vous pour continuer.');
+        setAuthStatus('out');
+      }
+      return res;
+    };
+    return () => { window.fetch = originalFetch; };
   }, []);
 
   // Escape closes the mobile menu (Ctrl+K / ⌘K is handled by the header search)
@@ -530,8 +575,27 @@ export default function App() {
     }
   };
 
+  if (authStatus === 'checking') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#0B1322] text-slate-300 text-sm gap-2">
+        <span className="material-symbols-outlined animate-spin text-[#06B6D4]">progress_activity</span>
+        Chargement…
+      </div>
+    );
+  }
+  if (authStatus === 'out') {
+    return <LoginView notice={authNotice} onLoggedIn={(user) => { enterApp(user); }} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans antialiased text-[#0F172A]">
+      {accountOpen && (
+        <AccountModal
+          user={state.currentUser}
+          onClose={() => setAccountOpen(false)}
+          onUpdated={(user) => { setCurrentUser({ ...state.currentUser, email: user.email }); setState(loadState()); }}
+        />
+      )}
       {/* Left Sidebar: fixed on large screens, drawer on small screens */}
       <Sidebar
         currentPath={currentPath}
@@ -556,6 +620,8 @@ export default function App() {
           searchState={state}
           onOpenSearchResult={(target) => goTo(target.path as NavPath, target)}
           onOpenMenu={() => setSidebarOpen(true)}
+          onOpenAccount={() => setAccountOpen(true)}
+          onLogout={handleLogout}
           alerts={computeAlerts({
             subscriptions: state.subscriptions,
             incidents: state.incidents,

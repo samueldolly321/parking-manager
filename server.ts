@@ -39,6 +39,29 @@ import {
   createGuardRecord
 } from './src/db/repository.ts';
 import type { GuardPersonnel } from './src/types/index.ts';
+import { AsyncLocalStorage } from 'async_hooks';
+import {
+  SESSION_COOKIE,
+  clearFailures,
+  clearSessionCookie,
+  createSessionToken,
+  ensureAdminCredentials,
+  findUserByEmail,
+  findUserById,
+  lockedMinutes,
+  parseCookies,
+  passwordProblem,
+  readSessionToken,
+  recordFailure,
+  sessionCookie,
+  setUserEmail,
+  setUserPassword,
+  touchLastLogin,
+  verifyPassword
+} from './src/db/auth.ts';
+
+/** User of the request being handled (for the audit log). */
+const requestContext = new AsyncLocalStorage<{ id: string; name: string; ip: string }>();
 
 type GuardPersonnelShiftDays = GuardPersonnel['shiftDays'];
 
@@ -59,22 +82,114 @@ async function startServer() {
 
   // Add columns introduced after the database was created (idempotent, keeps existing data)
   await ensureSchemaUpgrades();
+  // First start: give the admin account the password set in .env (ADMIN_INITIAL_PASSWORD)
+  await ensureAdminCredentials();
 
+  app.disable('x-powered-by');
   app.use(express.json({ limit: '2mb' }));
 
-  const recordAudit = async (action: string, module: string, details: string, siteCode = 'GLOBAL') => {
+  const clientIp = (req: express.Request) => (req.socket.remoteAddress || '').replace(/^::ffff:/, '') || 'inconnue';
+
+  /** Writes to the audit log, signed with the user of the current request. */
+  const recordAudit = async (action: string, module: string, details: string, siteCode = 'GLOBAL', who?: { id: string; name: string; ip: string }) => {
+    const ctx = who || requestContext.getStore();
     await addAuditLogEntry({
       id: `aud-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       timestamp: new Date().toLocaleString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
-      userId: 'usr-admin-01',
-      userName: 'Rajaonarison Hery',
+      userId: ctx?.id || 'systeme',
+      userName: ctx?.name || 'Système',
       action,
       siteCode,
       module,
       details,
-      ipAddress: '127.0.0.1'
+      ipAddress: ctx?.ip || '127.0.0.1'
     });
   };
+
+  // ===================== AUTHENTIFICATION =====================
+  const secureCookie = isProd;
+  const PUBLIC_API = new Set(['/api/v1/auth/login', '/api/v1/auth/logout', '/api/v1/health']);
+
+  /** Every /api route needs a valid session, except login/logout/health. */
+  app.use('/api', async (req, res, next) => {
+    if (PUBLIC_API.has(req.path === '/' ? req.baseUrl : `${req.baseUrl}${req.path}`)) return next();
+    const userId = readSessionToken(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+    const found = userId ? await findUserById(userId).catch(() => null) : null;
+    if (!found || !found.user.isActive) {
+      return res.status(401).json({ error: 'Session expirée ou absente : veuillez vous connecter.' });
+    }
+    res.locals.user = found.user;
+    requestContext.run({ id: found.user.id, name: found.user.fullName, ip: clientIp(req) }, () => next());
+  });
+
+  app.post('/api/v1/auth/login', async (req, res) => {
+    try {
+      const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
+      const password = typeof req.body?.password === 'string' ? req.body.password : '';
+      const key = `${clientIp(req)}|${email}`;
+      const wait = lockedMinutes(key);
+      if (wait > 0) {
+        return res.status(429).json({ error: `Trop de tentatives. Réessayez dans ${wait} minute${wait > 1 ? 's' : ''}.` });
+      }
+      if (!email || !password) return res.status(400).json({ error: 'Email et mot de passe obligatoires.' });
+
+      const found = await findUserByEmail(email);
+      if (!found || !found.user.isActive || !verifyPassword(password, found.passwordHash)) {
+        recordFailure(key);
+        await recordAudit('CONNEXION_ECHOUEE', 'Authentification', `Échec de connexion pour ${email}`, 'GLOBAL', { id: 'inconnu', name: email, ip: clientIp(req) });
+        return res.status(401).json({ error: 'Email ou mot de passe incorrect.' });
+      }
+      clearFailures(key);
+      const { token, maxAgeMs } = createSessionToken(found.user.id);
+      res.setHeader('Set-Cookie', sessionCookie(token, maxAgeMs, secureCookie));
+      await touchLastLogin(found.user.id);
+      await recordAudit('CONNEXION_REUSSIE', 'Authentification', `Connexion de ${found.user.fullName}`, 'GLOBAL', { id: found.user.id, name: found.user.fullName, ip: clientIp(req) });
+      return res.json({ user: found.user });
+    } catch (error) {
+      console.error('Login error:', error);
+      return res.status(500).json({ error: 'Erreur serveur' });
+    }
+  });
+
+  app.post('/api/v1/auth/logout', async (req, res) => {
+    const userId = readSessionToken(parseCookies(req.headers.cookie)[SESSION_COOKIE]);
+    res.setHeader('Set-Cookie', clearSessionCookie(secureCookie));
+    if (userId) {
+      const found = await findUserById(userId).catch(() => null);
+      if (found) await recordAudit('DECONNEXION', 'Authentification', `Déconnexion de ${found.user.fullName}`, 'GLOBAL', { id: found.user.id, name: found.user.fullName, ip: clientIp(req) });
+    }
+    return res.json({ ok: true });
+  });
+
+  app.get('/api/v1/auth/me', (_req, res) => res.json(res.locals.user));
+
+  app.post('/api/v1/auth/change-password', async (req, res) => {
+    try {
+      const user = res.locals.user;
+      const found = await findUserById(user.id);
+      const { currentPassword, newPassword, newEmail } = req.body || {};
+      if (!found || !verifyPassword(String(currentPassword || ''), found.passwordHash)) {
+        return res.status(400).json({ error: 'Mot de passe actuel incorrect.' });
+      }
+      if (newPassword) {
+        const problem = passwordProblem(String(newPassword));
+        if (problem) return res.status(400).json({ error: problem });
+        await setUserPassword(user.id, String(newPassword));
+      }
+      if (newEmail && String(newEmail).trim().toLowerCase() !== user.email.toLowerCase()) {
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(newEmail))) return res.status(400).json({ error: 'Adresse email invalide.' });
+        const taken = await findUserByEmail(String(newEmail));
+        if (taken && taken.user.id !== user.id) return res.status(400).json({ error: 'Cette adresse email est déjà utilisée.' });
+        await setUserEmail(user.id, String(newEmail));
+      }
+      await recordAudit('MODIFICATION_IDENTIFIANTS', 'Authentification', `${user.fullName} a modifié ${[newPassword && 'son mot de passe', newEmail && 'son email'].filter(Boolean).join(' et ') || 'ses identifiants'}`);
+      const updated = await findUserById(user.id);
+      return res.json({ user: updated?.user || user });
+    } catch (error) {
+      console.error('Change password error:', error);
+      return res.status(500).json({ error: 'Erreur serveur' });
+    }
+  });
 
   // ===================== REST API v1 ROUTES =====================
 
@@ -111,31 +226,6 @@ async function startServer() {
   });
 
   // Auth
-  app.get('/api/v1/auth/me', async (_req, res) => {
-    try {
-      const state = await getFullState();
-      res.json(state.currentUser);
-    } catch (error) {
-      console.error('Auth me error:', error);
-      res.status(500).json({ error: 'Erreur serveur' });
-    }
-  });
-
-  app.post('/api/v1/auth/login', async (req, res) => {
-    try {
-      const { username, password } = req.body;
-      if (username && password) {
-        const state = await getFullState();
-        await recordAudit('CONNEXION_REUSSIE', 'Authentification', `Connexion utilisateur ${username}`);
-        return res.json({ token: 'session-token', user: state.currentUser });
-      }
-      return res.status(401).json({ error: 'Identifiants invalides' });
-    } catch (error) {
-      console.error('Login error:', error);
-      return res.status(500).json({ error: 'Erreur serveur' });
-    }
-  });
-
   // Sites
   app.get('/api/v1/sites', async (_req, res) => {
     try {
