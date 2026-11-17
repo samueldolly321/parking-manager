@@ -1,13 +1,7 @@
 # Render Blueprint — Parking Manager Madagascar
 # Dashboard Render > New > Blueprint > choisir ce dépôt GitHub.
-# Crée : 1 service web Node + 1 base PostgreSQL, reliés automatiquement.
-
-databases:
-  - name: parking-manager-db
-    databaseName: parking_mada
-    user: parking_mada
-    plan: free
-    region: frankfurt
+# Crée le service web Node. La base PostgreSQL est externe (ex. Neon, gratuit) :
+# son adresse est demandée à la création (DATABASE_URL).
 
 services:
   - type: web
@@ -23,10 +17,9 @@ services:
     envVars:
       - key: NODE_ENV
         value: production
+      # Adresse de la base PostgreSQL (Neon : "Connection string", avec ?sslmode=require)
       - key: DATABASE_URL
-        fromDatabase:
-          name: parking-manager-db
-          property: connectionString
+        sync: false
       # Clé de signature des sessions, générée par Render
       - key: SESSION_SECRET
         generateValue: true
