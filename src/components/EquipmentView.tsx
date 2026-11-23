@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { notifyNotAvailable } from '../services/notify';
 import { EntityActions } from './EntityActions';
 import { Equipment, Site } from '../types';
 
@@ -82,7 +83,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => alert('Ouverture du grand journal historique de tous les mouvements de matériel.')}
+            onClick={() => notifyNotAvailable('Journal des mouvements de matériel')}
             type="button"
             className="bg-[#F8FAFC] text-[#0F172A] hover:bg-slate-100 text-xs font-headline font-bold px-3 py-2 rounded-lg border border-[#E2E8F0] flex items-center gap-1.5 transition-colors"
           >
@@ -90,7 +91,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
             <span>Journal Mouvements</span>
           </button>
           <button
-            onClick={() => alert('Génération de la fiche d\'audit physique périodique.')}
+            onClick={() => notifyNotAvailable('Inventaire / audit physique')}
             type="button"
             className="bg-[#F8FAFC] text-[#0F172A] hover:bg-slate-100 text-xs font-headline font-bold px-3 py-2 rounded-lg border border-[#E2E8F0] flex items-center gap-1.5 transition-colors"
           >
@@ -98,7 +99,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
             <span>Faire un Inventaire / Audit</span>
           </button>
           <button
-            onClick={() => alert('Ouverture de la modal d\'enregistrement d\'un nouvel équipement.')}
+            onClick={() => notifyNotAvailable('Ajout d’un équipement')}
             type="button"
             className="bg-[#0F172A] text-white hover:bg-slate-800 text-xs font-headline font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-colors shadow-md"
           >
@@ -462,7 +463,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
           {/* Action Buttons */}
           <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
             <button
-              onClick={() => alert(`Intervention technique planifiée avec le prestataire pour ${selectedItem.inventoryCode}.`)}
+              onClick={() => notifyNotAvailable('Planification d’intervention technique')}
               type="button"
               className="w-full bg-[#0F172A] text-white hover:bg-slate-800 font-headline text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
             >
@@ -471,7 +472,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
             </button>
             <div className="grid grid-cols-2 gap-2">
               <button
-                onClick={() => alert(`Formulaire d'incident ouvert pour ${selectedItem.inventoryCode}.`)}
+                onClick={() => notifyNotAvailable('Déclaration de panne (utilisez la page Incidents)')}
                 type="button"
                 className="bg-red-50 text-[#DC2626] hover:bg-red-100 font-headline text-xs font-bold py-2 rounded-lg border border-red-200 flex items-center justify-center gap-1 transition-colors"
               >
@@ -479,7 +480,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
                 <span>Déclarer Panne</span>
               </button>
               <button
-                onClick={() => alert(`Bordereau de transfert inter-sites préparé pour ${selectedItem.inventoryCode}.`)}
+                onClick={() => notifyNotAvailable('Transfert de matériel entre sites')}
                 type="button"
                 className="bg-slate-100 text-[#0F172A] hover:bg-slate-200 font-headline text-xs font-bold py-2 rounded-lg border border-[#E2E8F0] flex items-center justify-center gap-1 transition-colors"
               >

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { initialsAvatar } from '../services/avatar';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
 import { GuardPersonnel, Site, GuardDayCode, GUARD_DAY_CODES, WeekDayKey } from '../types';
@@ -432,7 +433,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                         <div className="flex items-center gap-4">
                           <div className="relative group">
                             <img
-                              src={leader.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                              src={leader.avatarUrl || initialsAvatar(leader.fullName)}
                               alt={leader.fullName}
                               className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-400 shadow-md"
                             />
@@ -531,7 +532,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                           <div className="flex items-center gap-3">
                             <div className="relative">
                               <img
-                                src={sub.avatarUrl || 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80'}
+                                src={sub.avatarUrl || initialsAvatar(sub.fullName)}
                                 alt={sub.fullName}
                                 className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm"
                               />
@@ -630,7 +631,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                 >
                   <div className="flex items-center gap-3">
                     <img
-                      src={g.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                      src={g.avatarUrl || initialsAvatar(g.fullName)}
                       alt={g.fullName}
                       className="w-10 h-10 rounded-xl object-cover border border-slate-200"
                     />
@@ -660,7 +661,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
               <div className="flex items-center gap-4">
                 <div className="relative group">
                   <img
-                    src={selectedAgent.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                    src={selectedAgent.avatarUrl || initialsAvatar(selectedAgent.fullName)}
                     alt={selectedAgent.fullName}
                     className="w-20 h-20 rounded-2xl object-cover border-2 border-cyan-500 shadow-md"
                   />
@@ -845,7 +846,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                       <td className="py-3 px-4">
                         <div className="flex items-center gap-2.5">
                           <img
-                            src={g.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                            src={g.avatarUrl || initialsAvatar(g.fullName)}
                             alt=""
                             className="w-8 h-8 rounded-lg object-cover shrink-0"
                           />

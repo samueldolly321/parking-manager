@@ -34,6 +34,7 @@ import {
   RecordInUseError,
   resetOperationalData,
   ensureSchemaUpgrades,
+  collectionStateKey,
   nextExpenseNumber,
   nextGuardMatricule,
   createGuardRecord,
@@ -68,6 +69,8 @@ import {
   deleteAccount
 } from './src/db/auth.ts';
 import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
+import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
+import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
 
 /** User of the request being handled (for the audit log). */
 const requestContext = new AsyncLocalStorage<{ id: string; name: string; ip: string }>();
@@ -136,6 +139,69 @@ async function startServer() {
     res.locals.user = found.user;
     requestContext.run({ id: found.user.id, name: found.user.fullName, ip: clientIp(req) }, () => next());
   });
+
+  // ===================== DROITS (rôle + site) =====================
+  // Rules are in src/services/permissions.ts. Every write is checked here, before reaching its route.
+  const OTHER_SITE = 'Votre compte est rattaché à un autre site : action refusée.';
+  const SHARED_RECORD = 'Cet enregistrement concerne tous les sites : il est réservé aux rôles généraux.';
+  app.use('/api/v1', async (req, res, next) => {
+    const user = res.locals.user;
+    if (!user) return next();
+    const rule = writeRule(req.method, req.path, collectionStateKey);
+    if (!rule) return next();
+    const deny = (message: string) => res.status(403).json({ error: message });
+    try {
+      const site = userSite(user);
+      const body = (req.body && typeof req.body === 'object' ? req.body : (req.body = {})) as Record<string, any>;
+
+      if (rule.action === 'avatar') {
+        if (body.type === 'user') {
+          return body.id === user.id || ADMIN_ROLES.includes(user.role) ? next() : deny('Vous ne pouvez changer que votre propre photo.');
+        }
+        if (body.type === 'committee') return roleCan(user.role, 'governance') ? next() : deny(forbiddenMessage('governance'));
+        if (!roleCan(user.role, 'write')) return deny(forbiddenMessage('write'));
+        if (site) {
+          const guard = (await getFullState()).guards.find((g) => g.id === body.id);
+          if (!guard || guard.siteId !== site) return deny(OTHER_SITE);
+        }
+        return next();
+      }
+
+      if (!roleCan(user.role, rule.action)) return deny(forbiddenMessage(rule.action));
+      if ('also' in rule && rule.also && !roleCan(user.role, rule.also)) return deny(forbiddenMessage(rule.also));
+      if (!site) return next();
+
+      if ('site' in rule && rule.site) {
+        // Site-bound account: records are created on its own site
+        const field = rule.site.body;
+        if (body[field] === undefined || body[field] === '') body[field] = site;
+        return body[field] === site ? next() : deny(OTHER_SITE);
+      }
+      if ('record' in rule) {
+        const state = await getFullState();
+        const list = (state as any)[rule.record.stateKey] as Record<string, unknown>[] | undefined;
+        const record = list?.find((x) => x.id === rule.record.id);
+        if (!record) return next(); // the route answers 404
+        const recordSite = recordSiteId(rule.record.stateKey, record);
+        if (recordSite === null) return deny(SHARED_RECORD);
+        if (recordSite !== site) return deny(OTHER_SITE);
+        // A record cannot be moved to another site
+        if (['siteId', 'primarySiteId'].some((f) => body[f] !== undefined && body[f] !== site)) return deny(OTHER_SITE);
+        return next();
+      }
+      if ('teamId' in rule) {
+        const guard = (await getFullState()).guards.find((g) => g.teamId === body.teamId);
+        return guard && guard.siteId === site ? next() : deny(OTHER_SITE);
+      }
+      return next();
+    } catch (error) {
+      console.error('Permission check error:', error);
+      return res.status(500).json({ error: 'Vérification des droits impossible.' });
+    }
+  });
+
+  /** Data the signed-in user may see (only their site for a site-bound role). */
+  const scopedState = async (res: express.Response) => scopeState(await getFullState(), res.locals.user);
 
   app.post('/api/v1/auth/login', async (req, res) => {
     try {
@@ -353,7 +419,7 @@ async function startServer() {
   // Full Application State Bootstrap (Hydration)
   app.get('/api/v1/bootstrap', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state);
     } catch (error) {
       console.error('Bootstrap error:', error);
@@ -365,7 +431,7 @@ async function startServer() {
   // Sites
   app.get('/api/v1/sites', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.sites);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des sites' });
@@ -414,7 +480,7 @@ async function startServer() {
   // Members
   app.get('/api/v1/members', async (req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       const { siteId, q } = req.query;
       let result = state.members;
       if (siteId && siteId !== 'all') {
@@ -439,7 +505,7 @@ async function startServer() {
   app.post('/api/v1/members', async (req, res) => {
     try {
       const state = await getFullState();
-      const nextNum = req.body.memberNumber || `MBR-2024-${String(state.members.length + 90).padStart(4, '0')}`;
+      const nextNum = pickYearlyNumber(req.body.memberNumber, state.members.map((m) => m.memberNumber), 'MBR');
       const newMember = await createMemberRecord({
         id: req.body.id || `mbr-${Date.now()}`,
         memberNumber: nextNum,
@@ -477,7 +543,7 @@ async function startServer() {
   // Vehicles
   app.get('/api/v1/vehicles', async (req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       const { memberId, siteId } = req.query;
       let list = state.vehicles;
       if (memberId) list = list.filter((v) => v.memberId === memberId);
@@ -517,7 +583,7 @@ async function startServer() {
   // Parking spots
   app.get('/api/v1/spots', async (req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       const { siteId } = req.query;
       let list = state.spots;
       if (siteId && siteId !== 'all') list = list.filter((s) => s.siteId === siteId);
@@ -542,7 +608,7 @@ async function startServer() {
   // Payments and Receipts
   app.get('/api/v1/receipts', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.receipts);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des reçus' });
@@ -552,7 +618,7 @@ async function startServer() {
   app.post('/api/v1/receipts', async (req, res) => {
     try {
       const state = await getFullState();
-      const receiptNum = req.body.receiptNumber || `REC-2024-${String(state.receipts.length + 513).padStart(4, '0')}`;
+      const receiptNum = pickYearlyNumber(req.body.receiptNumber, state.receipts.map((r) => r.receiptNumber), 'REC');
       const amountDueAr = Number(req.body.amountDueAr || 0);
       const amountPaidAr = Number(req.body.amountPaidAr || 0);
       const remaining = req.body.remainingBalanceAr ?? Math.max(0, amountDueAr - amountPaidAr);
@@ -572,14 +638,14 @@ async function startServer() {
         memberName: req.body.memberName || 'Client Stationnement',
         vehiclePlate: req.body.vehiclePlate,
         siteId: req.body.siteId || 'S1',
-        siteName: req.body.siteName || 'Analakely Central',
+        siteName: req.body.siteName || state.sites.find((s) => s.id === req.body.siteId)?.name || '',
         purpose: req.body.purpose || 'Encaissement Stationnement',
-        period: req.body.period || 'Mai 2024',
+        period: req.body.period || new Date().toLocaleDateString('fr-FR', { month: 'long', year: 'numeric', timeZone: 'Indian/Antananarivo' }),
         amountDueAr,
         amountPaidAr,
         remainingBalanceAr: remaining,
         paymentMethod,
-        cashierName: req.body.cashierName || 'RASOANAIVO Mirana',
+        cashierName: req.body.cashierName || res.locals.user?.fullName || '',
         transactionRef:
           req.body.transactionRef ||
           `TRX-${Math.floor(10000 + Math.random() * 90000)}-${String(paymentMethod).replace(/\s+/g, '').toUpperCase()}`,
@@ -602,7 +668,7 @@ async function startServer() {
   // Cards
   app.get('/api/v1/cards', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.cards);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des cartes' });
@@ -647,7 +713,7 @@ async function startServer() {
   // Guards & Brigade Hierarchy
   app.get('/api/v1/guards', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.guards);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des gardiens' });
@@ -771,7 +837,7 @@ async function startServer() {
   // Equipments
   app.get('/api/v1/equipments', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.equipments);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des équipements' });
@@ -781,7 +847,7 @@ async function startServer() {
   // Cash Registers & Expenses
   app.get('/api/v1/cash-registers', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.cashRegisters);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des caisses' });
@@ -790,7 +856,7 @@ async function startServer() {
 
   app.get('/api/v1/expenses', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.expenses);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des dépenses' });
@@ -831,7 +897,7 @@ async function startServer() {
         beneficiary: req.body.beneficiary || 'Prestataire',
         amountAr: Number(req.body.amountAr || 50000),
         paymentMethod: req.body.paymentMethod || 'Espèces',
-        requesterName: req.body.requesterName || state.currentUser.fullName,
+        requesterName: req.body.requesterName || res.locals.user?.fullName || state.currentUser.fullName,
         status: 'en_attente',
         justificatifRef: req.body.justificatifRef,
         invoicePhotoUrl,
@@ -854,7 +920,7 @@ async function startServer() {
 
   app.post('/api/v1/expenses/:id/approve', async (req, res) => {
     try {
-      const approver = req.body?.approverName || 'Rasoanaivo Mirana (Trésorière Générale)';
+      const approver = req.body?.approverName || res.locals.user?.fullName || '';
       const exp = await decideExpenseRecord(req.params.id, 'approuve', approver);
       if (!exp) return res.status(404).json({ error: 'Dépense introuvable' });
       await recordAudit('APPROBATION_DEPENSE', 'Trésorerie', `Dépense ${exp.expenseNumber} approuvée (${exp.amountAr} Ar)`);
@@ -866,7 +932,7 @@ async function startServer() {
 
   app.post('/api/v1/expenses/:id/reject', async (req, res) => {
     try {
-      const approver = req.body?.approverName || 'Rasoanaivo Mirana (Trésorière Générale)';
+      const approver = req.body?.approverName || res.locals.user?.fullName || '';
       const exp = await decideExpenseRecord(req.params.id, 'rejete', approver);
       if (!exp) return res.status(404).json({ error: 'Dépense introuvable' });
       await recordAudit('REJET_DEPENSE', 'Trésorerie', `Dépense ${exp.expenseNumber} rejetée`);
@@ -879,7 +945,7 @@ async function startServer() {
   // Incidents
   app.get('/api/v1/incidents', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.incidents);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des incidents' });
@@ -889,7 +955,7 @@ async function startServer() {
   app.post('/api/v1/incidents', async (req, res) => {
     try {
       const state = await getFullState();
-      const ticketCode = req.body.ticketCode || `INC-${new Date().getFullYear()}-${String(state.incidents.length + 1).padStart(4, '0')}`;
+      const ticketCode = pickYearlyNumber(req.body.ticketCode, state.incidents.map((i) => i.ticketCode), 'INC');
       const newInc = await createIncidentRecord({
         id: req.body.id || `inc-${Date.now()}`,
         ticketCode,
@@ -901,7 +967,7 @@ async function startServer() {
             timeZone: 'Indian/Antananarivo'
           })}`,
         siteId: req.body.siteId || 'S1',
-        reporterName: req.body.reporterName || state.currentUser.fullName,
+        reporterName: req.body.reporterName || res.locals.user?.fullName || state.currentUser.fullName,
         type: req.body.type || 'autre',
         severity: req.body.severity || 'moyen',
         title: req.body.title,
@@ -933,7 +999,7 @@ async function startServer() {
   // Governance (Committee & Meetings)
   app.get('/api/v1/committee', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.committeeMembers);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement du comité' });
@@ -964,7 +1030,7 @@ async function startServer() {
 
   app.get('/api/v1/meetings', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.meetings);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des réunions' });
@@ -993,7 +1059,7 @@ async function startServer() {
   // Payrolls (Personnel & Bureau)
   app.get('/api/v1/payrolls', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.payrolls);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement de la paie' });
@@ -1003,7 +1069,7 @@ async function startServer() {
   app.post('/api/v1/payrolls', async (req, res) => {
     try {
       const state = await getFullState();
-      const slipNumber = req.body.slipNumber || `PAY-${new Date().getFullYear()}-${String(state.payrolls.length + 1).padStart(3, '0')}`;
+      const slipNumber = pickYearlyNumber(req.body.slipNumber, state.payrolls.map((p) => p.slipNumber), 'PAY', currentYear(), 3);
       const created = await createPayrollRecord({
         ...req.body,
         id: req.body.id || `pay-${Date.now()}`,
@@ -1100,7 +1166,7 @@ async function startServer() {
   // Audit logs
   app.get('/api/v1/audit-logs', async (_req, res) => {
     try {
-      const state = await getFullState();
+      const state = await scopedState(res);
       res.json(state.auditLogs);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement du journal d\'audit' });

@@ -1,4 +1,7 @@
 import React, { useRef, useState } from 'react';
+import { notifyNotAvailable } from '../services/notify';
+import QRCode from 'qrcode';
+import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { flushSync } from 'react-dom';
 import { toPng } from 'html-to-image';
@@ -18,6 +21,24 @@ const BAT_PIXEL_RATIO = (CARD_WIDTH_MM / 25.4) * BAT_DPI / SPECIMEN_WIDTH_PX;
 const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+
+/** Real, scannable QR code of the card's token (read back by the gate scanner). */
+const QrCodeSvg: React.FC<{ value: string; className?: string }> = ({ value, className }) => {
+  const path = React.useMemo(() => {
+    if (!value) return { size: 1, d: '' };
+    const qr = QRCode.create(value, { errorCorrectionLevel: 'M' });
+    const { size, data } = qr.modules;
+    let d = '';
+    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`;
+    return { size, d };
+  }, [value]);
+  return (
+    <svg className={className} viewBox={`-1 -1 ${path.size + 2} ${path.size + 2}`} shapeRendering="crispEdges" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code de la carte">
+      <rect x={-1} y={-1} width={path.size + 2} height={path.size + 2} fill="white" />
+      <path d={path.d} fill="#0F172A" />
+    </svg>
+  );
+};
 
 interface CardsViewProps {
   cards: MembershipCard[];
@@ -122,7 +143,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
           <div className="flex flex-col">
             <span className="font-headline text-xs tracking-wide text-black uppercase font-bold">{appName}</span>
             <span className="font-label-md text-[9px] tracking-widest text-black uppercase">
-              Gestion Centrale · {currentCard.siteName.split('-')[1]?.trim() || 'Analakely'}
+              Gestion Centrale · {currentCard.siteName.split('-')[1]?.trim() || currentCard.siteName}
             </span>
           </div>
         </div>
@@ -150,7 +171,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
         <div className="col-span-4 flex items-center gap-2.5">
           <div className="relative w-16 h-20 rounded-lg overflow-hidden border-2 border-black shadow-md bg-slate-100 shrink-0">
             <img
-              src={currentMember?.avatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuCqYI9IFFRbBvrLbR-efzk2uttZeP9dpAw4ufvl7-Bhc37tBlx4Mg0SftKvw31TVPLU7dGz1v9OxbFTEhZKn8fEywDjH1cuHope22nR8StbE3QZyKKO2rjIUlQrvgVmysHTmkLoQADOVlheduwdONH0VmfOmA6mx92ogH-DPemuN0yBXvCAiWbIesfPB_LhsWUW8n2Eh4brOPLsxLXgV6yA9uzkzEuB_JTSsCLeZamSWOqAWQLkQpdm'}
+              src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
               alt={currentCard.memberName}
               className="w-full h-full object-cover"
             />
@@ -167,7 +188,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
               {currentCard.memberName}
             </div>
             <div className="font-mono-data text-[10px] text-black font-semibold tracking-wider">
-              {currentMember?.memberNumber || 'MBR-2024-0089'}
+              {currentMember?.memberNumber || '—'}
             </div>
           </div>
 
@@ -249,30 +270,9 @@ export const CardsView: React.FC<CardsViewProps> = ({
       {/* Middle: QR Code + Terms */}
       <div className="grid grid-cols-12 gap-3 items-center my-auto">
         <div className="col-span-4 flex flex-col items-center bg-white p-2 rounded-lg border border-slate-300 shrink-0">
-          <svg className="w-20 h-20" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <rect x="5" y="5" width="26" height="26" rx="2" fill="#0F172A" />
-            <rect x="9" y="9" width="18" height="18" fill="white" />
-            <rect x="13" y="13" width="10" height="10" fill="#0F172A" />
-            <rect x="69" y="5" width="26" height="26" rx="2" fill="#0F172A" />
-            <rect x="73" y="9" width="18" height="18" fill="white" />
-            <rect x="77" y="13" width="10" height="10" fill="#0F172A" />
-            <rect x="5" y="69" width="26" height="26" rx="2" fill="#0F172A" />
-            <rect x="9" y="73" width="18" height="18" fill="white" />
-            <rect x="13" y="77" width="10" height="10" fill="#0F172A" />
-            <rect x="36" y="8" width="5" height="5" fill="#0F172A" />
-            <rect x="44" y="8" width="5" height="10" fill="#0F172A" />
-            <rect x="36" y="24" width="10" height="5" fill="#0F172A" />
-            <rect x="54" y="24" width="7" height="7" fill="#0F172A" />
-            <rect x="36" y="36" width="14" height="14" rx="1" fill="#0F172A" />
-            <rect x="40" y="40" width="6" height="6" fill="white" />
-            <rect x="58" y="38" width="8" height="5" fill="#0F172A" />
-            <rect x="72" y="38" width="12" height="6" fill="#0F172A" />
-            <rect x="38" y="82" width="10" height="6" fill="#0F172A" />
-            <rect x="54" y="84" width="6" height="6" fill="#0F172A" />
-            <rect x="70" y="82" width="18" height="8" fill="#0F172A" />
-          </svg>
+          <QrCodeSvg value={currentCard.qrToken} className="w-20 h-20" />
           <span className="font-mono-data text-[7px] text-black mt-1 uppercase">
-            TOKEN: {currentCard.qrToken.split(':')[1]?.slice(0, 9) || 'e8f9-4b12'}
+            TOKEN: {(currentCard.qrToken.split(':')[1] || currentCard.qrToken).slice(0, 9)}
           </span>
         </div>
 
@@ -360,7 +360,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
             <span>Imprimer par Lot (Planche PVC)</span>
           </button>
           <button
-            onClick={() => alert('Ouverture de l\'assistant d\'encodage pour nouvel adhérent.')}
+            onClick={() => notifyNotAvailable('Émission d’une nouvelle carte')}
             type="button"
             className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-all flex items-center gap-1.5"
           >
@@ -583,7 +583,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
           {/* Direct Commands */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
-              onClick={() => alert('Impression envoyée vers l\'imprimante Evolis Primacy Duplex (Bac 1)...')}
+              onClick={() => notifyNotAvailable('Impression directe sur imprimante à cartes (utilisez le BAT PDF)')}
               type="button"
               className="w-full sm:w-auto flex-1 bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold py-2.5 px-4 rounded-lg hover:bg-[#0891b2] hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
             >
@@ -762,45 +762,31 @@ export const CardsView: React.FC<CardsViewProps> = ({
             </div>
           </div>
 
-          {/* Real-time Gate Telemetry Feed */}
+          {/* Last passages recorded on the cards */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-[#E2E8F0] flex flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#06B6D4] animate-ping"></span>
-                <h3 className="font-headline text-xs font-bold text-[#0F172A]">Franchissements Barrière en Direct</h3>
-              </div>
-              <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold">TANA HUB LIVE</span>
+            <div className="flex items-center gap-2">
+              <span className="material-symbols-outlined text-[#06B6D4] text-[18px]">sensor_door</span>
+              <h3 className="font-headline text-xs font-bold text-[#0F172A]">Derniers passages enregistrés</h3>
             </div>
-
-            <div className="space-y-2 text-xs">
-              <div className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-[#06B6D4] text-[18px]">sensor_door</span>
-                  <div>
-                    <div className="font-semibold text-[#0F172A]">Porte 1 Analakely (Entrée)</div>
-                    <div className="font-mono-plate text-[10px] text-slate-500">6543 TBD • MBR-2024-0089</div>
-                  </div>
+            {(() => {
+              const passages = cards.filter((c) => c.lastPassageTimestamp).slice(0, 5);
+              if (passages.length === 0) {
+                return <p className="text-xs text-slate-400 py-2">Aucun passage enregistré.</p>;
+              }
+              return (
+                <div className="space-y-2 text-xs">
+                  {passages.map((c) => (
+                    <div key={c.id} className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-semibold text-[#0F172A] truncate">{c.lastPassageGate || c.siteName}</div>
+                        <div className="font-mono-plate text-[10px] text-slate-500 truncate">{c.primaryPlate} • {c.memberName}</div>
+                      </div>
+                      <span className="font-mono-data text-[10px] text-slate-400 shrink-0">{c.lastPassageTimestamp}</span>
+                    </div>
+                  ))}
                 </div>
-                <div className="text-right font-mono-data">
-                  <span className="text-[#16A34A] font-bold block text-[11px]">OUVERTURE OK</span>
-                  <span className="text-[10px] text-slate-400">Il y a 32 sec</span>
-                </div>
-              </div>
-
-              <div className="p-2.5 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] flex items-center justify-between">
-                <div className="flex items-center gap-2.5">
-                  <span className="material-symbols-outlined text-[#06B6D4] text-[18px]">sensor_door</span>
-                  <div>
-                    <div className="font-semibold text-[#0F172A]">Barrière Ivato (Sortie 02)</div>
-                    <div className="font-mono-plate text-[10px] text-slate-500">7719 TAB • MBR-2024-0312</div>
-                  </div>
-                </div>
-                <div className="text-right font-mono-data">
-                  <span className="text-[#16A34A] font-bold block text-[11px]">OUVERTURE OK</span>
-                  <span className="text-[10px] text-slate-400">Il y a 4 min</span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
           </div>
         </div>
       </div>

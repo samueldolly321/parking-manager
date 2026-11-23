@@ -946,6 +946,11 @@ export function isEditableCollection(name: string): name is EditableCollection {
   return Object.prototype.hasOwnProperty.call(EDITABLE_COLLECTIONS, name);
 }
 
+/** Key of a collection in the app state (e.g. "cash-registers" -> "cashRegisters"), or null if unknown. */
+export function collectionStateKey(name: string): string | null {
+  return isEditableCollection(name) ? EDITABLE_COLLECTIONS[name].stateKey : null;
+}
+
 /** App field name -> DB column property name, when they differ. */
 const FIELD_RENAMES: Record<string, string> = { summaryPV: 'summaryPv' };
 const PROTECTED_FIELDS = new Set(['id', 'createdAt', 'updatedAt']);

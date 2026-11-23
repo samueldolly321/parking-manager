@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { notifyNotAvailable } from '../services/notify';
+import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember } from '../types';
 import { PhotoInput, Avatar } from './PhotoInput';
@@ -354,7 +356,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <div className="flex items-center gap-4">
               <div className="relative">
                 <img
-                  src={currentMember?.avatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAKowTqWDIHUyYNTyslG-6YQsTUPvDPEGovwESfsCzIEw-prEikTVwX31_yTJu1sBqNn6xWfgtdzRzuNvP4uZceNey04m2Z6Kg9yYYwQT0uvELsTUq1S7s4HhkI3C76yh1EYtVs-ZEaeOLbOnhOHgkwImdcQBDLajp6c99RGxOJLmAr6lTjXPcVxhS-2wzOxsMwFrsdDfWzNiI5i-7niEJSL9bExTCix6Wu9zo4h1I'}
+                  src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
                   alt={currentMember?.fullName}
                   className="w-16 h-16 rounded-xl object-cover shadow-sm border-2 border-white ring-2 ring-[#06B6D4]"
                 />
@@ -389,7 +391,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <div className="flex flex-col">
                 <span className="text-[10px] text-slate-400 uppercase font-semibold">Site Principal</span>
                 <span className="text-xs font-bold text-[#0F172A]">
-                  {sites.find(s => s.id === currentMember?.primarySiteId)?.name || 'Analakely Central'}
+                  {sites.find(s => s.id === currentMember?.primarySiteId)?.name || currentMember?.primarySiteId || '—'}
                 </span>
               </div>
             </div>
@@ -402,20 +404,24 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <span className="font-mono-data text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.phone}</span>
               <span className="text-[11px] text-[#06B6D4] flex items-center gap-1 mt-0.5 font-medium">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></span>
-                {currentMember?.mobileMoneyProvider || 'MVola'} Associé
+                {currentMember?.mobileMoneyProvider ? `${currentMember.mobileMoneyProvider} associé` : 'Mobile Money non renseigné'}
               </span>
             </div>
 
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Carte d'Identité Nationale (CIN)</span>
               <span className="font-mono-data text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.cin}</span>
-              <span className="text-[11px] text-slate-500">Délivrée le {currentMember?.cinIssuedDate || '14/03/2012'}</span>
+              <span className="text-[11px] text-slate-500">
+                {currentMember?.cinIssuedDate
+                  ? `Délivrée le ${currentMember.cinIssuedDate}${currentMember.cinIssuedLocation ? ` à ${currentMember.cinIssuedLocation}` : ''}`
+                  : 'Date de délivrance non renseignée'}
+              </span>
             </div>
 
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Contact d'Urgence</span>
-              <span className="text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.emergencyContactName || 'Épouse'}</span>
-              <span className="font-mono-data text-xs text-slate-500">{currentMember?.emergencyContactPhone || '+261 32 98 765 43'}</span>
+              <span className="text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.emergencyContactName || 'Non renseigné'}</span>
+              <span className="font-mono-data text-xs text-slate-500">{currentMember?.emergencyContactPhone || '—'}</span>
             </div>
 
             <div className="sm:col-span-3 flex flex-col pt-2 border-t border-[#E2E8F0]">
@@ -615,7 +621,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       </span>
                       <div className="flex items-center gap-1">
                         <button
-                          onClick={() => alert(`Historique des passages de ${veh.licensePlate} : 42 passages ce mois.`)}
+                          onClick={() => notifyNotAvailable(`Historique des passages de ${veh.licensePlate}`)}
                           type="button"
                           className="p-1 rounded text-[#06B6D4] hover:bg-slate-200"
                           title="Historique des passages"
@@ -826,7 +832,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     <div className="flex items-center gap-4 relative z-10 my-auto">
                       <div className="relative w-14 h-18 rounded-lg overflow-hidden border-2 border-cyan-400 shadow-md shrink-0">
                         <img
-                          src={currentMember?.avatarUrl || 'https://lh3.googleusercontent.com/aida-public/AB6AXuAKowTqWDIHUyYNTyslG-6YQsTUPvDPEGovwESfsCzIEw-prEikTVwX31_yTJu1sBqNn6xWfgtdzRzuNvP4uZceNey04m2Z6Kg9yYYwQT0uvELsTUq1S7s4HhkI3C76yh1EYtVs-ZEaeOLbOnhOHgkwImdcQBDLajp6c99RGxOJLmAr6lTjXPcVxhS-2wzOxsMwFrsdDfWzNiI5i-7niEJSL9bExTCix6Wu9zo4h1I'}
+                          src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
                           alt={currentMember?.fullName}
                           className="w-full h-full object-cover"
                         />
@@ -856,7 +862,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         </span>
                         <div className="flex items-center gap-2 mt-1">
                           <span className="font-mono-plate text-[10px] text-cyan-200 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 font-bold">
-                            {memberVehicles[0]?.licensePlate || '6543 TBD'}
+                            {memberVehicles[0]?.licensePlate || 'Aucun véhicule'}
                           </span>
                           <span className="font-mono-data text-[10px] text-slate-400">
                             {currentMember?.memberNumber}
@@ -870,13 +876,13 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       <div className="flex flex-col">
                         <span className="text-[8px] font-mono-data uppercase text-slate-400">Identifiant Unique</span>
                         <span className="font-mono-data text-xs text-white font-bold tracking-wider">
-                          {memberCards[0]?.cardNumber || 'CRD-9981-ANL'}
+                          {memberCards[0]?.cardNumber || 'Aucune carte émise'}
                         </span>
                       </div>
                       <div className="flex items-center gap-3">
                         <div className="flex flex-col text-right">
                           <span className="text-[8px] font-mono-data uppercase text-slate-400">Validité</span>
-                          <span className="font-mono-data text-xs text-amber-400 font-bold">12/2024</span>
+                          <span className="font-mono-data text-xs text-amber-400 font-bold">{memberCards[0]?.expirationDate || '—'}</span>
                         </div>
                         <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 p-[1px] flex items-center justify-center shadow">
                           <div className="w-full h-full rounded-full bg-slate-900/60 flex items-center justify-center text-white">
@@ -975,7 +981,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   <p className="text-xs text-slate-500">Pièces numérisées légalisées et assurances de stationnement.</p>
                 </div>
                 <button
-                  onClick={() => alert('Sélectionnez un fichier PDF ou JPG à joindre au dossier du membre.')}
+                  onClick={() => notifyNotAvailable('Dépôt de pièces justificatives')}
                   type="button"
                   className="bg-[#F8FAFC] text-[#0F172A] font-headline text-xs font-bold px-3 py-1.5 rounded-lg border border-[#E2E8F0] hover:bg-slate-100 flex items-center gap-1.5"
                 >
@@ -984,81 +990,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
-                {/* Doc 1 */}
-                <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#06B6D4] text-[32px]">badge</span>
-                    <div className="flex flex-col min-w-0">
-                      <h4 className="font-headline text-xs font-bold text-[#0F172A] truncate">Copie CIN Légalisée</h4>
-                      <span className="font-mono-data text-[11px] text-slate-500">CIN_Ramanantsoa_2023.pdf</span>
-                      <span className="text-[10px] text-slate-400 mt-1">1.4 Mo • Validé</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#E2E8F0]">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono-data text-[#16A34A] bg-emerald-100 px-2 py-0.5 rounded font-bold">
-                      CONFORME
-                    </span>
-                    <button
-                      onClick={() => alert('Consultation de la copie CIN légalisée en préfecture.')}
-                      type="button"
-                      className="text-xs text-[#06B6D4] font-medium hover:underline flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">visibility</span>
-                      Consulter
-                    </button>
-                  </div>
-                </div>
-
-                {/* Doc 2 */}
-                <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#06B6D4] text-[32px]">directions_car</span>
-                    <div className="flex flex-col min-w-0">
-                      <h4 className="font-headline text-xs font-bold text-[#0F172A] truncate">Cartes Grises (Rav4 &amp; PCX)</h4>
-                      <span className="font-mono-data text-[11px] text-slate-500">CartesGrises_TBD_TBH.pdf</span>
-                      <span className="text-[10px] text-slate-400 mt-1">2.8 Mo • Validé</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#E2E8F0]">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono-data text-[#16A34A] bg-emerald-100 px-2 py-0.5 rounded font-bold">
-                      CONFORME
-                    </span>
-                    <button
-                      onClick={() => alert('Consultation des cartes grises du parc automobile rattaché.')}
-                      type="button"
-                      className="text-xs text-[#06B6D4] font-medium hover:underline flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">visibility</span>
-                      Consulter
-                    </button>
-                  </div>
-                </div>
-
-                {/* Doc 3 */}
-                <div className="bg-[#F8FAFC] rounded-xl p-4 border border-[#E2E8F0] shadow-sm flex flex-col justify-between">
-                  <div className="flex items-start gap-3">
-                    <span className="material-symbols-outlined text-[#06B6D4] text-[32px]">description</span>
-                    <div className="flex flex-col min-w-0">
-                      <h4 className="font-headline text-xs font-bold text-[#0F172A] truncate">Contrat Adhésion Signé</h4>
-                      <span className="font-mono-data text-[11px] text-slate-500">Reglement_Signe_MBR0089.pdf</span>
-                      <span className="text-[10px] text-slate-400 mt-1">890 Ko • Signé le 12/01/23</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between pt-3 mt-3 border-t border-[#E2E8F0]">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-mono-data text-slate-600 bg-slate-200 px-2 py-0.5 rounded font-bold">
-                      ARCHIVÉ
-                    </span>
-                    <button
-                      onClick={() => alert('Consultation du règlement intérieur et contrat signé.')}
-                      type="button"
-                      className="text-xs text-[#06B6D4] font-medium hover:underline flex items-center gap-1"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">visibility</span>
-                      Consulter
-                    </button>
-                  </div>
-                </div>
+              <div className="bg-[#F8FAFC] rounded-xl p-6 border border-dashed border-[#CBD5E1] text-center text-xs text-slate-500">
+                <span className="material-symbols-outlined text-[32px] text-slate-300 block mb-1">folder_open</span>
+                Aucune pièce justificative enregistrée pour ce membre.
+                <span className="block text-[11px] text-slate-400 mt-1">Le dépôt de documents (CIN, cartes grises, contrat) n’est pas encore disponible.</span>
               </div>
             </div>
           )}

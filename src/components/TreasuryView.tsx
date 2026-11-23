@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { notifyNotAvailable } from '../services/notify';
 import { EntityActions } from './EntityActions';
 import { PhotoInput, downloadPhoto } from './PhotoInput';
 import { CashRegister, ExpenseRecord, Site, PaymentMethod, EXPENSE_UNITS } from '../types';
@@ -214,7 +215,7 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                 </span>
               </div>
               <button
-                onClick={() => alert(`Clôture et réconciliation de la caisse ${reg.registerCode} effectuée.`)}
+                onClick={() => notifyNotAvailable(`Clôture de la caisse ${reg.registerCode}`)}
                 type="button"
                 className="px-3 py-1.5 rounded bg-slate-100 text-xs font-semibold hover:bg-slate-200"
               >

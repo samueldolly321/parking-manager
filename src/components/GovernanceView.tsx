@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { initialsAvatar } from '../services/avatar';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
 import { AppState, CommitteeMember, GovernanceMeeting } from '../types';
@@ -203,7 +204,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
                     {/* PHOTO DE PROFIL DIRIGEANT */}
                     <div className="relative group/avatar">
                       <img
-                        src={member.avatarUrl || 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80'}
+                        src={member.avatarUrl || initialsAvatar(member.fullName)}
                         alt={member.fullName}
                         className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-200 shadow-sm"
                       />

@@ -162,6 +162,7 @@ Sécurité intégrée :
 | :--- | :--- |
 | `npm run dev` | Lance l'application complète en mode développement (port `3000`) |
 | `npm run lint` | Vérifie la compilation TypeScript (`tsc --noEmit`) |
+| `npm test` | Lance les tests automatiques (numérotation, droits par rôle et par site) |
 | `npm run build` | Compile le frontend pour la production (`dist/`) |
 | `npm start` | Démarre le serveur (avec `NODE_ENV=production` pour servir `dist/`) |
 | `npm run db:studio` | Ouvre Drizzle Studio pour explorer la base PostgreSQL |

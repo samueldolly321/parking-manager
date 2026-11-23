@@ -1,3 +1,5 @@
+import { notify } from './notify';
+import { nextYearlyNumber } from './numbering';
 import {
   Site,
   User,
@@ -2124,15 +2126,76 @@ export function addAuditLog(_action: string, _module: string, _details: string, 
   }, 1200);
 }
 
-export function syncApi(endpoint: string, method: 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'POST', body?: unknown) {
-  if (typeof window === 'undefined') return;
-  fetch(endpoint, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: body !== undefined ? JSON.stringify(body) : undefined
-  }).catch(() => {
-    // Fallback to local state when backend is unavailable
-  });
+export type SyncResult<T = any> = { ok: true; data: T | null } | { ok: false; error: string };
+
+let resyncTimer: ReturnType<typeof setTimeout> | null = null;
+/** Reloads the server's data, so that a change the server refused disappears from the screen. */
+function scheduleResync() {
+  if (resyncTimer) clearTimeout(resyncTimer);
+  resyncTimer = setTimeout(() => {
+    resyncTimer = null;
+    void hydrateFromBackend();
+  }, 300);
+}
+
+/**
+ * Sends a change to the server. The screen is updated before the answer; if the server refuses
+ * (rights, duplicate number, invalid data) or cannot be reached, a message is shown and the
+ * server's data is reloaded, so nothing is displayed that was not really saved.
+ */
+export async function syncApi<T = any>(
+  endpoint: string,
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE' = 'POST',
+  body?: unknown
+): Promise<SyncResult<T>> {
+  if (typeof window === 'undefined') return { ok: false, error: 'Indisponible' };
+  let res: Response;
+  try {
+    res = await fetch(endpoint, {
+      method,
+      headers: { 'Content-Type': 'application/json' },
+      body: body !== undefined ? JSON.stringify(body) : undefined
+    });
+  } catch {
+    const error = 'Serveur injoignable : la modification n’a pas été enregistrée.';
+    notify(error, 'error');
+    scheduleResync();
+    return { ok: false, error };
+  }
+  if (!res.ok) {
+    let error = `Le serveur a refusé l’opération (erreur ${res.status}).`;
+    try {
+      const data = await res.json();
+      if (data?.error) error = String(data.error);
+    } catch {
+      /* not JSON */
+    }
+    // 401 = session expired: the sign-in page takes over, no extra message
+    if (res.status !== 401) {
+      notify(error, 'error');
+      scheduleResync();
+    }
+    return { ok: false, error };
+  }
+  let data: T | null = null;
+  try {
+    data = (await res.json()) as T;
+  } catch {
+    /* empty answer */
+  }
+  return { ok: true, data };
+}
+
+/** Replaces a record of the local state by the server's version (e.g. the number it finally gave). */
+export function applyServerRecord<K extends keyof AppState>(key: K, record: { id: string } | null | undefined) {
+  if (!record || typeof record !== 'object' || !record.id) return;
+  const state = loadState();
+  const list = state[key] as unknown as { id: string }[];
+  if (!Array.isArray(list)) return;
+  const index = list.findIndex((x) => x.id === record.id);
+  if (index === -1) return;
+  list[index] = { ...list[index], ...record };
+  saveState(state);
 }
 
 export async function hydrateFromBackend(): Promise<void> {
@@ -2157,7 +2220,7 @@ export async function hydrateFromBackend(): Promise<void> {
 
 export function addIncident(incident: Omit<IncidentRecord, 'id' | 'ticketCode' | 'date'>) {
   const state = loadState();
-  const ticketCode = `INC-${new Date().getFullYear()}-${String(state.incidents.length + 1).padStart(4, '0')}`;
+  const ticketCode = nextYearlyNumber(state.incidents.map((i) => i.ticketCode), 'INC');
   const newIncident: IncidentRecord = {
     ...incident,
     id: `inc-${Date.now()}`,
@@ -2167,7 +2230,7 @@ export function addIncident(incident: Omit<IncidentRecord, 'id' | 'ticketCode' |
   state.incidents = [newIncident, ...state.incidents];
   addAuditLog('CREATION_INCIDENT', 'Sécurité', `Ticket ${ticketCode} ouvert: ${incident.title}`, incident.siteId);
   saveState(state);
-  syncApi('/api/v1/incidents', 'POST', newIncident);
+  void syncApi<IncidentRecord>('/api/v1/incidents', 'POST', newIncident).then((r) => r.ok && applyServerRecord('incidents', r.data));
 }
 
 export function updateIncidentStatus(id: string, status: 'ouvert' | 'en_cours' | 'resolu' | 'classe', notes?: string) {
@@ -2217,11 +2280,7 @@ export function addMeeting(meeting: Omit<GovernanceMeeting, 'id'>) {
 export function addPayrollRecord(record: Omit<PayrollRecord, 'id' | 'slipNumber' | 'generatedDate'>) {
   const state = loadState();
   // Next free number of the year (the column is unique, a count would reuse numbers after a deletion)
-  const prefix = `PAY-${new Date().getFullYear()}-`;
-  const maxSeq = state.payrolls
-    .map((p: PayrollRecord) => (p.slipNumber.startsWith(prefix) ? Number(p.slipNumber.slice(prefix.length)) : 0))
-    .reduce((a: number, b: number) => Math.max(a, Number.isFinite(b) ? b : 0), 0);
-  const slipNumber = `${prefix}${String(maxSeq + 1).padStart(3, '0')}`;
+  const slipNumber = nextYearlyNumber(state.payrolls.map((p) => p.slipNumber), 'PAY', undefined, 3);
   const newRecord: PayrollRecord = {
     ...record,
     id: `pay-${Date.now()}`,
@@ -2231,7 +2290,7 @@ export function addPayrollRecord(record: Omit<PayrollRecord, 'id' | 'slipNumber'
   state.payrolls = [newRecord, ...state.payrolls];
   addAuditLog('EMISSION_BULLETIN_PAIE', 'Paie & Rémunérations', `Bulletin #${slipNumber} émis pour ${record.beneficiaryName} (${record.netSalaryAr.toLocaleString('fr-FR')} Ar)`, record.siteId);
   saveState(state);
-  syncApi('/api/v1/payrolls', 'POST', newRecord);
+  void syncApi<PayrollRecord>('/api/v1/payrolls', 'POST', newRecord).then((r) => r.ok && applyServerRecord('payrolls', r.data));
   return newRecord;
 }
 
@@ -2421,8 +2480,7 @@ async function callApi(endpoint: string, method: 'PUT' | 'DELETE', body?: unknow
       body: body !== undefined ? JSON.stringify(body) : undefined
     });
   } catch {
-    // Backend unreachable: keep working on local state only
-    return;
+    throw new Error('Serveur injoignable : la modification n’a pas été enregistrée.');
   }
   if (!res.ok) {
     let message = 'Opération refusée par le serveur';

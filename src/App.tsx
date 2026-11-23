@@ -7,7 +7,6 @@ import React, { useState, useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import { 
   AppState, 
-  UserRole, 
   PaymentReceipt, 
   Member, 
   Vehicle, 
@@ -25,8 +24,12 @@ import {
   addAuditLog,
   hydrateFromBackend,
   syncApi,
+  applyServerRecord,
   clearLocalCache
 } from './services/storage';
+import { nextYearlyNumber } from './services/numbering';
+import { userSite } from './services/permissions';
+import { Toaster } from './components/Toaster';
 import { LoginView } from './components/LoginView';
 import { AccountModal } from './components/AccountModal';
 
@@ -86,6 +89,9 @@ export default function App() {
   const enterApp = async (user: User) => {
     setCurrentUser(user);
     await hydrateFromBackend();
+    // A site-bound account always works on its own site
+    const site = userSite(user);
+    if (site) setSelectedSite(site);
     setState(loadState());
     setAuthNotice(null);
     setAuthStatus('in');
@@ -142,12 +148,6 @@ export default function App() {
     setState(loadState());
   };
 
-  const handleChangeRole = (role: UserRole) => {
-    const updatedUser = { ...state.currentUser, role };
-    setCurrentUser(updatedUser);
-    setState(loadState());
-  };
-
   const handleOpenNewPayment = () => {
     setIsNewPaymentOpen(true);
   };
@@ -169,7 +169,7 @@ export default function App() {
     paymentMethod: any;
     cashierName: string;
   }) => {
-    const receiptNum = `REC-2024-${String(state.receipts.length + 513).padStart(4, '0')}`;
+    const receiptNum = nextYearlyNumber(state.receipts.map((r) => r.receiptNumber), 'REC');
     const newReceipt: PaymentReceipt = {
       id: `rec-${Date.now()}`,
       receiptNumber: receiptNum,
@@ -213,7 +213,17 @@ export default function App() {
     }
 
     saveState(nextState);
-    syncApi('/api/v1/receipts', 'POST', newReceipt);
+    // The server may give another number (e.g. taken meanwhile by another cashier): show its version
+    void syncApi<PaymentReceipt>('/api/v1/receipts', 'POST', newReceipt).then((r) => {
+      if (!r.ok) {
+        setSelectedReceipt((cur) => (cur?.id === newReceipt.id ? null : cur));
+        return;
+      }
+      if (r.data) {
+        applyServerRecord('receipts', r.data);
+        setSelectedReceipt((cur) => (cur?.id === newReceipt.id ? { ...cur, ...r.data } : cur));
+      }
+    });
     addAuditLog('ENCAISSEMENT_ENREGISTRE', 'Finances', `Reçu #${receiptNum} de ${data.amountPaidAr.toLocaleString('fr-FR')} Ar enregistré pour ${data.memberName}`, data.siteId);
 
     // Launch celebratory confetti
@@ -233,7 +243,7 @@ export default function App() {
 
   const handleAddMember = (memberData: any) => {
     const nextState = { ...state };
-    const memberCode = `MBR-2024-${String(nextState.members.length + 1).padStart(4, '0')}`;
+    const memberCode = nextYearlyNumber(nextState.members.map((m) => m.memberNumber), 'MBR');
     const newMember: Member = {
       id: `mbr-${Date.now()}`,
       memberNumber: memberCode,
@@ -252,7 +262,7 @@ export default function App() {
     };
     nextState.members = [newMember, ...nextState.members];
     saveState(nextState);
-    syncApi('/api/v1/members', 'POST', newMember);
+    void syncApi<Member>('/api/v1/members', 'POST', newMember).then((r) => r.ok && applyServerRecord('members', r.data));
     addAuditLog('ADHESION_MEMBRE', 'Membres', `Nouveau membre ${newMember.fullName} (${memberCode}) enregistré, adhésion acceptée par ${newMember.approvedByPresident}`);
     return newMember.id;
   };
@@ -608,6 +618,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans antialiased text-[#0F172A]">
+      <Toaster />
       {accountOpen && (
         <AccountModal
           user={state.currentUser}
@@ -632,7 +643,6 @@ export default function App() {
           selectedSiteId={state.selectedSiteId}
           onSelectSite={handleSelectSite}
           currentUser={state.currentUser}
-          onChangeRole={handleChangeRole}
           onOpenNewPayment={handleOpenNewPayment}
           onGlobalSearch={(term) => setSearchTerm(term)}
           searchTerm={searchTerm}

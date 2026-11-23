@@ -168,7 +168,7 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
       memberName: currentMember?.fullName || 'Client Stationnement',
       vehiclePlate: selectedPlate || undefined,
       siteId: selectedSiteId,
-      siteName: siteObj?.name || 'Analakely Central',
+      siteName: siteObj?.name || selectedSiteId,
       purpose: formula.purpose,
       period,
       amountDueAr: amountDue,

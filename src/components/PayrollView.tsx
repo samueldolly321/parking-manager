@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { EntityActions } from './EntityActions';
 import { AppState, PayrollRecord, PayrollBeneficiaryType } from '../types';
@@ -229,7 +230,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
       cin,
       avatarUrl,
       paymentMethod: formPaymentMethod,
-      bankAccountOrPhone: formBankOrPhone || '+261 34 00 000 00',
+      bankAccountOrPhone: formBankOrPhone,
       baseSalaryAr: Number(formBaseSalary),
       responsibilityBonusAr: Number(formRespBonus),
       nightShiftBonusAr: Number(formNightBonus),
@@ -464,7 +465,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
                       <td className="py-3.5 px-4">
                         <div className="flex items-center gap-3">
                           <img
-                            src={slip.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                            src={slip.avatarUrl || initialsAvatar(slip.beneficiaryName)}
                             alt={slip.beneficiaryName}
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-xs"
                           />
@@ -629,7 +630,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between text-xs">
               <div className="flex items-center gap-4">
                 <img
-                  src={selectedSlip.avatarUrl || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'}
+                  src={selectedSlip.avatarUrl || initialsAvatar(selectedSlip.beneficiaryName)}
                   alt={selectedSlip.beneficiaryName}
                   className="w-16 h-16 rounded-xl object-cover border border-slate-300"
                 />
@@ -904,7 +905,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
                   Visé par la Trésorerie Générale
                 </span>
                 <p className="font-bold text-slate-900">
-                  {selectedSlip.approverName || 'Rasoanaivo Mirana (Trésorière)'}
+                  {selectedSlip.approverName || 'Pas encore visé'}
                 </p>
               </div>
             </div>

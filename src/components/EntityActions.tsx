@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { notify } from '../services/notify';
 import { deleteEntity, loadState, updateEntity, EntityCollection } from '../services/storage';
 import { PhotoInput } from './PhotoInput';
 
@@ -215,7 +216,7 @@ export const EntityActions: React.FC<EntityActionsProps> = ({ collection, record
       await deleteEntity(collection, record.id);
       onDeleted?.();
     } catch (err) {
-      window.alert(err instanceof Error ? err.message : 'Suppression impossible');
+      notify(err instanceof Error ? err.message : 'Suppression impossible', 'error');
     } finally {
       setBusy(false);
     }

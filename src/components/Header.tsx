@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { AppState, Site, User, UserRole } from '../types';
+import { AppState, Site, User, USER_ROLES } from '../types';
+import { userSite } from '../services/permissions';
 import { DashboardAlert, formatLongDate, todayInTana } from '../services/dashboardMetrics';
 import { globalSearch, KIND_LABEL, SearchResult, SearchTarget } from '../services/globalSearch';
 
@@ -8,7 +9,6 @@ interface HeaderProps {
   selectedSiteId: string;
   onSelectSite: (siteId: string) => void;
   currentUser: User;
-  onChangeRole: (role: UserRole) => void;
   onOpenNewPayment: () => void;
   onGlobalSearch: (term: string) => void;
   searchTerm: string;
@@ -173,7 +173,6 @@ export const Header: React.FC<HeaderProps> = ({
   selectedSiteId,
   onSelectSite,
   currentUser,
-  onChangeRole,
   onOpenNewPayment,
   onGlobalSearch,
   searchTerm,
@@ -216,15 +215,9 @@ export const Header: React.FC<HeaderProps> = ({
     onOpenSearchResult(target);
   };
 
-  const rolesList: { role: UserRole; label: string; desc: string }[] = [
-    { role: 'super_admin', label: 'Super Admin', desc: 'Accès consolidé & tous droits' },
-    { role: 'president_general', label: 'Président Général', desc: 'Supervision globale & gouvernance' },
-    { role: 'president_site', label: 'Président de Site', desc: 'Périmètre autorisé au site' },
-    { role: 'tresorier_general', label: 'Trésorier Général', desc: 'Contrôle financier global & caisses' },
-    { role: 'tresorier_site', label: 'Trésorier de Site', desc: 'Validation dépenses & caisse site' },
-    { role: 'chef_poste_gardien', label: 'Chef de Poste Gardien', desc: 'Opérations terrain & relèves' },
-    { role: 'secretaire', label: 'Secrétaire Général', desc: 'PV, adhésions & registres' }
-  ];
+  const roleLabel = USER_ROLES.find((r) => r.role === currentUser.role)?.label || currentUser.role;
+  const lockedSite = userSite(currentUser);
+  const lockedSiteName = sites.find((x) => x.id === lockedSite)?.name;
 
   return (
     <header className="sticky top-0 z-30 bg-white/95 backdrop-blur-md border-b border-[#E2E8F0] shadow-sm">
@@ -242,12 +235,14 @@ export const Header: React.FC<HeaderProps> = ({
         {/* Site Selector */}
         <div className="relative flex-1 md:flex-none md:w-44 xl:w-60 min-w-0 max-w-60">
           <select
-            value={selectedSiteId}
+            value={lockedSite || selectedSiteId}
             onChange={(e) => onSelectSite(e.target.value)}
+            disabled={!!lockedSite}
+            title={lockedSite ? `Votre compte est rattaché au ${lockedSiteName || 'site'}` : undefined}
             aria-label="Sélectionner un site"
             className="w-full truncate bg-[#F1F5F9] text-[#0F172A] font-medium text-xs rounded-lg py-2 pl-2.5 sm:pl-3 pr-7 sm:pr-8 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#06B6D4] border border-[#E2E8F0] transition-colors"
           >
-            <option value="all">Tous les Sites</option>
+            {!lockedSite && <option value="all">Tous les Sites</option>}
             {sites.map((site) => (
               <option key={site.id} value={site.id}>
                 {site.name}
@@ -355,7 +350,7 @@ export const Header: React.FC<HeaderProps> = ({
             )}
           </div>
 
-          {/* User Profile & Role Switcher */}
+          {/* User Profile */}
           <div className="relative">
             <button
               onClick={() => { setShowRoleMenu(!showRoleMenu); setShowNotifications(false); }}
@@ -378,7 +373,7 @@ export const Header: React.FC<HeaderProps> = ({
               <div className="hidden xl:flex flex-col text-left max-w-[150px]">
                 <span className="text-xs text-[#0F172A] font-semibold leading-tight truncate">{currentUser.fullName}</span>
                 <span className="font-mono-data text-[10px] text-[#06B6D4] font-medium leading-tight truncate">
-                  {rolesList.find(r => r.role === currentUser.role)?.label || currentUser.role}
+                  {roleLabel}
                 </span>
               </div>
               <span className="hidden sm:inline material-symbols-outlined text-[16px] text-slate-400">arrow_drop_down</span>
@@ -387,27 +382,11 @@ export const Header: React.FC<HeaderProps> = ({
             {showRoleMenu && (
               <div className="absolute right-0 mt-2 w-64 max-w-[calc(100vw-1.5rem)] bg-white rounded-xl shadow-xl border border-[#E2E8F0] p-2 space-y-1 z-50">
                 <div className="px-3 py-2 border-b border-[#E2E8F0]">
-                  <div className="text-xs font-semibold text-[#0F172A] truncate xl:hidden">{currentUser.fullName}</div>
-                  <div className="font-headline text-xs font-bold text-[#0F172A]">Simulateur de Rôle (RBAC)</div>
-                  <div className="text-[10px] text-slate-500">Changer de profil pour tester les permissions</div>
-                </div>
-                <div className="max-h-60 overflow-y-auto space-y-0.5">
-                  {rolesList.map((item) => (
-                    <button
-                      key={item.role}
-                      onClick={() => {
-                        onChangeRole(item.role);
-                        setShowRoleMenu(false);
-                      }}
-                      type="button"
-                      className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors flex flex-col ${
-                        currentUser.role === item.role ? 'bg-[#06B6D4]/15 text-[#0F172A] font-bold' : 'hover:bg-slate-100 text-slate-700'
-                      }`}
-                    >
-                      <span>{item.label}</span>
-                      <span className="text-[10px] text-slate-400 font-normal">{item.desc}</span>
-                    </button>
-                  ))}
+                  <div className="text-xs font-semibold text-[#0F172A] truncate">{currentUser.fullName}</div>
+                  <div className="text-[11px] text-[#06B6D4] font-medium">{roleLabel}</div>
+                  <div className="text-[10px] text-slate-500">
+                    {lockedSite ? `Accès limité au ${lockedSiteName || 'site'}` : 'Accès à tous les sites'}
+                  </div>
                 </div>
                 <div className="pt-1 mt-1 border-t border-[#E2E8F0] space-y-0.5">
                   <button

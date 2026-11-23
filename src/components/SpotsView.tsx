@@ -519,11 +519,11 @@ export const SpotsView: React.FC<SpotsViewProps> = ({
                   </span>
                 </div>
                 <div className="font-headline text-xs font-bold text-[#0F172A]">
-                  {selectedSpot.currentVehicleModel || 'Toyota Hilux'}
+                  {selectedSpot.currentVehicleModel || 'Modèle non renseigné'}
                 </div>
                 <div className="text-xs text-slate-600 flex items-center gap-1.5">
                   <span className="material-symbols-outlined text-[16px] text-slate-400">person</span>
-                  <span>{selectedSpot.currentDriverName || 'Conducteur'}</span>
+                  <span>{selectedSpot.currentDriverName || 'Conducteur non renseigné'}</span>
                 </div>
               </div>
 
