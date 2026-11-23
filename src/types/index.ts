@@ -103,6 +103,8 @@ export interface Member {
   address: string;
   primarySiteId: string;
   joinedDate: string;
+  /** Président (du site ou général) qui a accepté l'adhésion */
+  approvedByPresident?: string;
   status: 'actif' | 'en_retard' | 'suspendu' | 'radie';
   currentBalanceAr: number; // 0 if up to date, negative if unpaid
   avatarUrl?: string;

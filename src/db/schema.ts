@@ -71,6 +71,7 @@ export const members = pgTable('members', {
   address: text('address').notNull(),
   primarySiteId: varchar('primary_site_id', { length: 100 }).references(() => sites.id, { onDelete: 'restrict' }).notNull(),
   joinedDate: varchar('joined_date', { length: 30 }).notNull(),
+  approvedByPresident: varchar('approved_by_president', { length: 150 }),
   status: varchar('status', { length: 30 }).default('actif').notNull(),
   currentBalanceAr: bigint('current_balance_ar', { mode: 'number' }).default(0).notNull(),
   avatarUrl: text('avatar_url'),

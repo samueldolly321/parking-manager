@@ -455,12 +455,18 @@ async function startServer() {
         address: req.body.address || 'Antananarivo',
         primarySiteId: req.body.primarySiteId || 'S1',
         joinedDate: req.body.joinedDate || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        approvedByPresident: req.body.approvedByPresident,
         status: req.body.status || 'actif',
         currentBalanceAr: Number(req.body.currentBalanceAr || 0),
         avatarUrl: req.body.avatarUrl,
         notes: req.body.notes || ''
       });
-      await recordAudit('CREATION_MEMBRE', 'Membres', `Nouveau membre : ${newMember.fullName} (${newMember.memberNumber})`);
+      await recordAudit(
+        'CREATION_MEMBRE',
+        'Membres',
+        `Nouveau membre : ${newMember.fullName} (${newMember.memberNumber})` +
+          (newMember.approvedByPresident ? `, adhésion acceptée par ${newMember.approvedByPresident}` : '')
+      );
       res.status(201).json(newMember);
     } catch (error) {
       console.error('Create member error:', error);

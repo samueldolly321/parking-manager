@@ -226,6 +226,7 @@ export async function getFullState(): Promise<AppState> {
       address: m.address,
       primarySiteId: m.primarySiteId,
       joinedDate: m.joinedDate,
+      approvedByPresident: m.approvedByPresident ?? undefined,
       status: m.status as Member['status'],
       currentBalanceAr: m.currentBalanceAr,
       avatarUrl: m.avatarUrl ?? undefined,
@@ -1173,6 +1174,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS invoice_photo_url TEXT');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS quantity DOUBLE PRECISION');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS unit VARCHAR(30)');
+  await pool.query('ALTER TABLE members ADD COLUMN IF NOT EXISTS approved_by_president VARCHAR(150)');
   await pool.query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT now())');
 }
 

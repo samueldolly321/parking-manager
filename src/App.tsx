@@ -244,6 +244,7 @@ export default function App() {
       address: memberData.address || 'Antananarivo',
       primarySiteId: memberData.primarySiteId || 'S1',
       joinedDate: new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+      approvedByPresident: memberData.approvedByPresident,
       status: 'actif',
       currentBalanceAr: 0,
       notes: memberData.notes,
@@ -252,7 +253,7 @@ export default function App() {
     nextState.members = [newMember, ...nextState.members];
     saveState(nextState);
     syncApi('/api/v1/members', 'POST', newMember);
-    addAuditLog('ADHESION_MEMBRE', 'Membres', `Nouveau membre ${newMember.fullName} (${memberCode}) enregistré`);
+    addAuditLog('ADHESION_MEMBRE', 'Membres', `Nouveau membre ${newMember.fullName} (${memberCode}) enregistré, adhésion acceptée par ${newMember.approvedByPresident}`);
     return newMember.id;
   };
 
@@ -479,6 +480,7 @@ export default function App() {
             receipts={state.receipts}
             cards={state.cards}
             sites={state.sites}
+            committeeMembers={state.committeeMembers}
             selectedSiteId={state.selectedSiteId}
             onAddMember={handleAddMember}
             onOpenNewPayment={handleOpenNewPayment}

@@ -44,7 +44,7 @@ const FIELD_LABELS: Record<string, string> = {
   fullName: 'Nom complet', name: 'Nom', code: 'Code', phone: 'Téléphone', address: 'Adresse', city: 'Ville',
   cin: 'CIN', cinIssuedDate: 'CIN délivrée le', cinIssuedLocation: 'CIN délivrée à', category: 'Catégorie',
   status: 'Statut', primarySiteId: 'Site principal', siteId: 'Site', memberNumber: 'N° membre',
-  joinedDate: "Date d'adhésion", currentBalanceAr: 'Solde (Ar)', notes: 'Notes', avatarUrl: 'Photo',
+  joinedDate: "Date d'adhésion", approvedByPresident: "Adhésion acceptée par (Président)", currentBalanceAr: 'Solde (Ar)', notes: 'Notes', avatarUrl: 'Photo',
   mobileMoneyProvider: 'Mobile Money', emergencyContactName: "Contact d'urgence", emergencyContactPhone: "Tél. contact d'urgence",
   plateNumber: 'Immatriculation', brand: 'Marque', model: 'Modèle', color: 'Couleur', type: 'Type',
   title: 'Titre', description: 'Description', date: 'Date', amountAr: 'Montant (Ar)', role: 'Fonction',

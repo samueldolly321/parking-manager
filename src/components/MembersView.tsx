@@ -1,13 +1,13 @@
 import React, { useState } from 'react';
 import { useBranding, BrandLogo } from '../services/branding';
-import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site } from '../types';
+import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember } from '../types';
 import { PhotoInput, Avatar } from './PhotoInput';
 import { EntityActions } from './EntityActions';
 
 const MEMBER_EDIT_FIELDS = [
   'avatarUrl', 'fullName', 'phone', 'cin', 'cinIssuedDate', 'cinIssuedLocation', 'address', 'category',
   'primarySiteId', 'status', 'mobileMoneyProvider', 'emergencyContactName', 'emergencyContactPhone',
-  'currentBalanceAr', 'joinedDate', 'notes'
+  'currentBalanceAr', 'joinedDate', 'approvedByPresident', 'notes'
 ];
 
 interface MembersViewProps {
@@ -17,6 +17,8 @@ interface MembersViewProps {
   receipts: PaymentReceipt[];
   cards: MembershipCard[];
   sites: Site[];
+  /** Committee, used to find the Président Général */
+  committeeMembers?: CommitteeMember[];
   selectedSiteId: string;
   onAddMember: (memberData: Partial<Member>) => string;
   onOpenNewPayment: () => void;
@@ -43,6 +45,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
   receipts,
   cards,
   sites,
+  committeeMembers = [],
   selectedSiteId,
   onAddMember,
   onOpenNewPayment,
@@ -66,6 +69,31 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [formCategory, setFormCategory] = useState<'privilege' | 'standard' | 'resident' | 'corporate'>('standard');
   const [formSiteId, setFormSiteId] = useState<string>('S1');
   const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
+  const [formPresident, setFormPresident] = useState<string>('');
+
+  /** Presidents who can accept a membership: the Président Général and the president of each site */
+  const hasPresident = (name?: string) => !!name?.trim() && name.trim() !== 'À désigner';
+  const presidentGeneral = committeeMembers.find((c) => c.role === 'President General' && c.status === 'actif')
+    || committeeMembers.find((c) => c.role === 'President General');
+  const presidentOptions: { value: string; label: string; siteId?: string }[] = [
+    ...(presidentGeneral
+      ? [{ value: `${presidentGeneral.fullName} (Président Général)`, label: `${presidentGeneral.fullName} — Président Général` }]
+      : []),
+    ...sites
+      .filter((s) => hasPresident(s.presidentName))
+      .map((s) => ({
+        value: `${s.presidentName.trim()} (Président du site ${s.name})`,
+        label: `${s.presidentName.trim()} — Président du site ${s.name}`,
+        siteId: s.id
+      }))
+  ];
+  const sitesWithoutPresident = sites.filter((s) => !hasPresident(s.presidentName));
+  /** Option of the president of a site (pre-selected when the site is chosen) */
+  const sitePresident = (siteId: string) => presidentOptions.find((o) => o.siteId === siteId)?.value || '';
+  const openAddModal = () => {
+    setFormPresident(sitePresident(formSiteId));
+    setShowAddModal(true);
+  };
 
   // Filter members
   const siteMembers = members.filter(m => selectedSiteId === 'all' || m.primarySiteId === selectedSiteId);
@@ -88,7 +116,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
   const handleCreateMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formName.trim() || !formPhone.trim()) return;
+    if (!formName.trim() || !formPhone.trim() || !formPresident.trim()) return;
 
     const newMemberId = onAddMember({
       fullName: formName,
@@ -97,6 +125,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
       address: formAddress || 'Antananarivo',
       category: formCategory,
       primarySiteId: formSiteId,
+      approvedByPresident: formPresident.trim(),
       avatarUrl: formPhoto
     });
 
@@ -111,6 +140,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
     setFormPhone('');
     setFormAddress('');
     setFormPhoto(undefined);
+    setFormPresident('');
     setShowAddModal(false);
   };
 
@@ -148,7 +178,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 />
               </div>
               <button
-                onClick={() => setShowAddModal(true)}
+                onClick={openAddModal}
                 type="button"
                 className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-colors flex items-center gap-1.5"
               >
@@ -297,7 +327,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           </button>
 
           <button
-            onClick={() => setShowAddModal(true)}
+            onClick={openAddModal}
             type="button"
             className="bg-white text-[#0F172A] font-headline text-xs font-bold px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
           >
@@ -344,6 +374,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   <span>Réf : <strong className="text-[#0F172A]">{currentMember?.memberNumber}</strong></span>
                   <span>•</span>
                   <span>Inscrit le : <strong>{currentMember?.joinedDate}</strong></span>
+                  {currentMember?.approvedByPresident && (
+                    <>
+                      <span>•</span>
+                      <span>Adhésion acceptée par : <strong className="text-[#0F172A]">{currentMember.approvedByPresident}</strong></span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
@@ -1119,14 +1155,42 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Site de Rattachement</label>
                   <select
                     value={formSiteId}
-                    onChange={(e) => setFormSiteId(e.target.value)}
+                    onChange={(e) => {
+                      const next = e.target.value;
+                      // Follow the new site's president unless the field was typed by hand
+                      if (!formPresident.trim() || formPresident === sitePresident(formSiteId)) {
+                        setFormPresident(sitePresident(next));
+                      }
+                      setFormSiteId(next);
+                    }}
                     className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
                   >
-                    <option value="S1">Site 01 - Analakely Central</option>
-                    <option value="S2">Site 02 - Ankorondrano Business</option>
-                    <option value="S3">Site 03 - Ivato Aéroport Hub</option>
+                    {sites.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
                   </select>
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Adhésion acceptée par *</label>
+                <select
+                  required
+                  value={formPresident}
+                  onChange={(e) => setFormPresident(e.target.value)}
+                  className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
+                >
+                  <option value="">— Choisir le président —</option>
+                  {presidentOptions.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <p className="text-[10px] text-slate-400 mt-1">Le président du site choisi est proposé par défaut.</p>
+                {sitesWithoutPresident.length > 0 && (
+                  <p className="text-[10px] text-amber-600 mt-1">
+                    Sans président : {sitesWithoutPresident.map((s) => s.name).join(', ')}. À renseigner dans Sites.
+                  </p>
+                )}
               </div>
 
               <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">

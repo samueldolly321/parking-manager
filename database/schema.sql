@@ -159,6 +159,7 @@ CREATE TABLE "members" (
 	"address" text NOT NULL,
 	"primary_site_id" varchar(100) NOT NULL,
 	"joined_date" varchar(30) NOT NULL,
+	"approved_by_president" varchar(150),
 	"status" varchar(30) DEFAULT 'actif' NOT NULL,
 	"current_balance_ar" bigint DEFAULT 0 NOT NULL,
 	"avatar_url" text,

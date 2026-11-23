@@ -300,7 +300,7 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
               {field('address', 'Adresse', { placeholder: 'Rue, quartier' })}
               {field('city', 'Ville')}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {field('presidentName', 'Président du site')}
+                {field('presidentName', 'Président du site *', { required: true })}
                 {field('presidentPhone', 'Téléphone du président', { type: 'tel', placeholder: '+261 34 …' })}
               </div>
               {field('tresorierName', 'Trésorier du site')}
