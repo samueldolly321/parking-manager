@@ -68,7 +68,20 @@ export type VehicleCategory =
   | 'Utilitaire / Fourgon'
   | 'Taxi-Ville / Minibus'
   | 'Camionnette'
+  | 'Poids Lourd (PL)'
   | 'Autre';
+
+/** Every vehicle category, in display order (lists in forms). */
+export const VEHICLE_CATEGORIES: VehicleCategory[] = [
+  'Voiture Légère (VL)',
+  'SUV / 4x4',
+  'Deux-Roues (2R)',
+  'Utilitaire / Fourgon',
+  'Camionnette',
+  'Taxi-Ville / Minibus',
+  'Poids Lourd (PL)',
+  'Autre'
+];
 
 export interface Vehicle {
   id: string;
@@ -85,7 +98,7 @@ export interface Vehicle {
   registeredAt: string;
   status: 'actif' | 'suspendu' | 'radie';
   photoUrl?: string;
-  assignedSpotType?: 'placement_libre_interieur' | 'emplacement_privatif_dedie' | 'deux_roues';
+  assignedSpotType?: 'placement_libre_interieur' | 'emplacement_privatif_dedie' | 'deux_roues' | 'poids_lourd';
 }
 
 export interface Member {

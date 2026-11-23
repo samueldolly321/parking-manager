@@ -54,7 +54,7 @@ import { InfoView } from './components/InfoView';
 import { UsersView } from './components/UsersView';
 import { computeAlerts } from './services/dashboardMetrics';
 
-import { NewPaymentModal } from './components/NewPaymentModal';
+import { NewPaymentModal, PaymentPrefill } from './components/NewPaymentModal';
 import { ReceiptPrintModal } from './components/ReceiptPrintModal';
 import { QrScannerModal } from './components/QrScannerModal';
 
@@ -77,6 +77,7 @@ export default function App() {
 
   // Modals
   const [isNewPaymentOpen, setIsNewPaymentOpen] = useState<boolean>(false);
+  const [paymentPrefill, setPaymentPrefill] = useState<PaymentPrefill | null>(null);
   const [isScannerOpen, setIsScannerOpen] = useState<boolean>(false);
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceipt | null>(null);
 
@@ -148,7 +149,9 @@ export default function App() {
     setState(loadState());
   };
 
-  const handleOpenNewPayment = () => {
+  /** Opens the payment window, pre-filled when called from a subscription (a click event is ignored). */
+  const handleOpenNewPayment = (prefill?: unknown) => {
+    setPaymentPrefill(prefill && typeof prefill === 'object' && 'memberId' in prefill ? (prefill as PaymentPrefill) : null);
     setIsNewPaymentOpen(true);
   };
 
@@ -185,7 +188,8 @@ export default function App() {
       amountPaidAr: data.amountPaidAr,
       remainingBalanceAr: Math.max(0, data.amountDueAr - data.amountPaidAr),
       paymentMethod: data.paymentMethod,
-      cashierName: data.cashierName,
+      // The cashier is whoever is signed in (never a fixed name)
+      cashierName: state.currentUser.fullName,
       transactionRef: `TRX-${Math.floor(10000 + Math.random() * 90000)}-${data.paymentMethod.replace(/\s+/g, '').toUpperCase()}`,
       status: 'confirme'
     };
@@ -260,9 +264,30 @@ export default function App() {
       notes: memberData.notes,
       avatarUrl: memberData.avatarUrl
     };
+    // Only owners of a vehicle are members: the vehicle is created together with the member
+    const v = memberData.vehicle || {};
+    const newVehicle: Vehicle = {
+      id: `veh-${Date.now()}`,
+      licensePlate: String(v.licensePlate || '').toUpperCase().trim(),
+      brand: v.brand || '',
+      model: v.model || '',
+      color: v.color || 'Non précisée',
+      category: v.category || 'Voiture Légère (VL)',
+      photoUrl: v.photoUrl,
+      memberId: newMember.id,
+      siteId: newMember.primarySiteId,
+      status: 'actif',
+      registeredAt: newMember.joinedDate
+    };
     nextState.members = [newMember, ...nextState.members];
+    nextState.vehicles = [newVehicle, ...nextState.vehicles];
     saveState(nextState);
-    void syncApi<Member>('/api/v1/members', 'POST', newMember).then((r) => r.ok && applyServerRecord('members', r.data));
+    void syncApi<Member & { vehicle?: Vehicle }>('/api/v1/members', 'POST', { ...newMember, vehicle: newVehicle }).then((r) => {
+      if (!r.ok || !r.data) return;
+      const { vehicle, ...member } = r.data;
+      applyServerRecord('members', member);
+      if (vehicle) applyServerRecord('vehicles', vehicle);
+    });
     addAuditLog('ADHESION_MEMBRE', 'Membres', `Nouveau membre ${newMember.fullName} (${memberCode}) enregistré, adhésion acceptée par ${newMember.approvedByPresident}`);
     return newMember.id;
   };
@@ -276,6 +301,8 @@ export default function App() {
       model: vehData.model || 'Modèle',
       color: vehData.color || 'Noir',
       category: vehData.category || 'Voiture Légère (VL)',
+      photoUrl: vehData.photoUrl,
+      assignedSpotType: vehData.assignedSpotType,
       memberId: vehData.memberId || state.members[0]?.id || '',
       siteId: vehData.siteId || 'S1',
       status: 'actif',
@@ -283,7 +310,8 @@ export default function App() {
     };
     nextState.vehicles = [newVeh, ...nextState.vehicles];
     saveState(nextState);
-    syncApi('/api/v1/vehicles', 'POST', newVeh);
+    // The server may reactivate a struck-off owner: reload its data afterwards
+    void syncApi('/api/v1/vehicles', 'POST', newVeh).then((r) => { if (r.ok) void hydrateFromBackend(); });
     addAuditLog('AJOUT_VEHICULE', 'Véhicules', `Véhicule ${newVeh.licensePlate} (${newVeh.brand} ${newVeh.model}) assigné au site ${newVeh.siteId}`);
   };
 
@@ -314,6 +342,8 @@ export default function App() {
         if (details.currentVehicleModel !== undefined) spot.currentVehicleModel = details.currentVehicleModel;
         if (details.entryTime !== undefined) spot.entryTime = details.entryTime;
       }
+      // The duration is computed on screen from the entry time
+      spot.duration = undefined;
       if (status === 'libre') {
         spot.currentVehiclePlate = undefined;
         spot.currentDriverName = undefined;
@@ -326,7 +356,8 @@ export default function App() {
         currentVehiclePlate: spot.currentVehiclePlate ?? null,
         currentDriverName: spot.currentDriverName ?? null,
         currentVehicleModel: spot.currentVehicleModel ?? null,
-        entryTime: spot.entryTime ?? null
+        entryTime: spot.entryTime ?? null,
+        duration: null
       });
       addAuditLog('ROTATION_EMPLACEMENT', 'Emplacements', `Emplacement ${spot.code} (${spot.zone}) mis à jour: ${status}`);
     }
@@ -457,6 +488,10 @@ export default function App() {
           <SpotsView
             spots={state.spots}
             sites={state.sites}
+            tariffs={state.tariffs}
+            vehicles={state.vehicles}
+            members={state.members}
+            currentUser={state.currentUser}
             selectedSiteId={state.selectedSiteId}
             onUpdateSpotStatus={handleUpdateSpotStatus}
             onOpenNewPayment={handleOpenNewPayment}
@@ -653,6 +688,7 @@ export default function App() {
           onLogout={handleLogout}
           alerts={computeAlerts({
             subscriptions: state.subscriptions,
+            receipts: state.receipts,
             incidents: state.incidents,
             expenses: state.expenses,
             siteNames: Object.fromEntries(state.sites.map((s) => [s.id, s.name.replace(/^Site \d+\s*-\s*/, '')]))
@@ -675,6 +711,7 @@ export default function App() {
           vehicles={state.vehicles}
           sites={state.sites}
           receipts={state.receipts}
+          prefill={paymentPrefill}
           onSubmitPayment={handlePaymentSubmit}
         />
       )}

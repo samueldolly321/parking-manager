@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { EntityActions } from './EntityActions';
-import { Vehicle, Member, Site, VehicleCategory } from '../types';
+import { Vehicle, Member, Site, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
+import { PhotoInput } from './PhotoInput';
 
 interface VehiclesViewProps {
   vehicles: Vehicle[];
@@ -35,6 +36,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
   const [category, setCategory] = useState<VehicleCategory>('Voiture Légère (VL)');
   const [memberId, setMemberId] = useState<string>(members[0]?.id || '');
   const [siteId, setSiteId] = useState<string>('S1');
+  const [photo, setPhoto] = useState<string | undefined>(undefined);
 
   const filtered = vehicles.filter(v => {
     const matchesSite = selectedSiteId === 'all' || v.siteId === selectedSiteId;
@@ -59,12 +61,14 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
       category,
       memberId,
       siteId,
-      assignedSpotType: category.includes('Deux-Roues') ? 'deux_roues' : 'placement_libre_interieur'
+      photoUrl: photo,
+      assignedSpotType: category.includes('Deux-Roues') ? 'deux_roues' : category.includes('Poids Lourd') ? 'poids_lourd' : 'placement_libre_interieur'
     });
 
     setPlate('');
     setBrand('');
     setModel('');
+    setPhoto(undefined);
     setShowAddModal(false);
   };
 
@@ -116,10 +120,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
             className="bg-[#F8FAFC] text-xs font-medium text-[#0F172A] py-1.5 px-3 rounded-lg border border-[#E2E8F0]"
           >
             <option value="all">Toutes ({vehicles.length})</option>
-            <option value="Voiture Légère (VL)">Voiture Légère (VL)</option>
-            <option value="Deux-Roues (2R)">Deux-Roues (2R)</option>
-            <option value="SUV / 4x4">SUV / 4x4</option>
-            <option value="Utilitaire / Fourgon">Utilitaire</option>
+            {VEHICLE_CATEGORIES.map((c) => (
+              <option key={c} value={c}>{c} ({vehicles.filter((v) => v.category === c).length})</option>
+            ))}
           </select>
         </div>
       </div>
@@ -211,6 +214,17 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
 
             <form onSubmit={handleCreate} className="space-y-3 text-xs">
               <div>
+                <label className="block text-[11px] font-semibold text-slate-500 mb-1">Photo du véhicule</label>
+                <PhotoInput
+                  value={photo}
+                  onChange={setPhoto}
+                  fileNameHint={`vehicule_${plate || 'nouveau'}`}
+                  facingMode="environment"
+                  emptyIcon="directions_car"
+                  maxSize={800}
+                />
+              </div>
+              <div>
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">
                   Immatriculation Malgache * (ex: 6543 TBD)
                 </label>
@@ -257,11 +271,9 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
                     onChange={(e) => setCategory(e.target.value as any)}
                     className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
                   >
-                    <option value="Voiture Légère (VL)">Voiture Légère (VL)</option>
-                    <option value="Deux-Roues (2R)">Deux-Roues (2R)</option>
-                    <option value="SUV / 4x4">SUV / 4x4</option>
-                    <option value="Utilitaire / Fourgon">Utilitaire</option>
-                    <option value="Taxi-Ville / Minibus">Taxi / Minibus</option>
+                    {VEHICLE_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
                   </select>
                 </div>
                 <div>

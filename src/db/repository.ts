@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import { eq, desc, getTableColumns } from 'drizzle-orm';
+import { eq, desc, getTableColumns, and, inArray } from 'drizzle-orm';
 import { getDb, getPool, isPostgresConfigured, schema } from './index.ts';
 import type {
   AppState,
@@ -538,6 +538,65 @@ export async function createVehicleRecord(vehicle: Vehicle): Promise<Vehicle> {
   }
   await db.insert(schema.vehicles).values(vehicle);
   return vehicle;
+}
+
+export async function createSpotRecords(spots: ParkingSpot[]): Promise<ParkingSpot[]> {
+  if (spots.length === 0) return [];
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    store.spots.push(...spots);
+    saveLocalStore(store);
+    return spots;
+  }
+  await db.insert(schema.parkingSpaces).values(spots);
+  return spots;
+}
+
+/** Changes every spot of a zone of a site (new zone name and/or spot type). Returns the number of spots changed. */
+export async function updateZoneSpots(
+  siteId: string,
+  zone: string,
+  patch: { zone?: string; type?: ParkingSpot['type'] }
+): Promise<number> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    const list = store.spots.filter((s) => s.siteId === siteId && s.zone === zone);
+    list.forEach((s) => Object.assign(s, patch));
+    saveLocalStore(store);
+    return list.length;
+  }
+  const rows = await db
+    .update(schema.parkingSpaces)
+    .set(patch)
+    .where(and(eq(schema.parkingSpaces.siteId, siteId), eq(schema.parkingSpaces.zone, zone)))
+    .returning({ id: schema.parkingSpaces.id });
+  return rows.length;
+}
+
+/** Deletes every spot of a zone of a site; vehicles that pointed to them lose their spot. Returns the number deleted. */
+export async function deleteZoneSpots(siteId: string, zone: string): Promise<number> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    const ids = new Set(store.spots.filter((s) => s.siteId === siteId && s.zone === zone).map((s) => s.id));
+    store.spots = store.spots.filter((s) => !ids.has(s.id));
+    store.vehicles.forEach((v) => {
+      if (v.spotId && ids.has(v.spotId)) v.spotId = undefined;
+    });
+    saveLocalStore(store);
+    return ids.size;
+  }
+  return db.transaction(async (tx) => {
+    const rows = await tx
+      .delete(schema.parkingSpaces)
+      .where(and(eq(schema.parkingSpaces.siteId, siteId), eq(schema.parkingSpaces.zone, zone)))
+      .returning({ id: schema.parkingSpaces.id });
+    const ids = rows.map((r) => r.id);
+    if (ids.length) await tx.update(schema.vehicles).set({ spotId: null }).where(inArray(schema.vehicles.spotId, ids));
+    return ids.length;
+  });
 }
 
 export async function updateSpotRecord(id: string, patch: Partial<ParkingSpot>): Promise<ParkingSpot | null> {

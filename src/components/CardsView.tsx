@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { notifyNotAvailable } from '../services/notify';
-import QRCode from 'qrcode';
+import { QrCodeSvg } from './QrCodeSvg';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { flushSync } from 'react-dom';
@@ -21,24 +21,6 @@ const BAT_PIXEL_RATIO = (CARD_WIDTH_MM / 25.4) * BAT_DPI / SPECIMEN_WIDTH_PX;
 const BLANK_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 
 const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-
-/** Real, scannable QR code of the card's token (read back by the gate scanner). */
-const QrCodeSvg: React.FC<{ value: string; className?: string }> = ({ value, className }) => {
-  const path = React.useMemo(() => {
-    if (!value) return { size: 1, d: '' };
-    const qr = QRCode.create(value, { errorCorrectionLevel: 'M' });
-    const { size, data } = qr.modules;
-    let d = '';
-    for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) if (data[y * size + x]) d += `M${x} ${y}h1v1h-1z`;
-    return { size, d };
-  }, [value]);
-  return (
-    <svg className={className} viewBox={`-1 -1 ${path.size + 2} ${path.size + 2}`} shapeRendering="crispEdges" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code de la carte">
-      <rect x={-1} y={-1} width={path.size + 2} height={path.size + 2} fill="white" />
-      <path d={path.d} fill="#0F172A" />
-    </svg>
-  );
-};
 
 interface CardsViewProps {
   cards: MembershipCard[];

@@ -1,8 +1,12 @@
 import React, { useState } from 'react';
 import { notifyNotAvailable } from '../services/notify';
+import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
+import { todayInTana } from '../services/dashboardMetrics';
+import { BILLING_START_KEY, MONTH_STATE_LABELS, MonthState, dateToMonthKey, subscriptionHealth, yearCalendar } from '../services/subscriptionCalendar';
+import { PaymentPrefill, formulaForTariff } from './NewPaymentModal';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
-import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember } from '../types';
+import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
 import { PhotoInput, Avatar } from './PhotoInput';
 import { EntityActions } from './EntityActions';
 
@@ -23,7 +27,8 @@ interface MembersViewProps {
   committeeMembers?: CommitteeMember[];
   selectedSiteId: string;
   onAddMember: (memberData: Partial<Member>) => string;
-  onOpenNewPayment: () => void;
+  /** Opens the payment window (pre-filled when called from a subscription) */
+  onOpenNewPayment: (prefill?: PaymentPrefill) => void;
   onSelectReceipt: (receipt: PaymentReceipt) => void;
   onToggleCardBlock: (cardId: string) => void;
   /** When true, the view opens on the list of all members instead of a single member file */
@@ -59,7 +64,8 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const { appName } = useBranding();
   const [viewMode, setViewMode] = useState<'list' | 'detail'>(startWithList && !initialSelectedId ? 'list' : 'detail');
   const [selectedMemberId, setSelectedMemberId] = useState<string>(initialSelectedId || members[0]?.id || '');
-  const [activeTab, setActiveTab] = useState<'vehicules' | 'abonnements' | 'historique' | 'cartes' | 'documents'>('vehicules');
+  const [activeTab, setActiveTab] = useState<'vehicules' | 'abonnements' | 'historique'>('vehicules');
+  const [calendarYear, setCalendarYear] = useState<number>(() => todayInTana().year);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [searchMember, setSearchMember] = useState<string>('');
 
@@ -72,6 +78,17 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [formSiteId, setFormSiteId] = useState<string>('S1');
   const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
   const [formPresident, setFormPresident] = useState<string>('');
+  // The member's vehicle (required: only owners of a vehicle are members)
+  const [formPlate, setFormPlate] = useState<string>('');
+  const [formBrand, setFormBrand] = useState<string>('');
+  const [formModel, setFormModel] = useState<string>('');
+  const [formVehCategory, setFormVehCategory] = useState<VehicleCategory>('Voiture Légère (VL)');
+  const [formColor, setFormColor] = useState<string>('');
+  const [formVehPhoto, setFormVehPhoto] = useState<string | undefined>(undefined);
+  const plateExists = (plate: string) => {
+    const p = plate.replace(/\s+/g, '').toUpperCase();
+    return !!p && vehicles.some((v) => v.licensePlate.replace(/\s+/g, '').toUpperCase() === p);
+  };
 
   /** Presidents who can accept a membership: the Président Général and the president of each site */
   const hasPresident = (name?: string) => !!name?.trim() && name.trim() !== 'À désigner';
@@ -110,7 +127,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const memberVehicles = vehicles.filter(v => v.memberId === currentMember?.id);
   const memberSubs = subscriptions.filter(s => s.memberId === currentMember?.id);
   const memberReceipts = receipts.filter(r => r.memberId === currentMember?.id);
-  const memberCards = cards.filter(c => c.memberId === currentMember?.id);
 
   const formatAr = (val: number) => {
     return new Intl.NumberFormat('fr-MG').format(val).replace(/,/g, ' ');
@@ -119,6 +135,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const handleCreateMember = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formName.trim() || !formPhone.trim() || !formPresident.trim()) return;
+    if (!formPlate.trim() || !formBrand.trim() || !formModel.trim() || plateExists(formPlate)) return;
 
     const newMemberId = onAddMember({
       fullName: formName,
@@ -128,8 +145,16 @@ export const MembersView: React.FC<MembersViewProps> = ({
       category: formCategory,
       primarySiteId: formSiteId,
       approvedByPresident: formPresident.trim(),
-      avatarUrl: formPhoto
-    });
+      avatarUrl: formPhoto,
+      vehicle: {
+        licensePlate: formPlate.trim().replace(/\s+/g, ' ').toUpperCase(),
+        brand: formBrand.trim(),
+        model: formModel.trim(),
+        category: formVehCategory,
+        color: formColor.trim(),
+        photoUrl: formVehPhoto
+      }
+    } as Partial<Member> & { vehicle: Partial<Vehicle> });
 
     // Show the newly created member's file instead of staying on the previous one
     setSelectedMemberId(newMemberId);
@@ -143,6 +168,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
     setFormAddress('');
     setFormPhoto(undefined);
     setFormPresident('');
+    setFormPlate('');
+    setFormBrand('');
+    setFormModel('');
+    setFormColor('');
+    setFormVehPhoto(undefined);
+    setFormVehCategory('Voiture Légère (VL)');
     setShowAddModal(false);
   };
 
@@ -320,15 +351,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
           )}
 
           <button
-            onClick={() => setActiveTab('cartes')}
-            type="button"
-            className="bg-white text-[#0F172A] font-medium text-xs px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">badge</span>
-            <span>Imprimer carte PVC</span>
-          </button>
-
-          <button
             onClick={openAddModal}
             type="button"
             className="bg-white text-[#0F172A] font-headline text-xs font-bold px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
@@ -338,7 +360,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
           </button>
 
           <button
-            onClick={onOpenNewPayment}
+            onClick={() => onOpenNewPayment(currentMember ? { memberId: currentMember.id } : undefined)}
             type="button"
             className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-colors flex items-center gap-1.5"
           >
@@ -503,8 +525,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
             { id: 'vehicules', label: 'Véhicules enregistrés', count: memberVehicles.length, icon: 'directions_car' },
             { id: 'abonnements', label: 'Abonnements & Tarifs en cours', count: memberSubs.length, icon: 'calendar_month' },
             { id: 'historique', label: 'Historique Paiements & Reçus', count: memberReceipts.length, icon: 'receipt_long' },
-            { id: 'cartes', label: 'Cartes de Membre', count: memberCards.length, icon: 'credit_card' },
-            { id: 'documents', label: 'Pièces Justificatives', count: 3, icon: 'folder_open' }
           ].map(tab => (
             <button
               key={tab.id}
@@ -637,72 +657,212 @@ export const MembersView: React.FC<MembersViewProps> = ({
           )}
 
           {/* TAB 2: Abonnements & Tarifs en cours */}
-          {activeTab === 'abonnements' && (
+          {activeTab === 'abonnements' && (() => {
+            const today = todayInTana();
+            const currentKey = monthKey(today.year, today.monthIndex);
+            const todayStart = Date.UTC(today.year, today.monthIndex, today.day);
+            const daysUntil = (d: string) => {
+              const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(d || '');
+              return m ? Math.round((Date.UTC(+m[3], +m[2] - 1, +m[1]) - todayStart) / 86_400_000) : null;
+            };
+            const rows = memberSubs.map((sub) => {
+              // Same computed state as the dashboard and the alerts
+              const h = subscriptionHealth(sub, receipts, today);
+              const state: 'a_jour' | 'proche' | 'retard' | 'expire' =
+                h.state === 'expire' ? 'expire' : h.state === 'en_retard' ? 'retard' : h.state === 'proche_echeance' ? 'proche' : 'a_jour';
+              return { sub, unpaid: h.unpaid, arrearsAr: h.arrearsAr, state, days: daysUntil(sub.nextDueDate) };
+            });
+            const activeTotal = rows.filter((r) => r.state !== 'expire').reduce((sum, r) => sum + r.sub.monthlyAmountAr, 0);
+            const STATE_BADGE = {
+              a_jour: { label: 'À JOUR', cls: 'bg-emerald-100 text-[#16A34A]' },
+              proche: { label: 'ÉCHÉANCE PROCHE', cls: 'bg-amber-100 text-amber-700' },
+              retard: { label: 'RETARD', cls: 'bg-red-100 text-red-600' },
+              expire: { label: 'EXPIRÉ', cls: 'bg-slate-100 text-slate-500' }
+            };
+            const CELL: Record<MonthState, string> = {
+              paye: 'bg-emerald-500 text-white border-emerald-500',
+              partiel: 'bg-amber-400 text-[#0F172A] border-amber-400',
+              impaye: 'bg-red-50 text-red-700 border-red-300',
+              a_venir: 'bg-white text-slate-400 border-[#E2E8F0]',
+              hors_contrat: 'bg-slate-100 text-slate-300 border-slate-100'
+            };
+            const collect = (r: (typeof rows)[number]) =>
+              onOpenNewPayment({
+                memberId: r.sub.memberId,
+                plate: r.sub.vehiclePlate,
+                formula: formulaForTariff(r.sub.tariffType),
+                monthlyAmountAr: r.sub.monthlyAmountAr,
+                // Unpaid months first; otherwise the payment window proposes the next ones
+                months: r.unpaid.slice(0, 12)
+              });
+
+            return (
             <div className="flex flex-col space-y-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
-                  <h3 className="font-headline text-base font-bold text-[#0F172A]">Contrats d'Abonnement Actifs</h3>
-                  <p className="text-xs text-slate-500">Périodicité de renouvellement et statut de règlement.</p>
+                  <h3 className="font-headline text-base font-bold text-[#0F172A]">Contrats d'abonnement</h3>
+                  <p className="text-xs text-slate-500">Échéances et règlements calculés à partir des reçus enregistrés.</p>
                 </div>
                 <div className="flex items-center gap-2 font-mono-data text-xs bg-[#F8FAFC] px-3 py-2 rounded-lg border border-[#E2E8F0]">
-                  <span className="text-slate-500">Engagement Total Mensuel :</span>
-                  <strong className="text-[#0F172A] font-bold">160 000 Ar / mois</strong>
+                  <span className="text-slate-500">Engagement mensuel :</span>
+                  <strong className="text-[#0F172A] font-bold">{formatAr(activeTotal)} Ar / mois</strong>
                 </div>
               </div>
 
+              {rows.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-8 border border-dashed border-[#CBD5E1] rounded-xl">
+                  Aucun abonnement pour ce membre.
+                </p>
+              ) : (
+              <>
               <div className="overflow-x-auto rounded-xl border border-[#E2E8F0]">
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr className="bg-[#F8FAFC] text-slate-500 font-semibold uppercase tracking-wider border-b border-[#E2E8F0]">
-                      <th className="py-2.5 px-4">Contrat Réf.</th>
-                      <th className="py-2.5 px-4">Véhicule &amp; Emplacement</th>
-                      <th className="py-2.5 px-4">Période en cours</th>
-                      <th className="py-2.5 px-4">Prochaine Échéance</th>
-                      <th className="py-2.5 px-4 text-right">Tarif Mensuel</th>
+                      <th className="py-2.5 px-4">Contrat</th>
+                      <th className="py-2.5 px-4">Véhicule &amp; formule</th>
+                      <th className="py-2.5 px-4">Période payée</th>
+                      <th className="py-2.5 px-4">Prochaine échéance</th>
+                      <th className="py-2.5 px-4 text-right">Tarif mensuel</th>
                       <th className="py-2.5 px-4 text-center">État</th>
                       <th className="py-2.5 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[#E2E8F0]">
-                    {memberSubs.map((sub) => (
-                      <tr key={sub.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="py-3 px-4 font-mono-data font-bold text-[#0F172A]">{sub.contractRef}</td>
+                    {rows.map((r) => (
+                      <tr key={r.sub.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-4 font-mono-data font-bold text-[#0F172A]">{r.sub.contractRef}</td>
                         <td className="py-3 px-4">
-                          <div className="font-bold text-[#0F172A]">{sub.vehicleModel} ({sub.vehiclePlate})</div>
-                          <div className="text-[#0284C7] text-[11px]">{sub.tariffType}</div>
+                          <div className="font-bold text-[#0F172A]">{r.sub.vehicleModel} ({r.sub.vehiclePlate})</div>
+                          <div className="text-[#0284C7] text-[11px]">{r.sub.tariffType}</div>
                         </td>
-                        <td className="py-3 px-4 font-mono-data text-slate-600">{sub.startDate} - {sub.endDate}</td>
+                        <td className="py-3 px-4 font-mono-data text-slate-600">{r.sub.startDate} – {r.sub.endDate}</td>
                         <td className="py-3 px-4 font-mono-data text-[#0F172A]">
-                          <strong>{sub.nextDueDate}</strong>
-                          <span className="block text-[10px] text-slate-400">dans {sub.daysRemaining} jours</span>
+                          <strong>{r.sub.nextDueDate}</strong>
+                          {r.days !== null && r.state !== 'expire' && (
+                            <span className={`block text-[10px] ${r.days < 0 ? 'text-red-600 font-semibold' : 'text-slate-400'}`}>
+                              {r.days < 0 ? `dépassée de ${-r.days} jour${-r.days > 1 ? 's' : ''}` : r.days === 0 ? 'aujourd’hui' : `dans ${r.days} jour${r.days > 1 ? 's' : ''}`}
+                            </span>
+                          )}
                         </td>
-                        <td className="py-3 px-4 text-right font-mono-data font-bold text-[#0F172A]">
-                          {formatAr(sub.monthlyAmountAr)} Ar
-                        </td>
+                        <td className="py-3 px-4 text-right font-mono-data font-bold text-[#0F172A]">{formatAr(r.sub.monthlyAmountAr)} Ar</td>
                         <td className="py-3 px-4 text-center">
-                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono-data text-[10px] font-bold ${
-                            sub.status === 'a_jour' ? 'bg-emerald-100 text-[#16A34A]' : 'bg-red-100 text-red-600'
-                          }`}>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded font-mono-data text-[10px] font-bold ${STATE_BADGE[r.state].cls}`}>
                             <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                            {sub.status === 'a_jour' ? 'À JOUR' : 'RETARD'}
+                            {STATE_BADGE[r.state].label}
                           </span>
+                          {r.state === 'retard' && (
+                            <span className="block text-[10px] text-red-600 mt-0.5">
+                              {r.unpaid.length ? `${r.unpaid.length} mois impayé${r.unpaid.length > 1 ? 's' : ''} · ` : 'Paiement partiel · '}
+                              {formatAr(r.arrearsAr)} Ar
+                            </span>
+                          )}
                         </td>
                         <td className="py-3 px-4 text-right">
-                          <button
-                            onClick={onOpenNewPayment}
-                            type="button"
-                            className="text-[#06B6D4] font-semibold hover:underline"
-                          >
-                            Renouveler
-                          </button>
+                          {r.state !== 'expire' && (
+                            <button
+                              onClick={() => collect(r)}
+                              type="button"
+                              title={
+                                r.unpaid.length
+                                  ? `Encaisser les mois impayés : ${r.unpaid.slice(0, 12).map(monthLabel).join(', ')}`
+                                  : 'Encaisser les mois suivants de cet abonnement'
+                              }
+                              className="text-[#06B6D4] font-semibold hover:underline whitespace-nowrap"
+                            >
+                              {r.unpaid.length ? 'Régler les impayés' : 'Payer les mois suivants'}
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+
+              {/* Annual calendar: paid / unpaid months */}
+              <div className="rounded-xl border border-[#E2E8F0] p-4 space-y-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <h4 className="font-headline text-sm font-bold text-[#0F172A] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">calendar_month</span>
+                    Calendrier des paiements
+                  </h4>
+                  <div className="flex items-center gap-1">
+                    <button type="button" onClick={() => setCalendarYear((y) => y - 1)} className="p-1 rounded hover:bg-slate-100" aria-label="Année précédente">
+                      <span className="material-symbols-outlined text-[18px]">chevron_left</span>
+                    </button>
+                    <span className="font-mono-data text-sm font-bold text-[#0F172A] w-12 text-center">{calendarYear}</span>
+                    <button type="button" onClick={() => setCalendarYear((y) => y + 1)} className="p-1 rounded hover:bg-slate-100" aria-label="Année suivante">
+                      <span className="material-symbols-outlined text-[18px]">chevron_right</span>
+                    </button>
+                    {calendarYear !== today.year && (
+                      <button type="button" onClick={() => setCalendarYear(today.year)} className="ml-1 text-[11px] text-[#06B6D4] font-semibold hover:underline">
+                        Cette année
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[11px] border-separate border-spacing-1">
+                    <thead>
+                      <tr className="text-slate-500">
+                        <th className="text-left font-semibold pr-2">Véhicule</th>
+                        {MONTH_SHORT.map((m, i) => (
+                          <th key={m} className={`font-semibold text-center ${monthKey(calendarYear, i) === currentKey ? 'text-[#06B6D4]' : ''}`}>{m}</th>
+                        ))}
+                        <th className="text-right font-semibold pl-2">Payés</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {rows.map((r) => {
+                        const cal = yearCalendar(r.sub, receipts, calendarYear, currentKey);
+                        const paidCount = cal.filter((c) => c.state === 'paye').length;
+                        return (
+                          <tr key={r.sub.id}>
+                            <td className="pr-2 whitespace-nowrap">
+                              <span className="font-mono-plate font-bold text-[#0F172A]">{r.sub.vehiclePlate}</span>
+                              <span className="block text-[10px] text-slate-400">{r.sub.tariffType}</span>
+                            </td>
+                            {cal.map((c) => (
+                              <td key={c.key}>
+                                <div
+                                  title={`${monthLabel(c.key)} : ${MONTH_STATE_LABELS[c.state]}`}
+                                  className={`h-8 min-w-[2.25rem] rounded-md border flex items-center justify-center font-bold ${CELL[c.state]} ${
+                                    c.key === currentKey ? 'ring-2 ring-[#06B6D4] ring-offset-1' : ''
+                                  }`}
+                                >
+                                  {c.state === 'paye' ? '✓' : c.state === 'partiel' ? '½' : c.state === 'impaye' ? '✗' : ''}
+                                </div>
+                              </td>
+                            ))}
+                            <td className="pl-2 text-right font-mono-data text-slate-600 whitespace-nowrap">{paidCount} / 12</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1.5 text-[11px] text-slate-500">
+                  {(Object.keys(MONTH_STATE_LABELS) as MonthState[]).map((st) => (
+                    <span key={st} className="flex items-center gap-1.5">
+                      <span className={`w-3.5 h-3.5 rounded border ${CELL[st]}`}></span>
+                      {MONTH_STATE_LABELS[st]}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[10px] text-slate-400">
+                  Un mois est « payé » quand un reçu confirmé du membre pour ce véhicule le couvre. Les mois sont dus à partir du début du contrat
+                  {rows.some((r) => dateToMonthKey(r.sub.startDate)) ? '' : ' (date de début inconnue)'}, jamais avant {monthLabel(BILLING_START_KEY).toLowerCase()},
+                  jusqu’au mois en cours.
+                </p>
+              </div>
+              </>
+              )}
             </div>
-          )}
+            );
+          })()}
 
           {/* TAB 3: Historique Paiements & Reçus */}
           {activeTab === 'historique' && (
@@ -768,235 +928,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </div>
           )}
 
-          {/* TAB 4: Cartes de Membre */}
-          {activeTab === 'cartes' && (
-            <div className="flex flex-col space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-headline text-base font-bold text-[#0F172A]">Support Physique &amp; Accès RFID</h3>
-                  <p className="text-xs text-slate-500">
-                    Aperçu de la carte plastique sécurisée et des droits d'accès aux bornes de péage.
-                  </p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => {
-                      if (memberCards[0]) {
-                        onToggleCardBlock(memberCards[0].id);
-                      }
-                    }}
-                    type="button"
-                    className="bg-red-50 text-red-700 hover:bg-red-100 font-headline text-xs font-bold px-3 py-2 rounded-lg border border-red-200 flex items-center gap-1.5 transition-colors"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">block</span>
-                    <span>{memberCards[0]?.status === 'bloquee_perdue' ? 'Débloquer Carte' : 'Déclarer perte / Bloquer'}</span>
-                  </button>
-                  <button
-                    onClick={() => window.print()}
-                    type="button"
-                    className="bg-[#0F172A] text-white font-headline text-xs font-bold px-3.5 py-2 rounded-lg hover:bg-slate-800 transition-colors flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">print</span>
-                    <span>Imprimer carte</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Physical CR80 Card Specimen Recto & Verso */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-center">
-                {/* RECTO */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="font-mono-data text-xs text-slate-500 uppercase font-semibold">Face Recto (Badge Opérationnel)</span>
-                  <div className="w-full aspect-[85.6/53.98] rounded-2xl bg-gradient-to-br from-[#0F172A] via-[#1E293B] to-[#0A1120] text-white p-5 flex flex-col justify-between shadow-2xl relative overflow-hidden border border-slate-700 select-none">
-                    {/* Madagascar Micro Flag & Header */}
-                    <div className="flex items-start justify-between relative z-10">
-                      <div className="flex items-center gap-2.5">
-                        <BrandLogo size={28} />
-                        <div>
-                          <div className="font-headline text-xs font-bold tracking-wider uppercase text-white leading-tight">{appName}</div>
-                          <div className="font-mono-data text-[8px] text-[#06B6D4] uppercase">Réseau Central • Analakely</div>
-                        </div>
-                      </div>
-
-                      {/* Madagascar Flag */}
-                      <div className="w-6 h-4 rounded-sm overflow-hidden flex shadow-sm border border-white/20">
-                        <div className="w-1/3 bg-white h-full"></div>
-                        <div className="w-2/3 h-full flex flex-col">
-                          <div className="h-1/2 bg-[#FC3D32]"></div>
-                          <div className="h-1/2 bg-[#007E3A]"></div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Middle: Photo + Smart Chip + Member Name */}
-                    <div className="flex items-center gap-4 relative z-10 my-auto">
-                      <div className="relative w-14 h-18 rounded-lg overflow-hidden border-2 border-cyan-400 shadow-md shrink-0">
-                        <img
-                          src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
-                          alt={currentMember?.fullName}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-
-                      {/* Gold Contactless Chip Simulation */}
-                      <div className="w-9 h-7 rounded bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 p-[1.5px] shadow-sm flex flex-col justify-between overflow-hidden shrink-0">
-                        <div className="flex justify-between h-2 border-b border-amber-800/40">
-                          <div className="w-2 border-r border-amber-800/40"></div>
-                          <div className="w-2 border-l border-amber-800/40"></div>
-                        </div>
-                        <div className="h-1.5 flex items-center justify-center">
-                          <div className="w-3 h-1 rounded-full border border-amber-800/40"></div>
-                        </div>
-                        <div className="flex justify-between h-2 border-t border-amber-800/40">
-                          <div className="w-2 border-r border-amber-800/40"></div>
-                          <div className="w-2 border-l border-amber-800/40"></div>
-                        </div>
-                      </div>
-
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-[9px] font-mono-data text-cyan-400 uppercase tracking-widest font-semibold">
-                          Titulaire Privilège
-                        </span>
-                        <span className="font-headline text-sm font-bold text-white truncate leading-tight">
-                          {currentMember?.fullName}
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="font-mono-plate text-[10px] text-cyan-200 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-700 font-bold">
-                            {memberVehicles[0]?.licensePlate || 'Aucun véhicule'}
-                          </span>
-                          <span className="font-mono-data text-[10px] text-slate-400">
-                            {currentMember?.memberNumber}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Card Footer */}
-                    <div className="flex items-end justify-between relative z-10 border-t border-slate-700/60 pt-2">
-                      <div className="flex flex-col">
-                        <span className="text-[8px] font-mono-data uppercase text-slate-400">Identifiant Unique</span>
-                        <span className="font-mono-data text-xs text-white font-bold tracking-wider">
-                          {memberCards[0]?.cardNumber || 'Aucune carte émise'}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col text-right">
-                          <span className="text-[8px] font-mono-data uppercase text-slate-400">Validité</span>
-                          <span className="font-mono-data text-xs text-amber-400 font-bold">{memberCards[0]?.expirationDate || '—'}</span>
-                        </div>
-                        <div className="w-7 h-7 rounded-full bg-gradient-to-tr from-cyan-400 to-indigo-500 p-[1px] flex items-center justify-center shadow">
-                          <div className="w-full h-full rounded-full bg-slate-900/60 flex items-center justify-center text-white">
-                            <span className="material-symbols-outlined text-[14px]">verified_user</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* VERSO */}
-                <div className="flex flex-col gap-1.5">
-                  <span className="font-mono-data text-xs text-slate-500 uppercase font-semibold">Face Verso (Contrôle &amp; Chiffrement)</span>
-                  <div className="w-full aspect-[85.6/53.98] rounded-2xl bg-slate-900 text-slate-100 p-5 flex flex-col justify-between shadow-2xl relative border border-slate-700 select-none overflow-hidden">
-                    {/* Magnetic Stripe */}
-                    <div className="-mx-5 -mt-5 h-9 bg-black flex items-center px-4 justify-between border-b border-slate-800">
-                      <span className="font-mono-data text-[7px] text-slate-500 tracking-widest">
-                        ISO 7811 HI-CO 4000 OE MAGNETIC TRACK 1 &amp; 2
-                      </span>
-                      <span className="w-2 h-2 rounded-full bg-cyan-500/50"></span>
-                    </div>
-
-                    <div className="grid grid-cols-12 gap-3 items-center my-auto">
-                      <div className="col-span-4 flex flex-col items-center bg-white p-2 rounded-lg shadow shrink-0">
-                        {/* High Contrast QR Code for scanning */}
-                        <svg className="w-18 h-18" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
-                          <rect x="5" y="5" width="26" height="26" rx="2" fill="#0F172A" />
-                          <rect x="9" y="9" width="18" height="18" fill="white" />
-                          <rect x="13" y="13" width="10" height="10" fill="#0F172A" />
-                          <rect x="69" y="5" width="26" height="26" rx="2" fill="#0F172A" />
-                          <rect x="73" y="9" width="18" height="18" fill="white" />
-                          <rect x="77" y="13" width="10" height="10" fill="#0F172A" />
-                          <rect x="5" y="69" width="26" height="26" rx="2" fill="#0F172A" />
-                          <rect x="9" y="73" width="18" height="18" fill="white" />
-                          <rect x="13" y="77" width="10" height="10" fill="#0F172A" />
-                          <rect x="36" y="8" width="5" height="5" fill="#0F172A" />
-                          <rect x="44" y="8" width="5" height="10" fill="#0F172A" />
-                          <rect x="36" y="24" width="10" height="5" fill="#0F172A" />
-                          <rect x="54" y="24" width="7" height="7" fill="#0F172A" />
-                          <rect x="36" y="36" width="14" height="14" rx="1" fill="#0F172A" />
-                          <rect x="40" y="40" width="6" height="6" fill="white" />
-                          <rect x="58" y="38" width="8" height="5" fill="#0F172A" />
-                          <rect x="72" y="38" width="12" height="6" fill="#0F172A" />
-                          <rect x="38" y="82" width="10" height="6" fill="#0F172A" />
-                          <rect x="54" y="84" width="6" height="6" fill="#0F172A" />
-                          <rect x="70" y="82" width="18" height="8" fill="#0F172A" />
-                        </svg>
-                        <span className="font-mono-data text-[7px] text-slate-600 mt-1 uppercase">
-                          TOKEN: e8f9-4b12
-                        </span>
-                      </div>
-
-                      <div className="col-span-8 flex flex-col justify-between space-y-1.5 pl-1">
-                        <p className="text-[8px] leading-[11px] text-slate-300 text-justify font-sans">
-                          Cette carte est strictement personnelle et demeure la propriété de {appName}.
-                          En cas de perte, aviser immédiatement le poste de sécurité d'Analakely au{' '}
-                          <strong className="text-white">+261 34 12 345 67</strong>.
-                        </p>
-                        <div className="grid grid-cols-2 gap-2 pt-0.5">
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-mono-data text-slate-400 uppercase">Signature Titulaire</span>
-                            <div className="h-6 bg-slate-100 rounded flex items-center px-2">
-                              <span className="italic text-[10px] text-slate-800 font-serif">A. Ramanantsoa</span>
-                            </div>
-                          </div>
-                          <div className="flex flex-col">
-                            <span className="text-[7px] font-mono-data text-slate-400 uppercase">Visa Direction</span>
-                            <div className="h-6 bg-slate-100 rounded flex items-center justify-between px-2">
-                              <span className="font-mono-data text-[8px] text-slate-700 font-bold">PMM-OK</span>
-                              <span className="material-symbols-outlined text-[13px] text-[#06B6D4]">verified</span>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Barcode */}
-                    <div className="flex flex-col items-center border-t border-slate-700/60 pt-1">
-                      <span className="font-mono-data text-[8px] text-cyan-300 tracking-widest">
-                        * {currentMember?.memberNumber}-TANA *
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* TAB 5: Pièces Justificatives */}
-          {activeTab === 'documents' && (
-            <div className="flex flex-col space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="font-headline text-base font-bold text-[#0F172A]">Dossier Numérique &amp; Conformité</h3>
-                  <p className="text-xs text-slate-500">Pièces numérisées légalisées et assurances de stationnement.</p>
-                </div>
-                <button
-                  onClick={() => notifyNotAvailable('Dépôt de pièces justificatives')}
-                  type="button"
-                  className="bg-[#F8FAFC] text-[#0F172A] font-headline text-xs font-bold px-3 py-1.5 rounded-lg border border-[#E2E8F0] hover:bg-slate-100 flex items-center gap-1.5"
-                >
-                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
-                  <span>Téléverser Document</span>
-                </button>
-              </div>
-
-              <div className="bg-[#F8FAFC] rounded-xl p-6 border border-dashed border-[#CBD5E1] text-center text-xs text-slate-500">
-                <span className="material-symbols-outlined text-[32px] text-slate-300 block mb-1">folder_open</span>
-                Aucune pièce justificative enregistrée pour ce membre.
-                <span className="block text-[11px] text-slate-400 mt-1">Le dépôt de documents (CIN, cartes grises, contrat) n’est pas encore disponible.</span>
-              </div>
-            </div>
-          )}
         </div>
       </div>
       </>)}
@@ -1106,6 +1037,63 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   </select>
                 </div>
               </div>
+
+              <fieldset className="border border-[#E2E8F0] rounded-lg p-3 space-y-3">
+                <legend className="px-1 text-[11px] font-semibold text-[#0F172A] flex items-center gap-1">
+                  <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">directions_car</span>
+                  Véhicule du membre *
+                </legend>
+                <p className="text-[10px] text-slate-400 -mt-1">Seuls les propriétaires d’un véhicule sont membres.</p>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Photo du véhicule</label>
+                  <PhotoInput
+                    value={formVehPhoto}
+                    onChange={setFormVehPhoto}
+                    fileNameHint={`vehicule_${formPlate || 'nouveau'}`}
+                    facingMode="environment"
+                    emptyIcon="directions_car"
+                    maxSize={800}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Immatriculation *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="ex : 1234 TBA"
+                      value={formPlate}
+                      onChange={(e) => setFormPlate(e.target.value)}
+                      className={`w-full p-2.5 bg-[#F8FAFC] rounded-lg border font-mono-plate uppercase ${plateExists(formPlate) ? 'border-rose-400' : 'border-[#E2E8F0]'}`}
+                    />
+                    {plateExists(formPlate) && <p className="text-[10px] text-rose-600 mt-1">Immatriculation déjà enregistrée.</p>}
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Catégorie *</label>
+                    <select
+                      value={formVehCategory}
+                      onChange={(e) => setFormVehCategory(e.target.value as VehicleCategory)}
+                      className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
+                    >
+                      {VEHICLE_CATEGORIES.map((c) => (
+                        <option key={c} value={c}>{c}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Marque *</label>
+                    <input type="text" required placeholder="ex : Toyota" value={formBrand} onChange={(e) => setFormBrand(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Modèle *</label>
+                    <input type="text" required placeholder="ex : Hilux" value={formModel} onChange={(e) => setFormModel(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-[11px] font-semibold text-slate-500 mb-1">Couleur</label>
+                    <input type="text" placeholder="ex : Gris métallisé" value={formColor} onChange={(e) => setFormColor(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                  </div>
+                </div>
+              </fieldset>
 
               <div>
                 <label className="block text-[11px] font-semibold text-slate-500 mb-1">Adhésion acceptée par *</label>

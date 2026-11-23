@@ -42,6 +42,11 @@ test('règles des requêtes d’écriture', () => {
   assert.deepEqual(writeRule('POST', '/members', stateKeyOf), { action: 'write', site: { body: 'primarySiteId' } });
   assert.deepEqual(writeRule('POST', '/receipts', stateKeyOf), { action: 'finance', site: { body: 'siteId' } });
   assert.deepEqual(writeRule('POST', '/admin/reset', stateKeyOf), { action: 'admin' });
+  assert.deepEqual(writeRule('POST', '/spots', stateKeyOf), { action: 'spots', site: { body: 'siteId' } });
+  assert.deepEqual(writeRule('POST', '/zones/update', stateKeyOf), { action: 'spots', site: { body: 'siteId' } });
+  assert.deepEqual(writeRule('POST', '/zones/delete', stateKeyOf), { action: 'spots', site: { body: 'siteId' } });
+  assert.ok(roleCan('president_site', 'spots'));
+  assert.equal(roleCan('gardien', 'spots'), false);
   assert.deepEqual(writeRule('POST', '/expenses/e1/approve', stateKeyOf), {
     action: 'expense_approve',
     record: { stateKey: 'expenses', id: 'e1' }

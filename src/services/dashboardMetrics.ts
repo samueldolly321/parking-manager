@@ -6,6 +6,7 @@ import type {
   PaymentReceipt
 } from '../types';
 import { MONTH_NAMES, MONTH_SHORT, monthKey } from './months';
+import { subscriptionHealth } from './subscriptionCalendar';
 
 const TIME_ZONE = 'Indian/Antananarivo';
 const WEEKDAYS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
@@ -82,15 +83,20 @@ const fmtAr = (n: number) => new Intl.NumberFormat('fr-FR').format(n).replace(/[
 /** Alerts that need an action: subscriptions about to expire, open incidents, expenses awaiting approval. */
 export function computeAlerts(input: {
   subscriptions: Subscription[];
+  /** Receipts, to know which months are really paid */
+  receipts: PaymentReceipt[];
   incidents: IncidentRecord[];
   expenses: ExpenseRecord[];
   siteNames: Record<string, string>;
 }): DashboardAlert[] {
   const alerts: DashboardAlert[] = [];
+  const today = todayInTana();
 
-  const dueSoon = input.subscriptions.filter((s) => s.status === 'proche_echeance' || s.status === 'en_retard');
+  // States computed from the receipts (same rule as the member file and the dashboard)
+  const states = input.subscriptions.map((s) => ({ s, state: subscriptionHealth(s, input.receipts, today).state }));
+  const dueSoon = states.filter((x) => x.state === 'proche_echeance' || x.state === 'en_retard').map((x) => x.s);
   if (dueSoon.length > 0) {
-    const late = dueSoon.filter((s) => s.status === 'en_retard').length;
+    const late = states.filter((x) => x.state === 'en_retard').length;
     const names = dueSoon.slice(0, 3).map((s) => s.memberName).join(', ');
     alerts.push({
       id: 'echeances',

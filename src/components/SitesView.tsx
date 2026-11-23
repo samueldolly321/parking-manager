@@ -1,7 +1,11 @@
 import React, { useMemo, useState } from 'react';
 import { EntityActions } from './EntityActions';
 import { AppState, ParkingSpot, Site } from '../types';
-import { addSiteRecord } from '../services/storage';
+import { addSiteRecord, deleteZone, updateZone } from '../services/storage';
+import { roleCan } from '../services/permissions';
+import { notify } from '../services/notify';
+import { SPOT_TYPE_LABELS } from '../services/spots';
+import { NewSpotsModal } from './SpotsView';
 import { confirmedTotal, todayInTana } from '../services/dashboardMetrics';
 import { monthKey } from '../services/months';
 
@@ -35,6 +39,11 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Zone being renamed / retyped, or receiving new spots
+  const [editZone, setEditZone] = useState<{ zone: string; name: string; type: string } | null>(null);
+  const [addToZone, setAddToZone] = useState<string | null>(null);
+  const [zoneBusy, setZoneBusy] = useState(false);
+  const canManageZones = roleCan(state.currentUser.role, 'spots');
 
   const t = todayInTana();
   const currentMonth = monthKey(t.year, t.monthIndex);
@@ -67,6 +76,50 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
   const sel = selected ? stats.get(selected.id)! : null;
   const totalCapacity = state.sites.reduce((sum, s) => sum + s.totalCapacity, 0);
   const totalOccupied = state.spots.filter((s) => s.status === 'occupe').length;
+
+  const removeZone = async (zone: string, spots: ParkingSpot[]) => {
+    if (!selected) return;
+    const occupied = spots.filter((sp) => sp.status === 'occupe').map((sp) => sp.code);
+    if (occupied.length) {
+      notify(`Suppression impossible : place(s) occupée(s) ${occupied.join(', ')}. Libérez-les d’abord.`, 'error');
+      return;
+    }
+    if (!window.confirm(`Supprimer la zone « ${zone} » et ses ${spots.length} place(s) ?\nCette action est irréversible.`)) return;
+    setZoneBusy(true);
+    try {
+      const n = await deleteZone(selected.id, zone);
+      notify(`Zone « ${zone} » supprimée (${n} place${n > 1 ? 's' : ''}).`, 'success');
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Suppression impossible.', 'error');
+    } finally {
+      setZoneBusy(false);
+    }
+  };
+
+  const saveZone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selected || !editZone) return;
+    const name = editZone.name.trim().replace(/\s+/g, ' ');
+    const changes: { newZone?: string; type?: ParkingSpot['type'] } = {};
+    if (name && name !== editZone.zone) changes.newZone = name;
+    if (editZone.type) changes.type = editZone.type as ParkingSpot['type'];
+    if (!changes.newZone && !changes.type) {
+      setEditZone(null);
+      return;
+    }
+    const merging = !!changes.newZone && (sel?.zones.some(([z]) => z === changes.newZone) ?? false);
+    if (merging && !window.confirm(`La zone « ${changes.newZone} » existe déjà : les deux zones seront fusionnées. Continuer ?`)) return;
+    setZoneBusy(true);
+    try {
+      const n = await updateZone(selected.id, editZone.zone, changes);
+      notify(`Zone mise à jour (${n} place${n > 1 ? 's' : ''}).`, 'success');
+      setEditZone(null);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Modification impossible.', 'error');
+    } finally {
+      setZoneBusy(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -216,11 +269,26 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
               <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">map</span>
               Plan des emplacements
             </button>
+            {canManageZones && (
+              <button
+                type="button"
+                onClick={() => setAddToZone('')}
+                className="px-3 py-1.5 rounded-lg bg-[#06B6D4] text-xs font-semibold text-[#0F172A] hover:bg-[#0891B2] hover:text-white flex items-center gap-1"
+              >
+                <span className="material-symbols-outlined text-[16px]">add_location_alt</span>
+                Nouvelle zone
+              </button>
+            )}
           </div>
 
           {sel.zones.length === 0 ? (
             <p className="py-8 text-center text-xs text-slate-400">
-              Aucune zone : ajoutez des emplacements à ce site dans « Emplacements &amp; Occupation ».
+              Aucune zone sur ce site.
+              {canManageZones && (
+                <button type="button" onClick={() => setAddToZone('')} className="block mx-auto mt-2 text-[#06B6D4] font-semibold hover:underline">
+                  Créer une zone et ses emplacements
+                </button>
+              )}
             </p>
           ) : (
             <div className="overflow-x-auto">
@@ -231,6 +299,7 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
                     <th className="text-right py-2 px-3">Places</th>
                     {SPOT_STATES.map((s) => <th key={s.key} className="text-right py-2 px-3">{s.label}</th>)}
                     <th className="text-left py-2 px-3 min-w-[120px]">Occupation</th>
+                    {canManageZones && <th className="text-right py-2 px-3">Actions</th>}
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -239,7 +308,12 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
                     const pct = spots.length ? (occ / spots.length) * 100 : 0;
                     return (
                       <tr key={zone}>
-                        <td className="py-2 px-3 font-semibold text-[#0F172A]">{zone}</td>
+                        <td className="py-2 px-3">
+                          <span className="font-semibold text-[#0F172A] block">{zone}</span>
+                          <span className="text-[10px] text-slate-400">
+                            {[...new Set(spots.map((sp) => SPOT_TYPE_LABELS[sp.type] || sp.type))].join(', ')}
+                          </span>
+                        </td>
                         <td className="py-2 px-3 text-right font-mono-data">{spots.length}</td>
                         {SPOT_STATES.map((s) => (
                           <td key={s.key} className={`py-2 px-3 text-right font-mono-data ${s.cls}`}>
@@ -254,6 +328,40 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
                             <span className="font-mono-data text-[10px] text-slate-600 w-9 text-right">{Math.round(pct)} %</span>
                           </div>
                         </td>
+                        {canManageZones && (
+                          <td className="py-2 px-3">
+                            <div className="flex items-center justify-end gap-1">
+                              <button
+                                type="button"
+                                title="Renommer / changer le type"
+                                onClick={() => {
+                                  const types = [...new Set(spots.map((sp) => sp.type))];
+                                  setEditZone({ zone, name: zone, type: types.length === 1 ? types[0] : '' });
+                                }}
+                                className="p-1.5 rounded hover:bg-slate-100 text-slate-600"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">edit</span>
+                              </button>
+                              <button
+                                type="button"
+                                title="Ajouter des places"
+                                onClick={() => setAddToZone(zone)}
+                                className="p-1.5 rounded hover:bg-slate-100 text-[#06B6D4]"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">add_box</span>
+                              </button>
+                              <button
+                                type="button"
+                                title="Supprimer la zone"
+                                disabled={zoneBusy}
+                                onClick={() => removeZone(zone, spots)}
+                                className="p-1.5 rounded hover:bg-rose-50 text-rose-600 disabled:opacity-40"
+                              >
+                                <span className="material-symbols-outlined text-[18px]">delete</span>
+                              </button>
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     );
                   })}
@@ -327,6 +435,65 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+      {selected && addToZone !== null && (
+        <NewSpotsModal
+          sites={state.sites}
+          spots={state.spots}
+          defaultSiteId={selected.id}
+          lockSite
+          defaultZone={addToZone || undefined}
+          onClose={() => setAddToZone(null)}
+          onCreated={() => setAddToZone(null)}
+        />
+      )}
+
+      {editZone && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <form onSubmit={saveZone} className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-3 text-xs">
+            <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+              <h3 className="font-headline text-lg font-bold text-[#0F172A]">Modifier la zone</h3>
+              <button type="button" onClick={() => setEditZone(null)} className="text-slate-400 hover:text-[#0F172A]" aria-label="Fermer">
+                <span className="material-symbols-outlined text-[20px]">close</span>
+              </button>
+            </div>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">Nom de la zone *</span>
+              <input
+                required
+                maxLength={100}
+                value={editZone.name}
+                onChange={(e) => setEditZone({ ...editZone, name: e.target.value })}
+                className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
+              />
+            </label>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">Type de toutes les places de la zone</span>
+              <select
+                value={editZone.type}
+                onChange={(e) => setEditZone({ ...editZone, type: e.target.value })}
+                className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]"
+              >
+                <option value="">— Ne pas changer —</option>
+                {(Object.keys(SPOT_TYPE_LABELS) as ParkingSpot['type'][]).map((t) => (
+                  <option key={t} value={t}>{SPOT_TYPE_LABELS[t]}</option>
+                ))}
+              </select>
+            </label>
+            <p className="text-[10px] text-slate-400">
+              S’applique aux {sel?.zones.find(([z]) => z === editZone.zone)?.[1].length ?? 0} place(s) de la zone « {editZone.zone} ». Le statut des places
+              (libre, occupée…) ne change pas.
+            </p>
+            <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+              <button type="button" onClick={() => setEditZone(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">
+                Annuler
+              </button>
+              <button type="submit" disabled={zoneBusy} className="px-5 py-2 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold hover:bg-[#0891B2] hover:text-white disabled:opacity-50">
+                {zoneBusy ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

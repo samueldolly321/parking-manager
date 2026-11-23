@@ -2502,6 +2502,8 @@ export async function updateEntity(collection: EntityCollection, id: string, pat
   const list = (state as any)[key] as Array<Record<string, unknown>>;
   (state as any)[key] = list.map((item) => (item.id === id ? { ...item, ...patch, id } : item));
   saveState(state);
+  // Changing a vehicle may strike off / reactivate its owner on the server: reload
+  if (collection === 'vehicles') await hydrateFromBackend();
 }
 
 /** Deletes one record (server + local state). Throws with a user-facing message on failure. */
@@ -2570,4 +2572,70 @@ export async function addSiteRecord(input: Partial<Site>): Promise<Site> {
   state.sites = [...state.sites.filter((s) => s.id !== site.id), site];
   saveState(state);
   return site;
+}
+
+async function postJson(endpoint: string, body: unknown, unreachable: string): Promise<any> {
+  let res: Response;
+  try {
+    res = await fetch(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+  } catch {
+    throw new Error(unreachable);
+  }
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data?.error || `Opération impossible (erreur ${res.status}).`);
+  return data;
+}
+
+/** Renames a zone of a site and/or changes the type of all its spots (server first, then the screen). */
+export async function updateZone(
+  siteId: string,
+  zone: string,
+  changes: { newZone?: string; type?: ParkingSpot['type'] }
+): Promise<number> {
+  const { count } = await postJson('/api/v1/zones/update', { siteId, zone, ...changes }, 'Serveur injoignable : la zone n’a pas été modifiée.');
+  const state = loadState();
+  state.spots = state.spots.map((s) =>
+    s.siteId === siteId && s.zone === zone
+      ? { ...s, ...(changes.newZone ? { zone: changes.newZone.trim() } : {}), ...(changes.type ? { type: changes.type } : {}) }
+      : s
+  );
+  saveState(state);
+  return count;
+}
+
+/** Deletes a zone of a site with all its spots (refused by the server if a spot is occupied). */
+export async function deleteZone(siteId: string, zone: string): Promise<number> {
+  const { count } = await postJson('/api/v1/zones/delete', { siteId, zone }, 'Serveur injoignable : la zone n’a pas été supprimée.');
+  const state = loadState();
+  const ids = new Set(state.spots.filter((s) => s.siteId === siteId && s.zone === zone).map((s) => s.id));
+  state.spots = state.spots.filter((s) => !ids.has(s.id));
+  state.vehicles = state.vehicles.map((v) => (v.spotId && ids.has(v.spotId) ? { ...v, spotId: undefined } : v));
+  saveState(state);
+  return count;
+}
+
+/** Creates one or several spots on a site (saved by the server first, then shown). Throws with a user-facing message. */
+export async function addSpotRecords(input: {
+  siteId: string;
+  zone: string;
+  type: ParkingSpot['type'];
+  codes: string[];
+}): Promise<ParkingSpot[]> {
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/spots', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input)
+    });
+  } catch {
+    throw new Error('Serveur injoignable : les emplacements n’ont pas été créés.');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || `Création impossible (erreur ${res.status}).`);
+  const created = body as ParkingSpot[];
+  const state = loadState();
+  state.spots = [...state.spots, ...created];
+  saveState(state);
+  return created;
 }

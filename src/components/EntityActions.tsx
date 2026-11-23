@@ -2,6 +2,8 @@ import React, { useMemo, useState } from 'react';
 import { notify } from '../services/notify';
 import { deleteEntity, loadState, updateEntity, EntityCollection } from '../services/storage';
 import { PhotoInput } from './PhotoInput';
+import { VEHICLE_CATEGORIES } from '../types';
+import { SPOT_TYPE_LABELS } from '../services/spots';
 
 type Option = { value: string; label: string };
 const opts = (...values: string[]): Option[] =>
@@ -14,9 +16,12 @@ const FIELD_OPTIONS: Record<string, Option[]> = {
   'members.category': opts('privilege', 'standard', 'resident', 'corporate'),
   mobileMoneyProvider: opts('MVola', 'Orange Money', 'Airtel Money'),
   'vehicles.status': opts('actif', 'suspendu', 'radie'),
-  assignedSpotType: opts('placement_libre_interieur', 'emplacement_privatif_dedie', 'deux_roues'),
+  // Vehicle type: always picked from the list
+  'vehicles.category': VEHICLE_CATEGORIES.map((c) => ({ value: c, label: c })),
+  'tariffs.category': VEHICLE_CATEGORIES.map((c) => ({ value: c, label: c })),
+  assignedSpotType: Object.entries(SPOT_TYPE_LABELS).map(([value, label]) => ({ value, label })),
   'spots.status': opts('libre', 'occupe', 'reserve', 'maintenance'),
-  'spots.type': opts('placement_libre_interieur', 'emplacement_privatif_dedie', 'deux_roues', 'poids_lourd'),
+  'spots.type': Object.entries(SPOT_TYPE_LABELS).map(([value, label]) => ({ value, label })),
   'receipts.paymentMethod': opts('Espèces', 'MVola', 'Orange Money', 'Airtel Money', 'Virement BNI', 'Virement BMOI', 'Chèque'),
   'receipts.status': opts('confirme', 'en_attente', 'annule', 'rembourse'),
   'subscriptions.status': opts('a_jour', 'proche_echeance', 'en_retard', 'expire'),
@@ -47,7 +52,7 @@ const FIELD_LABELS: Record<string, string> = {
   status: 'Statut', primarySiteId: 'Site principal', siteId: 'Site', memberNumber: 'N° membre',
   joinedDate: "Date d'adhésion", approvedByPresident: "Adhésion acceptée par (Président)", currentBalanceAr: 'Solde (Ar)', notes: 'Notes', avatarUrl: 'Photo',
   mobileMoneyProvider: 'Mobile Money', emergencyContactName: "Contact d'urgence", emergencyContactPhone: "Tél. contact d'urgence",
-  plateNumber: 'Immatriculation', brand: 'Marque', model: 'Modèle', color: 'Couleur', type: 'Type',
+  plateNumber: 'Immatriculation', licensePlate: 'Immatriculation', assignedSpotType: 'Type de place attribué', brand: 'Marque', model: 'Modèle', color: 'Couleur', type: 'Type',
   title: 'Titre', description: 'Description', date: 'Date', amountAr: 'Montant (Ar)', role: 'Fonction',
   email: 'E-mail', location: 'Lieu', agenda: 'Ordre du jour', summaryPV: 'Résumé du PV', severity: 'Gravité',
   resolutionStatus: 'Statut de résolution', resolutionNotes: 'Notes de résolution', shiftName: 'Équipe / quart',

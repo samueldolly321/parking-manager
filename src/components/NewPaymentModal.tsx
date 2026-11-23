@@ -10,6 +10,8 @@ interface NewPaymentModalProps {
   sites: Site[];
   /** Existing receipts, used to show which months the member has already paid */
   receipts: PaymentReceipt[];
+  /** Opened from a subscription: member, vehicle, formula, price and months pre-filled */
+  prefill?: PaymentPrefill | null;
   onSubmitPayment: (data: {
     memberId: string;
     memberName: string;
@@ -25,7 +27,23 @@ interface NewPaymentModalProps {
   }) => void;
 }
 
-type FormulaId = 'standard' | 'privatif' | 'moto' | 'adhesion' | 'carte';
+export type FormulaId = 'standard' | 'privatif' | 'moto' | 'adhesion' | 'carte';
+
+export interface PaymentPrefill {
+  memberId: string;
+  plate?: string;
+  formula?: FormulaId;
+  monthlyAmountAr?: number;
+  months?: string[];
+}
+
+/** Payment formula matching a subscription's tariff. */
+export function formulaForTariff(tariffType: string): FormulaId {
+  const t = tariffType.toLowerCase();
+  if (/deux|2r|moto/.test(t)) return 'moto';
+  if (/privatif|dédié|dedie/.test(t)) return 'privatif';
+  return 'standard';
+}
 
 const FORMULAS: { id: FormulaId; label: string; price: number; billing: 'mensuel' | 'annuel' | 'ponctuel'; purpose: string }[] = [
   { id: 'standard', label: 'Libre Intérieur', price: 120000, billing: 'mensuel', purpose: 'Abonnement Standard VL (Placement Libre Intérieur)' },
@@ -48,17 +66,21 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
   vehicles,
   sites,
   receipts,
+  prefill,
   onSubmitPayment
 }) => {
-  const [selectedMemberId, setSelectedMemberId] = useState<string>(members[0]?.id || '');
-  const [selectedSiteId, setSelectedSiteId] = useState<string>(members[0]?.primarySiteId || 'S1');
+  const startMember = members.find((m) => m.id === prefill?.memberId) || members[0];
+  const [selectedMemberId, setSelectedMemberId] = useState<string>(startMember?.id || '');
+  const [selectedSiteId, setSelectedSiteId] = useState<string>(startMember?.primarySiteId || 'S1');
   const [selectedPlate, setSelectedPlate] = useState<string>(
-    () => vehicles.find((v) => v.memberId === members[0]?.id)?.licensePlate || ''
+    () => prefill?.plate || vehicles.find((v) => v.memberId === startMember?.id)?.licensePlate || ''
   );
-  const [formulaType, setFormulaType] = useState<FormulaId>('standard');
-  const [unitPrice, setUnitPrice] = useState<number>(120000);
-  const [selectedMonths, setSelectedMonths] = useState<string[]>([]);
-  const [viewYear, setViewYear] = useState<number>(CURRENT_YEAR);
+  const [formulaType, setFormulaType] = useState<FormulaId>(prefill?.formula || 'standard');
+  const [unitPrice, setUnitPrice] = useState<number>(
+    () => prefill?.monthlyAmountAr || FORMULAS.find((f) => f.id === (prefill?.formula || 'standard'))!.price
+  );
+  const [selectedMonths, setSelectedMonths] = useState<string[]>(() => [...(prefill?.months || [])].sort());
+  const [viewYear, setViewYear] = useState<number>(() => Number(prefill?.months?.[0]?.slice(0, 4)) || CURRENT_YEAR);
   const [annualYear, setAnnualYear] = useState<number>(CURRENT_YEAR);
   const [amountPaidOverride, setAmountPaidOverride] = useState<number | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('MVola');
@@ -174,7 +196,7 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
       amountDueAr: amountDue,
       amountPaidAr: amountPaid,
       paymentMethod,
-      cashierName: 'RASOANAIVO Mirana'
+      cashierName: '' // set to the signed-in user by the app
     });
 
     onClose();

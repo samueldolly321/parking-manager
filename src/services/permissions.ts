@@ -18,6 +18,7 @@ export type Action =
   | 'tariffs' // prices
   | 'governance' // committee & meetings
   | 'sites' // create / edit / delete sites
+  | 'spots' // create parking spots on a site
   | 'admin'; // data reset (accounts and branding have their own check)
 
 export const ACTION_LABELS: Record<Action, string> = {
@@ -29,20 +30,21 @@ export const ACTION_LABELS: Record<Action, string> = {
   tariffs: 'modifier les tarifs',
   governance: 'gérer le comité et les réunions',
   sites: 'gérer les sites',
+  spots: 'créer ou modifier des emplacements et des zones',
   admin: 'réinitialiser les données'
 };
 
-const ALL: Action[] = ['write', 'delete', 'finance', 'expense_approve', 'payroll', 'tariffs', 'governance', 'sites', 'admin'];
+const ALL: Action[] = ['write', 'delete', 'finance', 'expense_approve', 'payroll', 'tariffs', 'governance', 'sites', 'spots', 'admin'];
 
 export const ROLE_ACTIONS: Record<UserRole, Action[]> = {
   super_admin: ALL,
   president_general: ALL,
-  tresorier_general: ['write', 'delete', 'finance', 'expense_approve', 'payroll', 'tariffs'],
+  tresorier_general: ['write', 'delete', 'finance', 'expense_approve', 'payroll', 'tariffs', 'spots'],
   secretaire: ['write', 'governance'],
   membre_comite: ['write'],
   gestionnaire_materiel: ['write'],
   auditeur: [], // read only
-  president_site: ['write', 'delete', 'finance', 'expense_approve'],
+  president_site: ['write', 'delete', 'finance', 'expense_approve', 'spots'],
   tresorier_site: ['write', 'finance', 'expense_approve'],
   chef_poste_gardien: ['write'],
   gardien: ['write'],
@@ -149,6 +151,9 @@ const CREATE_ROUTES: Record<string, { action: Action; siteField?: string }> = {
   '/sites': { action: 'sites' },
   '/members': { action: 'write', siteField: 'primarySiteId' },
   '/vehicles': { action: 'write', siteField: 'siteId' },
+  '/spots': { action: 'spots', siteField: 'siteId' },
+  '/zones/update': { action: 'spots', siteField: 'siteId' },
+  '/zones/delete': { action: 'spots', siteField: 'siteId' },
   '/receipts': { action: 'finance', siteField: 'siteId' },
   '/guards': { action: 'write', siteField: 'siteId' },
   '/expenses': { action: 'finance', siteField: 'siteId' },

@@ -16,6 +16,9 @@ import {
   createMemberRecord,
   createVehicleRecord,
   updateSpotRecord,
+  createSpotRecords,
+  updateZoneSpots,
+  deleteZoneSpots,
   createReceiptRecord,
   toggleCardStatus,
   createPayrollRecord,
@@ -41,7 +44,8 @@ import {
   getAppSettings,
   setAppSettings
 } from './src/db/repository.ts';
-import type { GuardPersonnel } from './src/types/index.ts';
+import type { GuardPersonnel, ParkingSpot, Vehicle } from './src/types/index.ts';
+import { VEHICLE_CATEGORIES } from './src/types/index.ts';
 import { AsyncLocalStorage } from 'async_hooks';
 import { seedDatabaseIfEmpty } from './src/db/seed.ts';
 import {
@@ -70,6 +74,7 @@ import {
 } from './src/db/auth.ts';
 import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
+import { SPOT_TYPE_LABELS } from './src/services/spots.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
 
 /** User of the request being handled (for the audit log). */
@@ -120,6 +125,37 @@ async function startServer() {
       ipAddress: ctx?.ip || '127.0.0.1'
     });
   };
+
+  // ===================== RÈGLE : PAS DE MEMBRE SANS VÉHICULE =====================
+  /** A vehicle still counts unless it is struck off. */
+  const countsAsVehicle = (v: Vehicle) => v.status !== 'radie';
+
+  /**
+   * A member without vehicle is struck off ("radié"); history (receipts, card) is kept.
+   * With `reactivate`, a struck-off member who now has a vehicle becomes active again
+   * (used when a vehicle is added, not by the start-up check, so a manual striking-off is kept).
+   */
+  const applyVehicleRule = async (memberIds: string[], opts: { reactivate: boolean }) => {
+    const ids = [...new Set(memberIds.filter(Boolean))];
+    if (ids.length === 0) return;
+    const state = await getFullState();
+    for (const id of ids) {
+      const member = state.members.find((m) => m.id === id);
+      if (!member) continue;
+      const hasVehicle = state.vehicles.some((v) => v.memberId === id && countsAsVehicle(v));
+      if (!hasVehicle && member.status !== 'radie') {
+        await updateRecord('members', id, { status: 'radie' });
+        await recordAudit('RADIATION_AUTO_MEMBRE', 'Membres', `${member.fullName} (${member.memberNumber}) radié : aucun véhicule`, member.primarySiteId);
+      } else if (hasVehicle && member.status === 'radie' && opts.reactivate) {
+        await updateRecord('members', id, { status: 'actif' });
+        await recordAudit('REACTIVATION_MEMBRE', 'Membres', `${member.fullName} (${member.memberNumber}) réactivé : véhicule enregistré`, member.primarySiteId);
+      }
+    }
+  };
+
+  const normPlate = (p: unknown) => (typeof p === 'string' ? p.replace(/\s+/g, ' ').trim().toUpperCase() : '');
+  const plateTaken = (vehicles: Vehicle[], plate: string, exceptId?: string) =>
+    vehicles.some((v) => v.id !== exceptId && normPlate(v.licensePlate).replace(/ /g, '') === plate.replace(/ /g, ''));
 
   // ===================== AUTHENTIFICATION =====================
   const secureCookie = isProd;
@@ -505,6 +541,18 @@ async function startServer() {
   app.post('/api/v1/members', async (req, res) => {
     try {
       const state = await getFullState();
+      // Only owners of a vehicle are members: the vehicle is created with the member
+      const vb = req.body?.vehicle || {};
+      const plate = normPlate(vb.licensePlate);
+      const brand = typeof vb.brand === 'string' ? vb.brand.trim().slice(0, 100) : '';
+      const model = typeof vb.model === 'string' ? vb.model.trim().slice(0, 100) : '';
+      if (!plate || !brand || !model) {
+        return res.status(400).json({ error: 'Un membre doit avoir un véhicule : immatriculation, marque et modèle sont obligatoires.' });
+      }
+      if (plateTaken(state.vehicles, plate)) {
+        return res.status(400).json({ error: `L’immatriculation ${plate} est déjà enregistrée.` });
+      }
+      const vehicleCategory = VEHICLE_CATEGORIES.includes(vb.category) ? vb.category : 'Voiture Légère (VL)';
       const nextNum = pickYearlyNumber(req.body.memberNumber, state.members.map((m) => m.memberNumber), 'MBR');
       const newMember = await createMemberRecord({
         id: req.body.id || `mbr-${Date.now()}`,
@@ -522,18 +570,34 @@ async function startServer() {
         primarySiteId: req.body.primarySiteId || 'S1',
         joinedDate: req.body.joinedDate || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
         approvedByPresident: req.body.approvedByPresident,
-        status: req.body.status || 'actif',
+        status: req.body.status === 'radie' ? 'actif' : req.body.status || 'actif',
         currentBalanceAr: Number(req.body.currentBalanceAr || 0),
         avatarUrl: req.body.avatarUrl,
         notes: req.body.notes || ''
       });
+      const newVehicle = await createVehicleRecord({
+        id: typeof vb.id === 'string' && vb.id ? vb.id : `veh-${Date.now()}`,
+        licensePlate: plate,
+        category: vehicleCategory,
+        brand,
+        model,
+        color: typeof vb.color === 'string' && vb.color.trim() ? vb.color.trim().slice(0, 50) : 'Non précisée',
+        memberId: newMember.id,
+        siteId: newMember.primarySiteId,
+        rfidTag: `#TAG-${Math.floor(1000 + Math.random() * 9000)}-PMM`,
+        barcode: `#BAR-${Math.floor(1000 + Math.random() * 9000)}`,
+        registeredAt: newMember.joinedDate,
+        photoUrl: typeof vb.photoUrl === 'string' && vb.photoUrl.startsWith('data:image/') ? vb.photoUrl : undefined,
+        status: 'actif',
+        assignedSpotType: vehicleCategory.includes('Deux-Roues') ? 'deux_roues' : vehicleCategory.includes('Poids Lourd') ? 'poids_lourd' : 'placement_libre_interieur'
+      });
       await recordAudit(
         'CREATION_MEMBRE',
         'Membres',
-        `Nouveau membre : ${newMember.fullName} (${newMember.memberNumber})` +
+        `Nouveau membre : ${newMember.fullName} (${newMember.memberNumber}), véhicule ${newVehicle.licensePlate}` +
           (newMember.approvedByPresident ? `, adhésion acceptée par ${newMember.approvedByPresident}` : '')
       );
-      res.status(201).json(newMember);
+      res.status(201).json({ ...newMember, vehicle: newVehicle });
     } catch (error) {
       console.error('Create member error:', error);
       res.status(500).json({ error: 'Impossible de créer le membre' });
@@ -556,6 +620,11 @@ async function startServer() {
 
   app.post('/api/v1/vehicles', async (req, res) => {
     try {
+      const state = await getFullState();
+      const plate = normPlate(req.body.licensePlate);
+      if (!plate) return res.status(400).json({ error: 'L’immatriculation est obligatoire.' });
+      if (!state.members.some((m) => m.id === req.body.memberId)) return res.status(400).json({ error: 'Propriétaire inconnu.' });
+      if (plateTaken(state.vehicles, plate)) return res.status(400).json({ error: `L’immatriculation ${plate} est déjà enregistrée.` });
       const newVeh = await createVehicleRecord({
         id: req.body.id || `veh-${Date.now()}`,
         licensePlate: String(req.body.licensePlate || '').toUpperCase().trim(),
@@ -569,10 +638,13 @@ async function startServer() {
         rfidTag: req.body.rfidTag || `#TAG-${Math.floor(1000 + Math.random() * 9000)}-PMM`,
         barcode: req.body.barcode || `#BAR-${Math.floor(1000 + Math.random() * 9000)}`,
         registeredAt: req.body.registeredAt || new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        photoUrl: typeof req.body.photoUrl === 'string' && req.body.photoUrl.startsWith('data:image/') ? req.body.photoUrl : undefined,
         status: req.body.status || 'actif',
         assignedSpotType: req.body.assignedSpotType || 'placement_libre_interieur'
       });
       await recordAudit('AJOUT_VEHICULE', 'Véhicules', `Plaque ${newVeh.licensePlate} (${newVeh.brand} ${newVeh.model})`);
+      // A struck-off owner becomes a member again
+      await applyVehicleRule([newVeh.memberId], { reactivate: true });
       res.status(201).json(newVeh);
     } catch (error) {
       console.error('Create vehicle error:', error);
@@ -590,6 +662,114 @@ async function startServer() {
       res.json(list);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des emplacements' });
+    }
+  });
+
+  // New spots on a site: one or several codes at once (e.g. "A-09" … "A-14")
+  app.post('/api/v1/spots', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const siteId = text(b.siteId, 100);
+      const zone = text(b.zone, 100);
+      const type = text(b.type, 50);
+      const codes: string[] = Array.isArray(b.codes)
+        ? b.codes.map((c: unknown) => text(c, 30).toUpperCase()).filter(Boolean)
+        : [];
+      const state = await getFullState();
+      if (!state.sites.some((x) => x.id === siteId)) return res.status(400).json({ error: 'Site inconnu.' });
+      if (!zone) return res.status(400).json({ error: 'La zone est obligatoire.' });
+      if (!(type in SPOT_TYPE_LABELS)) return res.status(400).json({ error: 'Type d’emplacement inconnu.' });
+      if (codes.length === 0 || codes.length > 200) return res.status(400).json({ error: 'Indiquez entre 1 et 200 codes d’emplacement.' });
+      if (new Set(codes).size !== codes.length) return res.status(400).json({ error: 'Le même code apparaît deux fois.' });
+      const taken = codes.filter((c) => state.spots.some((x) => x.siteId === siteId && x.code.toUpperCase() === c));
+      if (taken.length) return res.status(400).json({ error: `Code(s) déjà utilisé(s) sur ce site : ${taken.join(', ')}.` });
+
+      const stamp = Date.now().toString(36);
+      const created = await createSpotRecords(
+        codes.map((code, i) => ({
+          id: `spot-${siteId}-${code.replace(/[^A-Z0-9]+/g, '')}-${stamp}${i}`,
+          code,
+          siteId,
+          zone,
+          type: type as ParkingSpot['type'],
+          status: 'libre' as const
+        }))
+      );
+      const siteCode = state.sites.find((x) => x.id === siteId)?.code || siteId;
+      await recordAudit(
+        'CREATION_EMPLACEMENT',
+        'Emplacements',
+        `${created.length} emplacement(s) créé(s) — ${zone} : ${codes.length > 6 ? `${codes[0]} … ${codes[codes.length - 1]}` : codes.join(', ')}`,
+        siteCode
+      );
+      return res.status(201).json(created);
+    } catch (error) {
+      console.error('Create spots error:', error);
+      return res.status(500).json({ error: 'Impossible de créer les emplacements.' });
+    }
+  });
+
+  // A zone = the spots of a site sharing the same zone name: rename it / change its type in one go
+  app.post('/api/v1/zones/update', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const siteId = text(b.siteId, 100);
+      const zone = typeof b.zone === 'string' ? b.zone : '';
+      const newZone = text(b.newZone, 100);
+      const type = text(b.type, 50);
+      const state = await getFullState();
+      const site = state.sites.find((x) => x.id === siteId);
+      if (!site) return res.status(400).json({ error: 'Site inconnu.' });
+      const inZone = state.spots.filter((x) => x.siteId === siteId && x.zone === zone);
+      if (inZone.length === 0) return res.status(404).json({ error: 'Zone introuvable sur ce site.' });
+      if (b.newZone !== undefined && !newZone) return res.status(400).json({ error: 'Le nom de la zone ne peut pas être vide.' });
+      if (type && !(type in SPOT_TYPE_LABELS)) return res.status(400).json({ error: 'Type d’emplacement inconnu.' });
+
+      const changes: { zone?: string; type?: ParkingSpot['type'] } = {};
+      if (newZone && newZone !== zone) changes.zone = newZone;
+      if (type) changes.type = type as ParkingSpot['type'];
+      if (!changes.zone && !changes.type) return res.status(400).json({ error: 'Aucune modification demandée.' });
+
+      // Renaming onto an existing zone merges the two: refuse if spot codes would collide
+      const target = changes.zone ? state.spots.filter((x) => x.siteId === siteId && x.zone === changes.zone) : [];
+      const clash = inZone.filter((x) => target.some((t) => t.code.toUpperCase() === x.code.toUpperCase())).map((x) => x.code);
+      if (clash.length) return res.status(400).json({ error: `Fusion impossible : code(s) en double ${clash.join(', ')}.` });
+
+      const count = await updateZoneSpots(siteId, zone, changes);
+      const parts = [
+        changes.zone ? `renommée « ${changes.zone} »${target.length ? ' (fusionnée)' : ''}` : '',
+        changes.type ? `type : ${SPOT_TYPE_LABELS[changes.type]}` : ''
+      ].filter(Boolean);
+      await recordAudit('MODIFICATION_ZONE', 'Emplacements', `Zone « ${zone} » ${parts.join(', ')} — ${count} place(s)`, site.code);
+      return res.json({ ok: true, count });
+    } catch (error) {
+      console.error('Update zone error:', error);
+      return res.status(500).json({ error: 'Impossible de modifier la zone.' });
+    }
+  });
+
+  app.post('/api/v1/zones/delete', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const siteId = typeof b.siteId === 'string' ? b.siteId : '';
+      const zone = typeof b.zone === 'string' ? b.zone : '';
+      const state = await getFullState();
+      const site = state.sites.find((x) => x.id === siteId);
+      if (!site) return res.status(400).json({ error: 'Site inconnu.' });
+      const inZone = state.spots.filter((x) => x.siteId === siteId && x.zone === zone);
+      if (inZone.length === 0) return res.status(404).json({ error: 'Zone introuvable sur ce site.' });
+      const occupied = inZone.filter((x) => x.status === 'occupe').map((x) => x.code);
+      if (occupied.length) {
+        return res.status(409).json({ error: `Suppression impossible : place(s) occupée(s) ${occupied.join(', ')}. Libérez-les d’abord.` });
+      }
+      const count = await deleteZoneSpots(siteId, zone);
+      await recordAudit('SUPPRESSION_ZONE', 'Emplacements', `Zone « ${zone} » supprimée avec ses ${count} place(s)`, site.code);
+      return res.json({ ok: true, count });
+    } catch (error) {
+      console.error('Delete zone error:', error);
+      return res.status(500).json({ error: 'Impossible de supprimer la zone.' });
     }
   });
 
@@ -1113,9 +1293,29 @@ async function startServer() {
       return res.status(404).json({ error: 'Collection inconnue' });
     }
     try {
+      const before = await getFullState();
+      if (collection === 'members' && req.body?.status !== undefined && req.body.status !== 'radie') {
+        const hasVehicle = before.vehicles.some((v) => v.memberId === id && countsAsVehicle(v));
+        if (!hasVehicle) {
+          return res.status(400).json({ error: 'Ce membre n’a aucun véhicule : il reste « Radié ». Ajoutez-lui d’abord un véhicule.' });
+        }
+      }
+      const oldVehicle = collection === 'vehicles' ? before.vehicles.find((v) => v.id === id) : undefined;
+      if (collection === 'vehicles' && req.body?.licensePlate !== undefined) {
+        const plate = normPlate(req.body.licensePlate);
+        if (!plate) return res.status(400).json({ error: 'L’immatriculation est obligatoire.' });
+        if (plateTaken(before.vehicles, plate, id)) return res.status(400).json({ error: `L’immatriculation ${plate} est déjà enregistrée.` });
+        req.body.licensePlate = plate;
+      }
       const ok = await updateRecord(collection, id, req.body || {});
       if (!ok) return res.status(404).json({ error: 'Enregistrement introuvable' });
       await recordAudit('MODIFICATION', collection, `Modification de ${collection} / ${id}`);
+      if (oldVehicle) {
+        // Owner changed or vehicle struck off: check the former and the new owner
+        await applyVehicleRule([oldVehicle.memberId], { reactivate: false });
+        if (req.body?.memberId && req.body.memberId !== oldVehicle.memberId) await applyVehicleRule([req.body.memberId], { reactivate: true });
+        else if (req.body?.status && req.body.status !== 'radie') await applyVehicleRule([oldVehicle.memberId], { reactivate: true });
+      }
       return res.json({ ok: true });
     } catch (error) {
       console.error(`Update ${collection} error:`, error);
@@ -1129,9 +1329,12 @@ async function startServer() {
       return res.status(404).json({ error: 'Collection inconnue' });
     }
     try {
+      const ownerId = collection === 'vehicles' ? (await getFullState()).vehicles.find((v) => v.id === id)?.memberId : undefined;
       const ok = await deleteRecord(collection, id);
       if (!ok) return res.status(404).json({ error: 'Enregistrement introuvable' });
       await recordAudit('SUPPRESSION', collection, `Suppression de ${collection} / ${id}`);
+      // Last vehicle removed: the owner is struck off
+      if (ownerId) await applyVehicleRule([ownerId], { reactivate: false });
       return res.json({ ok: true });
     } catch (error) {
       if (error instanceof RecordInUseError) {
@@ -1185,6 +1388,14 @@ async function startServer() {
     app.get('*', (_req, res) => {
       res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
     });
+  }
+
+  // Start-up check: members without vehicle are struck off (manual strikings-off are never undone here)
+  try {
+    const state = await getFullState();
+    await applyVehicleRule(state.members.map((m) => m.id), { reactivate: false });
+  } catch (error) {
+    console.error('Member/vehicle check error:', error);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

@@ -21,6 +21,7 @@ import {
   todayInTana,
   DashboardAlert
 } from '../services/dashboardMetrics';
+import { subscriptionHealth } from '../services/subscriptionCalendar';
 
 interface DashboardViewProps {
   sites: Site[];
@@ -46,8 +47,8 @@ const SITE_COLORS = ['#0F172A', '#00687a', '#06B6D4', '#94A3B8', '#F59E0B', '#16
 const VEHICLE_GROUPS: { label: string; unit: string; color: string; categories: VehicleCategory[] }[] = [
   { label: 'Légères', unit: 'véh.', color: '#0F172A', categories: ['Voiture Légère (VL)'] },
   { label: 'SUV / 4x4', unit: 'véh.', color: '#00687a', categories: ['SUV / 4x4'] },
-  { label: '2-Roues', unit: 'motos', color: '#06B6D4', categories: ['Deux-Roues (2R)'] },
-  { label: 'Utilitaires & autres', unit: 'véh.', color: '#94A3B8', categories: ['Utilitaire / Fourgon', 'Taxi-Ville / Minibus', 'Camionnette', 'Autre'] }
+  { label: '2-Roues', unit: 'moto', color: '#06B6D4', categories: ['Deux-Roues (2R)'] },
+  { label: 'Utilitaires & autres', unit: 'véh.', color: '#94A3B8', categories: ['Utilitaire / Fourgon', 'Taxi-Ville / Minibus', 'Camionnette', 'Poids Lourd (PL)', 'Autre'] }
 ];
 
 const RECEIPT_STATUS: Record<PaymentReceipt['status'], { label: string; cls: string }> = {
@@ -125,11 +126,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     ? ((totalReceiptsMonthAr - totalReceiptsPrevAr) / totalReceiptsPrevAr) * 100
     : null;
 
-  // Card 2: occupancy against the declared capacity of the sites
-  const totalSpots = filteredSites.reduce((sum, s) => sum + s.totalCapacity, 0);
+  // Card 2: occupancy of the spots actually configured (same figures as "Emplacements & occupation")
+  const totalSpots = filteredSpots.length;
+  const declaredCapacity = filteredSites.reduce((sum, s) => sum + (Number(s.totalCapacity) || 0), 0);
   const occupiedSpotsCount = filteredSpots.filter((s) => s.status === 'occupe').length;
-  const unavailableSpots = filteredSpots.filter((s) => s.status === 'reserve' || s.status === 'maintenance').length;
-  const freeSpotsCount = Math.max(0, totalSpots - occupiedSpotsCount - unavailableSpots);
+  const freeSpotsCount = filteredSpots.filter((s) => s.status === 'libre').length;
   const occupancyPercent = totalSpots > 0 ? Math.round((occupiedSpotsCount / totalSpots) * 100) : 0;
 
   // Card 3: members
@@ -139,9 +140,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   // Card 4: cash available in the registers
   const treasuryAr = filteredRegisters.reduce((sum, r) => sum + r.currentCashInHandAr, 0);
 
-  // Card 5: unpaid
-  const unpaidMembers = filteredMembers.filter((m) => m.currentBalanceAr < 0);
-  const totalUnpaidAr = unpaidMembers.reduce((sum, m) => sum + Math.abs(m.currentBalanceAr), 0);
+  // Card 5: unpaid, computed from the subscriptions and their receipts (same rule as the payment calendar)
+  const arrears = filteredSubscriptions
+    .map((s) => ({ s, h: subscriptionHealth(s, receipts, today) }))
+    .filter((x) => x.h.arrearsAr > 0);
+  const unpaidMembers = [...new Set(arrears.map((x) => x.s.memberId))];
+  const totalUnpaidAr = arrears.reduce((sum, x) => sum + x.h.arrearsAr, 0);
+  const unpaidMonthsCount = arrears.reduce((sum, x) => sum + x.h.unpaid.length, 0);
 
   // Chart: confirmed receipts per site for the last 5 months
   const chartSites = filteredSites.slice(0, SITE_COLORS.length);
@@ -170,6 +175,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const siteNames = Object.fromEntries(sites.map((s) => [s.id, s.name.replace(/^Site \d+\s*-\s*/, '')]));
   const alerts = computeAlerts({
     subscriptions: filteredSubscriptions,
+    receipts,
     incidents: filteredIncidents,
     expenses: filteredExpenses,
     siteNames
@@ -192,17 +198,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>CONSOLE CENTRALE</span>
             <span className="text-slate-300">/</span>
             <span className="text-[#0F172A] font-semibold uppercase tracking-wider">
-              Supervision Multi-Sites Tana Hub
+              {selectedSiteId === 'all' ? `Tous les sites (${sites.length})` : filteredSites[0]?.name || selectedSiteId}
             </span>
           </div>
           <div className="flex items-center gap-3">
             <h1 className="font-headline text-2xl font-bold text-[#0F172A] tracking-tight">
               Tableau de bord consolidé
             </h1>
-            <div className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#E0F2FE] text-[#0369A1] border border-[#BAE6FD]">
-              <span className="w-2 h-2 rounded-full bg-[#06B6D4] animate-pulse"></span>
-              <span className="font-mono-data text-xs font-semibold">TÉLÉMÉTRIE EN DIRECT</span>
-            </div>
           </div>
         </div>
 
@@ -213,14 +215,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="font-medium text-[#0F172A]">Exercice {currentMonth.long} (Mois en cours)</span>
           </div>
           <button
-            onClick={() => {
-              window.print();
-            }}
+            onClick={() => onNavigate('rapports-et-statistiques')}
             type="button"
+            title="Exports PDF et Excel dans « Rapports & Statistiques »"
             className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white text-[#0F172A] hover:bg-slate-50 transition-colors shadow-sm border border-[#E2E8F0] text-xs font-medium"
           >
             <span className="material-symbols-outlined text-[18px] text-slate-500">download</span>
-            <span>Exporter Rapport (PDF/Excel)</span>
+            <span>Exporter un rapport (PDF / Excel)</span>
           </button>
           <button
             onClick={onOpenNewPayment}
@@ -291,7 +292,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </div>
           </div>
           <div className="flex items-center justify-between text-xs font-mono-data text-slate-500 pt-1">
-            <span>Seuil alerte: 90%</span>
+            <span title="Capacité déclarée sur la fiche du site">
+              {declaredCapacity && declaredCapacity !== totalSpots ? `Capacité déclarée : ${declaredCapacity}` : 'Seuil alerte : 90 %'}
+            </span>
             <span className="text-[#0F172A] font-semibold">{freeSpotsCount} libres</span>
           </div>
         </div>
@@ -359,7 +362,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
           <div className="flex items-center justify-between pt-1 text-xs">
             <span className="px-2 py-0.5 rounded-full bg-red-100 text-[#DC2626] font-mono-data text-xs font-bold">
-              {unpaidMembers.length} retard{unpaidMembers.length > 1 ? 's' : ''}
+              {unpaidMembers.length} membre{unpaidMembers.length > 1 ? 's' : ''} · {unpaidMonthsCount} mois
             </span>
             <button
               onClick={() => onNavigate('abonnements-et-tarifs')}
@@ -479,7 +482,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   <tr className="bg-[#F8FAFC] text-slate-500 uppercase tracking-wider font-semibold border-b border-[#E2E8F0]">
                     <th className="py-2.5 px-3 rounded-l-lg">Site / Emplacement</th>
                     <th className="py-2.5 px-3">Capacité</th>
-                    <th className="py-2.5 px-3 w-44">Occupation En Direct</th>
+                    <th className="py-2.5 px-3 w-44">Occupation</th>
                     <th className="py-2.5 px-3 text-right">Recette Jour</th>
                     <th className="py-2.5 px-3 text-center">Gardiens</th>
                     <th className="py-2.5 px-3 rounded-r-lg text-center">Alertes</th>
@@ -487,8 +490,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-[#E2E8F0]">
                   {filteredSites.map((site) => {
-                    const occ = spots.filter((s) => s.siteId === site.id && s.status === 'occupe').length;
-                    const pct = site.totalCapacity > 0 ? Math.round((occ / site.totalCapacity) * 100) : 0;
+                    const siteSpots = spots.filter((s) => s.siteId === site.id);
+                    const occ = siteSpots.filter((s) => s.status === 'occupe').length;
+                    const pct = siteSpots.length > 0 ? Math.round((occ / siteSpots.length) * 100) : 0;
                     const barColor = pct >= 90 ? '#DC2626' : pct >= 75 ? '#F59E0B' : '#06B6D4';
                     const dayTotal = receipts
                       .filter((r) => r.siteId === site.id && r.status === 'confirme' && isToday(r.dateTime))
@@ -502,7 +506,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           <div className="font-headline text-xs font-bold text-[#0F172A]">{siteNames[site.id]}</div>
                           <div className="text-[11px] text-slate-400">{site.address}</div>
                         </td>
-                        <td className="py-3 px-3 font-mono-data font-medium">{site.totalCapacity} pl.</td>
+                        <td className="py-3 px-3 font-mono-data font-medium" title={`Capacité déclarée : ${site.totalCapacity} places`}>
+                          {siteSpots.length} pl.
+                          {site.totalCapacity !== siteSpots.length && (
+                            <span className="block text-[10px] text-slate-400 font-normal">sur {site.totalCapacity} déclarées</span>
+                          )}
+                        </td>
                         <td className="py-3 px-3">
                           <div className="flex items-center justify-between font-mono-data text-[10px] mb-1">
                             <span className="font-semibold text-[#0F172A]">{occ} occ.</span>
@@ -564,12 +573,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <div>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="font-headline text-base font-bold text-[#0F172A]">Derniers Encaissements en Direct</h2>
+                <h2 className="font-headline text-base font-bold text-[#0F172A]">Derniers encaissements</h2>
                 <p className="text-xs text-slate-500">Transactions de caisse et passerelles mobiles</p>
               </div>
-              <span className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-[#E0F2FE] font-mono-data text-[11px] text-[#0369A1] font-bold">
-                <span className="w-2 h-2 rounded-full bg-[#06B6D4] animate-pulse"></span> LIVE FEED
-              </span>
             </div>
 
             <div className="overflow-x-auto">
@@ -577,7 +583,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <thead>
                   <tr className="bg-[#F8FAFC] text-slate-500 uppercase tracking-wider font-semibold border-b border-[#E2E8F0]">
                     <th className="py-2.5 px-2 rounded-l-lg">Réf Reçu</th>
-                    <th className="py-2.5 px-2">Heure</th>
+                    <th className="py-2.5 px-2">Date &amp; heure</th>
                     <th className="py-2.5 px-2">Véhicule / Membre</th>
                     <th className="py-2.5 px-2">Site</th>
                     <th className="py-2.5 px-2">Mode</th>
@@ -600,7 +606,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           {receipt.receiptNumber}
                         </td>
                         <td className="py-2.5 px-2 font-mono-data text-[11px] text-slate-500">
-                          {receipt.dateTime.split(' ')[1] || receipt.dateTime}
+                          {receipt.dateTime}
                         </td>
                         <td className="py-2.5 px-2">
                           <div className="flex items-center gap-1.5">
@@ -771,7 +777,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       <span className="font-headline text-sm font-bold text-[#0F172A]">
                         {vehicleTotal > 0 ? Math.round((s.count / vehicleTotal) * 100) : 0}%
                       </span>
-                      <span className="text-[10px] text-slate-400">{s.count} {s.unit}</span>
+                      <span className="text-[10px] text-slate-400">{s.count} {s.unit}{s.unit === 'moto' && s.count > 1 ? 's' : ''}</span>
                     </div>
                   </div>
                 ))}
