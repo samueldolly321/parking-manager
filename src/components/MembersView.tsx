@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
 import { notifyNotAvailable } from '../services/notify';
 import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
 import { todayInTana } from '../services/dashboardMetrics';
@@ -78,6 +79,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [formSiteId, setFormSiteId] = useState<string>('S1');
   const [formPhoto, setFormPhoto] = useState<string | undefined>(undefined);
   const [formPresident, setFormPresident] = useState<string>('');
+  const [formEmergencyName, setFormEmergencyName] = useState<string>('');
+  const [formEmergencyPhone, setFormEmergencyPhone] = useState<string>('');
+  const [formMobileMoney, setFormMobileMoney] = useState<string>('');
   // The member's vehicle (required: only owners of a vehicle are members)
   const [formPlate, setFormPlate] = useState<string>('');
   const [formBrand, setFormBrand] = useState<string>('');
@@ -139,8 +143,11 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
     const newMemberId = onAddMember({
       fullName: formName,
-      cin: formCin || '101 000 000 000',
+      cin: formCin.trim(),
       phone: formPhone,
+      emergencyContactName: formEmergencyName.trim() || undefined,
+      emergencyContactPhone: formEmergencyPhone.trim() || undefined,
+      mobileMoneyProvider: (formMobileMoney || undefined) as Member['mobileMoneyProvider'],
       address: formAddress || 'Antananarivo',
       category: formCategory,
       primarySiteId: formSiteId,
@@ -168,6 +175,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
     setFormAddress('');
     setFormPhoto(undefined);
     setFormPresident('');
+    setFormEmergencyName('');
+    setFormEmergencyPhone('');
+    setFormMobileMoney('');
     setFormPlate('');
     setFormBrand('');
     setFormModel('');
@@ -359,14 +369,16 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <span>+ Nouveau Membre</span>
           </button>
 
-          <button
-            onClick={() => onOpenNewPayment(currentMember ? { memberId: currentMember.id } : undefined)}
-            type="button"
-            className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-colors flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">payments</span>
-            <span>+ Enregistrer paiement</span>
-          </button>
+          {can('finance') && (
+            <button
+              onClick={() => onOpenNewPayment(currentMember ? { memberId: currentMember.id } : undefined)}
+              type="button"
+              className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-colors flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">payments</span>
+              <span>+ Enregistrer paiement</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -433,7 +445,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Carte d'Identité Nationale (CIN)</span>
-              <span className="font-mono-data text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.cin}</span>
+              <span className="font-mono-data text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.cin || 'Non renseignée'}</span>
               <span className="text-[11px] text-slate-500">
                 {currentMember?.cinIssuedDate
                   ? `Délivrée le ${currentMember.cinIssuedDate}${currentMember.cinIssuedLocation ? ` à ${currentMember.cinIssuedLocation}` : ''}`
@@ -972,7 +984,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Numéro CIN (12 chiffres)</label>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Numéro CIN</label>
                   <input
                     type="text"
                     placeholder="101 XXX XXX XXX"
@@ -991,6 +1003,26 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     onChange={(e) => setFormPhone(e.target.value)}
                     className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] font-mono-data"
                   />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                <div className="col-span-3 sm:col-span-1">
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Mobile Money</label>
+                  <select value={formMobileMoney} onChange={(e) => setFormMobileMoney(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
+                    <option value="">— Aucun —</option>
+                    <option value="MVola">MVola</option>
+                    <option value="Orange Money">Orange Money</option>
+                    <option value="Airtel Money">Airtel Money</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Contact d’urgence</label>
+                  <input type="text" maxLength={150} placeholder="Nom" value={formEmergencyName} onChange={(e) => setFormEmergencyName(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Tél. contact d’urgence</label>
+                  <input type="text" maxLength={30} placeholder="+261 …" value={formEmergencyPhone} onChange={(e) => setFormEmergencyPhone(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] font-mono-data" />
                 </div>
               </div>
 

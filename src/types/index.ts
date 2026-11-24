@@ -300,7 +300,7 @@ export interface EquipmentHistoryEntry {
   title: string;
   description: string;
   isCritical?: boolean;
-  kind?: 'creation' | 'intervention' | 'panne' | 'remise_service' | 'transfert' | 'audit';
+  kind?: 'creation' | 'intervention' | 'panne' | 'remise_service' | 'transfert' | 'audit' | 'affectation' | 'restitution';
 }
 
 export interface CashRegister {
@@ -316,6 +316,24 @@ export interface CashRegister {
   totalExpensesPaidAr: number;
   currentCashInHandAr: number;
   status: 'ouverte' | 'cloturee';
+  /** Closing history (newest first) */
+  closures?: CashRegisterClosure[];
+}
+
+export interface CashRegisterClosure {
+  openedAt: string;
+  closedAt: string;
+  closedBy: string;
+  cashierName: string;
+  openingBalanceAr: number;
+  cashCollectedAr: number;
+  mobileMoneyAr: number;
+  expensesPaidAr: number;
+  expectedCashAr: number;
+  countedCashAr: number;
+  /** counted − expected (negative = missing cash) */
+  differenceAr: number;
+  notes: string;
 }
 
 export interface ExpenseRecord {

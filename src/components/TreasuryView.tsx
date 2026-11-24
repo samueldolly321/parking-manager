@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
-import { notifyNotAvailable } from '../services/notify';
+import { notify } from '../services/notify';
+import { can, currentUserName } from '../services/access';
+import { cashRegisterAction } from '../services/storage';
 import { EntityActions } from './EntityActions';
 import { PhotoInput, downloadPhoto } from './PhotoInput';
 import { CashRegister, ExpenseRecord, Site, PaymentMethod, EXPENSE_UNITS } from '../types';
@@ -38,6 +40,39 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
   onRejectExpense,
   onAddExpense
 }) => {
+  // Closing / opening a cash register
+  const [registerDialog, setRegisterDialog] = useState<{ reg: CashRegister; action: 'close' | 'open' } | null>(null);
+  const [countedCash, setCountedCash] = useState('');
+  const [registerNotes, setRegisterNotes] = useState('');
+  const [registerCashier, setRegisterCashier] = useState('');
+  const [registerBusy, setRegisterBusy] = useState(false);
+  const startRegisterDialog = (d: { reg: CashRegister; action: 'close' | 'open' } | null) => {
+    setRegisterDialog(d);
+    setCountedCash(d ? String(d.reg.currentCashInHandAr) : '');
+    setRegisterNotes('');
+    setRegisterCashier(d ? (currentUserName() || d.reg.cashierName) : '');
+  };
+  const submitRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!registerDialog) return;
+    setRegisterBusy(true);
+    try {
+      const { reg, action } = registerDialog;
+      if (action === 'close') {
+        await cashRegisterAction(reg.id, 'close', { countedCashAr: Number(countedCash), notes: registerNotes });
+        notify(`Caisse ${reg.registerCode} clôturée.`, 'success');
+      } else {
+        await cashRegisterAction(reg.id, 'open', { openingBalanceAr: Number(countedCash), cashierName: registerCashier });
+        notify(`Caisse ${reg.registerCode} ouverte.`, 'success');
+      }
+      setRegisterDialog(null);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Opération impossible.', 'error');
+    } finally {
+      setRegisterBusy(false);
+    }
+  };
+
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
   const [desc, setDesc] = useState<string>('');
   const [beneficiary, setBeneficiary] = useState<string>('');
@@ -159,14 +194,16 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          type="button"
-          className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md flex items-center gap-1.5 self-start xl:self-auto"
-        >
-          <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
-          <span>+ Engager une Dépense</span>
-        </button>
+        {can('finance') && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            type="button"
+            className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md flex items-center gap-1.5 self-start xl:self-auto"
+          >
+            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
+            <span>+ Engager une Dépense</span>
+          </button>
+        )}
       </div>
 
       {/* Caisses par site Cards */}
@@ -177,15 +214,23 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
               <span className="font-mono-data text-xs font-bold text-[#06B6D4] bg-cyan-50 px-2 py-0.5 rounded border border-cyan-200">
                 {reg.registerCode}
               </span>
-              <span className="inline-flex items-center gap-1 font-mono-data text-[10px] font-bold text-[#16A34A] bg-emerald-100 px-2 py-0.5 rounded-full">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-pulse"></span>
-                OUVERTE
-              </span>
+              {reg.status === 'ouverte' ? (
+                <span className="inline-flex items-center gap-1 font-mono-data text-[10px] font-bold text-[#16A34A] bg-emerald-100 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A]"></span>
+                  OUVERTE
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 font-mono-data text-[10px] font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  CLÔTURÉE
+                </span>
+              )}
             </div>
 
             <div>
               <h3 className="font-headline text-sm font-bold text-[#0F172A]">{reg.siteName}</h3>
-              <span className="text-xs text-slate-500">Caissier(e) : {reg.cashierName}</span>
+              <span className="text-xs text-slate-500 block">Caissier(e) : {reg.cashierName}</span>
+              <span className="text-[11px] text-slate-400 block">{reg.status === 'ouverte' ? `Ouverte le ${reg.openedAt}` : reg.closures?.[0] ? `Clôturée le ${reg.closures[0].closedAt}` : 'Clôturée'}</span>
               <div className="mt-2"><EntityActions collection="cash-registers" record={reg} label={`Caisse ${reg.registerCode}`} /></div>
               <div className="mt-3 p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1.5 text-xs">
                 <div className="flex justify-between">
@@ -214,14 +259,37 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   {formatAr(reg.currentCashInHandAr)} Ar
                 </span>
               </div>
-              <button
-                onClick={() => notifyNotAvailable(`Clôture de la caisse ${reg.registerCode}`)}
-                type="button"
-                className="px-3 py-1.5 rounded bg-slate-100 text-xs font-semibold hover:bg-slate-200"
-              >
-                Clôturer Caisse
-              </button>
+              {can('finance') && (
+                <button
+                  onClick={() => startRegisterDialog({ reg, action: reg.status === 'ouverte' ? 'close' : 'open' })}
+                  type="button"
+                  className={`px-3 py-1.5 rounded text-xs font-semibold ${reg.status === 'ouverte' ? 'bg-slate-100 hover:bg-slate-200' : 'bg-[#06B6D4] text-[#0F172A] hover:bg-[#0891B2] hover:text-white'}`}
+                >
+                  {reg.status === 'ouverte' ? 'Clôturer la caisse' : 'Ouvrir la caisse'}
+                </button>
+              )}
             </div>
+            {reg.closures && reg.closures.length > 0 && (
+              <details className="text-[11px] text-slate-600">
+                <summary className="cursor-pointer text-[#06B6D4] font-semibold">Dernières clôtures ({reg.closures.length})</summary>
+                <ul className="mt-2 space-y-1.5">
+                  {reg.closures.slice(0, 5).map((c, i) => (
+                    <li key={i} className="p-2 rounded bg-[#F8FAFC] border border-[#E2E8F0]">
+                      <div className="flex justify-between gap-2">
+                        <span className="font-mono-data">{c.closedAt}</span>
+                        <span className={`font-mono-data font-bold ${c.differenceAr === 0 ? 'text-[#16A34A]' : c.differenceAr < 0 ? 'text-[#DC2626]' : 'text-amber-600'}`}>
+                          {c.differenceAr === 0 ? 'Juste' : `${c.differenceAr > 0 ? '+' : ''}${formatAr(c.differenceAr)} Ar`}
+                        </span>
+                      </div>
+                      <div className="text-slate-500">
+                        Comptés {formatAr(c.countedCashAr)} / attendus {formatAr(c.expectedCashAr)} Ar · Mobile Money {formatAr(c.mobileMoneyAr)} Ar · par {c.closedBy || '—'}
+                      </div>
+                      {c.notes && <div className="italic text-slate-500">{c.notes}</div>}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         ))}
       </div>
@@ -284,20 +352,24 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
                   <td className="py-3 px-3 text-right font-mono-data font-bold text-red-600">-{formatAr(exp.amountAr)} Ar</td>
                   <td className="py-3 px-3 text-right">
                     <div className="flex items-center justify-end gap-1.5">
-                      <button
-                        onClick={() => onApproveExpense(exp.id)}
-                        type="button"
-                        className="px-2.5 py-1 rounded bg-[#16A34A] text-white font-bold text-[11px] hover:bg-emerald-700"
-                      >
-                        Valider
-                      </button>
-                      <button
-                        onClick={() => onRejectExpense(exp.id)}
-                        type="button"
-                        className="px-2.5 py-1 rounded bg-red-100 text-red-700 font-semibold text-[11px] hover:bg-red-200"
-                      >
-                        Rejeter
-                      </button>
+                      {can('expense_approve') && (
+                        <button
+                          onClick={() => onApproveExpense(exp.id)}
+                          type="button"
+                          className="px-2.5 py-1 rounded bg-[#16A34A] text-white font-bold text-[11px] hover:bg-emerald-700"
+                        >
+                          Valider
+                        </button>
+                      )}
+                      {can('expense_approve') && (
+                        <button
+                          onClick={() => onRejectExpense(exp.id)}
+                          type="button"
+                          className="px-2.5 py-1 rounded bg-red-100 text-red-700 font-semibold text-[11px] hover:bg-red-200"
+                        >
+                          Rejeter
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -580,6 +652,68 @@ export const TreasuryView: React.FC<TreasuryViewProps> = ({
           </div>
         </div>
       )}
+      {registerDialog && (() => {
+        const { reg, action } = registerDialog;
+        const counted = Number(countedCash) || 0;
+        const diff = counted - reg.currentCashInHandAr;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+            <form onSubmit={submitRegister} className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-3 text-xs">
+              <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+                <h3 className="font-headline text-lg font-bold text-[#0F172A]">
+                  {action === 'close' ? 'Clôturer' : 'Ouvrir'} la caisse {reg.registerCode}
+                </h3>
+                <button type="button" onClick={() => setRegisterDialog(null)} className="text-slate-400 hover:text-[#0F172A]" aria-label="Fermer">
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              </div>
+              {action === 'close' ? (
+                <>
+                  <div className="p-3 rounded-lg bg-[#F8FAFC] border border-[#E2E8F0] space-y-1">
+                    <div className="flex justify-between"><span className="text-slate-500">Fond initial</span><span className="font-mono-data">{formatAr(reg.openingBalanceAr)} Ar</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">+ Espèces encaissées</span><span className="font-mono-data">{formatAr(reg.totalCashCollectedAr)} Ar</span></div>
+                    <div className="flex justify-between"><span className="text-slate-500">− Dépenses payées</span><span className="font-mono-data">{formatAr(reg.totalExpensesPaidAr)} Ar</span></div>
+                    <div className="flex justify-between font-bold border-t border-[#E2E8F0] pt-1"><span>Espèces attendues</span><span className="font-mono-data">{formatAr(reg.currentCashInHandAr)} Ar</span></div>
+                    <div className="flex justify-between text-[#06B6D4]"><span>Mobile Money (hors caisse)</span><span className="font-mono-data">{formatAr(reg.totalMobileMoneyAr)} Ar</span></div>
+                  </div>
+                  <label className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-1">Espèces comptées dans la caisse (Ar) *</span>
+                    <input type="number" min={0} step={100} required value={countedCash} onChange={(e) => setCountedCash(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] font-mono-data" />
+                  </label>
+                  <p className={`font-bold ${diff === 0 ? 'text-[#16A34A]' : diff < 0 ? 'text-[#DC2626]' : 'text-amber-600'}`}>
+                    {diff === 0 ? 'Caisse juste.' : diff < 0 ? `Manque ${formatAr(-diff)} Ar.` : `Excédent de ${formatAr(diff)} Ar.`}
+                  </p>
+                  <label className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-1">Observations</span>
+                    <textarea rows={2} maxLength={500} value={registerNotes} onChange={(e) => setRegisterNotes(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                  </label>
+                  <p className="text-[10px] text-slate-400">
+                    Après la clôture, les encaissements et dépenses ne sont plus comptés dans cette caisse tant qu’elle n’est pas rouverte.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <label className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-1">Fond de caisse à l’ouverture (Ar) *</span>
+                    <input type="number" min={0} step={100} required value={countedCash} onChange={(e) => setCountedCash(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] font-mono-data" />
+                    <span className="text-[10px] text-slate-400">Proposé : espèces restées dans la caisse à la dernière clôture.</span>
+                  </label>
+                  <label className="block">
+                    <span className="block text-[11px] font-semibold text-slate-500 mb-1">Caissier(e)</span>
+                    <input maxLength={150} value={registerCashier} onChange={(e) => setRegisterCashier(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
+                  </label>
+                </>
+              )}
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+                <button type="button" onClick={() => setRegisterDialog(null)} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">Annuler</button>
+                <button type="submit" disabled={registerBusy} className="px-5 py-2 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold hover:bg-[#0891B2] hover:text-white disabled:opacity-50">
+                  {registerBusy ? 'Enregistrement…' : action === 'close' ? 'Clôturer' : 'Ouvrir'}
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
     </div>
   );
 };

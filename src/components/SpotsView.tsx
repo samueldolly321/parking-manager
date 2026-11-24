@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { Member, ParkingSpot, Site, SpotStatus, Tariff, User, Vehicle } from '../types';
 import {
@@ -439,22 +440,26 @@ export const SpotsView: React.FC<SpotsViewProps> = ({
                   </div>
 
                   <div className="pt-2 space-y-2">
-                    <button
-                      onClick={() => handleReleaseSpot(selectedSpot.id)}
-                      type="button"
-                      className="w-full py-2.5 px-3 rounded-lg bg-[#16A34A] text-white hover:bg-[#15803D] transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">logout</span>
-                      <span>Libérer la place (sortie)</span>
-                    </button>
-                    <button
-                      onClick={onOpenNewPayment}
-                      type="button"
-                      className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-[#0F172A] hover:bg-slate-200 transition-colors text-xs font-medium flex items-center justify-center gap-2"
-                    >
-                      <span className="material-symbols-outlined text-[18px]">receipt</span>
-                      <span>Encaisser un ticket / dépassement</span>
-                    </button>
+                    {can('write') && (
+                      <button
+                        onClick={() => handleReleaseSpot(selectedSpot.id)}
+                        type="button"
+                        className="w-full py-2.5 px-3 rounded-lg bg-[#16A34A] text-white hover:bg-[#15803D] transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">logout</span>
+                        <span>Libérer la place (sortie)</span>
+                      </button>
+                    )}
+                    {can('finance') && (
+                      <button
+                        onClick={onOpenNewPayment}
+                        type="button"
+                        className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-[#0F172A] hover:bg-slate-200 transition-colors text-xs font-medium flex items-center justify-center gap-2"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">receipt</span>
+                        <span>Encaisser un ticket / dépassement</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
@@ -466,14 +471,16 @@ export const SpotsView: React.FC<SpotsViewProps> = ({
                     <div className="font-headline text-sm font-bold text-red-900">Emplacement en travaux</div>
                     <p className="text-xs text-red-700">Cette place ne peut pas accueillir de véhicule.</p>
                   </div>
-                  <button
-                    onClick={() => onUpdateSpotStatus(selectedSpot.id, 'libre')}
-                    type="button"
-                    className="w-full py-2.5 px-3 rounded-lg bg-[#16A34A] text-white hover:bg-[#15803D] transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">check_circle</span>
-                    Remettre en service
-                  </button>
+                  {can('write') && (
+                    <button
+                      onClick={() => onUpdateSpotStatus(selectedSpot.id, 'libre')}
+                      type="button"
+                      className="w-full py-2.5 px-3 rounded-lg bg-[#16A34A] text-white hover:bg-[#15803D] transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">check_circle</span>
+                      Remettre en service
+                    </button>
+                  )}
                 </div>
               )}
 
@@ -495,32 +502,38 @@ export const SpotsView: React.FC<SpotsViewProps> = ({
 
                   {!isAssigning ? (
                     <div className="space-y-2">
-                      <button
-                        onClick={() => setIsAssigning(true)}
-                        type="button"
-                        className="w-full py-2.5 px-3 rounded-lg bg-[#0F172A] text-white hover:bg-slate-800 transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2 shadow-md"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">directions_car</span>
-                        <span>Enregistrer l’arrivée d’un véhicule</span>
-                      </button>
-                      {selectedSpot.status === 'reserve' && (
+                      {can('write') && (
                         <button
-                          onClick={() => onUpdateSpotStatus(selectedSpot.id, 'libre')}
+                          onClick={() => setIsAssigning(true)}
                           type="button"
-                          className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-slate-700 hover:bg-slate-200 transition-colors text-xs font-medium flex items-center justify-center gap-2"
+                          className="w-full py-2.5 px-3 rounded-lg bg-[#0F172A] text-white hover:bg-slate-800 transition-colors font-headline text-xs font-bold flex items-center justify-center gap-2 shadow-md"
                         >
-                          <span className="material-symbols-outlined text-[18px]">event_busy</span>
-                          Annuler la réservation
+                          <span className="material-symbols-outlined text-[18px]">directions_car</span>
+                          <span>Enregistrer l’arrivée d’un véhicule</span>
                         </button>
                       )}
-                      <button
-                        onClick={() => onUpdateSpotStatus(selectedSpot.id, 'maintenance')}
-                        type="button"
-                        className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors text-xs font-medium flex items-center justify-center gap-2"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">build</span>
-                        <span>Mettre en travaux</span>
-                      </button>
+                      {selectedSpot.status === 'reserve' && (
+                        can('write') && (
+                          <button
+                            onClick={() => onUpdateSpotStatus(selectedSpot.id, 'libre')}
+                            type="button"
+                            className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-slate-700 hover:bg-slate-200 transition-colors text-xs font-medium flex items-center justify-center gap-2"
+                          >
+                            <span className="material-symbols-outlined text-[18px]">event_busy</span>
+                            Annuler la réservation
+                          </button>
+                        )
+                      )}
+                      {can('write') && (
+                        <button
+                          onClick={() => onUpdateSpotStatus(selectedSpot.id, 'maintenance')}
+                          type="button"
+                          className="w-full py-2 px-3 rounded-lg bg-[#F1F5F9] text-slate-700 hover:bg-red-50 hover:text-red-700 transition-colors text-xs font-medium flex items-center justify-center gap-2"
+                        >
+                          <span className="material-symbols-outlined text-[18px]">build</span>
+                          <span>Mettre en travaux</span>
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <form onSubmit={handleAssignSubmit} className="space-y-3 bg-[#F8FAFC] p-3 rounded-lg border border-[#E2E8F0]">

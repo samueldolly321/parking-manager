@@ -53,7 +53,7 @@ function printReceipt(el: HTMLElement, widthMm: RollWidth) {
 }
 
 export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ receipt, onClose }) => {
-  const { appName, logoUrl } = useBranding();
+  const { appName, logoUrl, nif, stat } = useBranding();
   const ticketRef = useRef<HTMLDivElement>(null);
   const [width, setWidth] = useState<RollWidth>(() => (localStorage.getItem(WIDTH_KEY) === '58' ? 58 : 80));
   if (!receipt) return null;
@@ -126,6 +126,9 @@ export const ReceiptPrintModal: React.FC<ReceiptPrintModalProps> = ({ receipt, o
               ) : null}
               <div style={{ fontWeight: 700, fontSize: r.font + 2, textTransform: 'uppercase', letterSpacing: '0.5px' }}>{appName}</div>
               <div style={{ fontSize: r.small }}>{receipt.siteName}</div>
+              {(nif || stat) && (
+                <div style={{ fontSize: r.small }}>{[nif && `NIF : ${nif}`, stat && `STAT : ${stat}`].filter(Boolean).join(' · ')}</div>
+              )}
               <div style={{ fontWeight: 700, marginTop: '1.5mm' }}>REÇU D'ENCAISSEMENT</div>
             </div>
             <div style={rule} />

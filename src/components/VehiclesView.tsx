@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { Vehicle, Member, Site, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
 import { PhotoInput } from './PhotoInput';
@@ -89,14 +90,16 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={() => setShowAddModal(true)}
-          type="button"
-          className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md flex items-center gap-1.5 self-start xl:self-auto"
-        >
-          <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
-          <span>+ Ajouter Véhicule</span>
-        </button>
+        {can('write') && (
+          <button
+            onClick={() => setShowAddModal(true)}
+            type="button"
+            className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2.5 rounded-lg hover:bg-slate-800 transition-colors shadow-md flex items-center gap-1.5 self-start xl:self-auto"
+          >
+            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
+            <span>+ Ajouter Véhicule</span>
+          </button>
+        )}
       </div>
 
       {/* Filters */}

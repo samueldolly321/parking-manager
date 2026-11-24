@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { PaymentReceipt, Site } from '../types';
 
@@ -67,14 +68,16 @@ export const ReceiptsView: React.FC<ReceiptsViewProps> = ({
             <span className="material-symbols-outlined text-[16px]">download</span>
             <span>Exporter Journal Fiscal</span>
           </button>
-          <button
-            onClick={onOpenNewPayment}
-            type="button"
-            className="bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold px-4 py-2 rounded-lg hover:bg-[#0891b2] hover:text-white transition-all shadow-md flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            <span>+ Nouvel Encaissement</span>
-          </button>
+          {can('finance') && (
+            <button
+              onClick={onOpenNewPayment}
+              type="button"
+              className="bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold px-4 py-2 rounded-lg hover:bg-[#0891b2] hover:text-white transition-all shadow-md flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span>+ Nouvel Encaissement</span>
+            </button>
+          )}
         </div>
       </div>
 

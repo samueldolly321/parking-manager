@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { AppState, IncidentRecord } from '../types';
 import { addIncident, updateIncidentStatus, updateEntity } from '../services/storage';
@@ -63,6 +64,11 @@ export const IncidentsView: React.FC<IncidentsViewProps> = ({ state, initialSear
   });
 
   const totalIncidents = state.incidents.length;
+  // Date of the oldest incident recorded ("JJ/MM/AAAA")
+  const firstIncidentDate = state.incidents
+    .map((i) => /^(\d{2})\/(\d{2})\/(\d{4})/.exec(i.date || ''))
+    .filter((m): m is RegExpExecArray => !!m)
+    .sort((a, b) => `${a[3]}${a[2]}${a[1]}`.localeCompare(`${b[3]}${b[2]}${b[1]}`))[0]?.[0];
   const criticalCount = state.incidents.filter((i: IncidentRecord) => i.severity === 'critique' && i.resolutionStatus !== 'resolu').length;
   const inProgressCount = state.incidents.filter((i: IncidentRecord) => i.resolutionStatus === 'en_cours').length;
   const resolvedCount = state.incidents.filter((i: IncidentRecord) => i.resolutionStatus === 'resolu' || i.resolutionStatus === 'classe').length;
@@ -152,13 +158,15 @@ export const IncidentsView: React.FC<IncidentsViewProps> = ({ state, initialSear
           </div>
         </div>
 
-        <button
-          onClick={() => setShowModal(true)}
-          className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Déclarer un Incident
-        </button>
+        {can('write') && (
+          <button
+            onClick={() => setShowModal(true)}
+            className="px-5 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Déclarer un Incident
+          </button>
+        )}
       </div>
 
       {/* KPI Cards */}
@@ -167,7 +175,7 @@ export const IncidentsView: React.FC<IncidentsViewProps> = ({ state, initialSear
           <div>
             <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Signalements</p>
             <h3 className="text-2xl font-black font-title text-slate-900 mt-1">{totalIncidents}</h3>
-            <span className="text-xs text-slate-500 mt-0.5 block">Depuis le 01/01/2024</span>
+            <span className="text-xs text-slate-500 mt-0.5 block">{firstIncidentDate ? `Depuis le ${firstIncidentDate}` : 'Aucun signalement'}</span>
           </div>
           <div className="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700">
             <AlertTriangle className="w-6 h-6" />
@@ -418,24 +426,30 @@ export const IncidentsView: React.FC<IncidentsViewProps> = ({ state, initialSear
               <div className="pt-3 border-t border-slate-100 space-y-3">
                 <h4 className="text-xs font-bold text-slate-700">Mettre à jour le statut du dossier</h4>
                 <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleUpdateStatus(selectedIncident.id, 'en_cours')}
-                    className="px-3 py-1.5 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-800 text-xs font-semibold hover:bg-cyan-100"
-                  >
-                    Passer en cours
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedIncident.id, 'resolu')}
-                    className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
-                  >
-                    Valider Résolution
-                  </button>
-                  <button
-                    onClick={() => handleUpdateStatus(selectedIncident.id, 'classe')}
-                    className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-100"
-                  >
-                    Classer sans suite
-                  </button>
+                  {can('write') && (
+                    <button
+                      onClick={() => handleUpdateStatus(selectedIncident.id, 'en_cours')}
+                      className="px-3 py-1.5 rounded-lg border border-cyan-200 bg-cyan-50 text-cyan-800 text-xs font-semibold hover:bg-cyan-100"
+                    >
+                      Passer en cours
+                    </button>
+                  )}
+                  {can('write') && (
+                    <button
+                      onClick={() => handleUpdateStatus(selectedIncident.id, 'resolu')}
+                      className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold hover:bg-emerald-500"
+                    >
+                      Valider Résolution
+                    </button>
+                  )}
+                  {can('write') && (
+                    <button
+                      onClick={() => handleUpdateStatus(selectedIncident.id, 'classe')}
+                      className="px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 text-xs font-medium hover:bg-slate-100"
+                    >
+                      Classer sans suite
+                    </button>
+                  )}
                 </div>
 
                 <div>

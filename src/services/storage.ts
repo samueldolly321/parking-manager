@@ -2675,3 +2675,38 @@ export async function addGuardLogEntry(id: string, entry: { type: string; title?
   saveState(state);
   return guard;
 }
+
+/** Issues a membership card (server first: it gives the number and the QR token). */
+export async function issueMembershipCard(input: {
+  memberId: string;
+  primaryPlate: string;
+  secondaryPlate?: string;
+  validityMonths: number;
+  replaceActive: boolean;
+}): Promise<MembershipCard> {
+  const { card, revoked } = (await postJson('/api/v1/cards', input, 'Serveur injoignable : la carte n’a pas été émise.')) as {
+    card: MembershipCard;
+    revoked: string[];
+  };
+  const state = loadState();
+  state.cards = [card, ...state.cards.map((c) => (revoked.includes(c.id) ? { ...c, status: 'revoquee' as const } : c))];
+  saveState(state);
+  return card;
+}
+
+/** Closes or reopens a cash register. */
+export async function cashRegisterAction(
+  id: string,
+  action: 'close' | 'open',
+  body: Record<string, unknown>
+): Promise<CashRegister> {
+  const { register } = (await postJson(
+    `/api/v1/cash-registers/${encodeURIComponent(id)}/${action}`,
+    body,
+    'Serveur injoignable : la caisse n’a pas été modifiée.'
+  )) as { register: CashRegister };
+  const state = loadState();
+  state.cashRegisters = state.cashRegisters.map((r) => (r.id === register.id ? register : r));
+  saveState(state);
+  return register;
+}

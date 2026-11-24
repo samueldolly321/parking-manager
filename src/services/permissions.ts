@@ -146,7 +146,8 @@ const RECORD_ROUTES: { re: RegExp; action: Action; stateKey: string }[] = [
   { re: /^\/incidents\/([^/]+)$/, action: 'write', stateKey: 'incidents' },
   { re: /^\/payrolls\/([^/]+)\/status$/, action: 'payroll', stateKey: 'payrolls' },
   { re: /^\/equipments\/([^/]+)\/events$/, action: 'write', stateKey: 'equipments' },
-  { re: /^\/guards\/([^/]+)\/log$/, action: 'write', stateKey: 'guards' }
+  { re: /^\/guards\/([^/]+)\/log$/, action: 'write', stateKey: 'guards' },
+  { re: /^\/cash-registers\/([^/]+)\/(close|open)$/, action: 'finance', stateKey: 'cashRegisters' }
 ];
 
 const CREATE_ROUTES: Record<string, { action: Action; siteField?: string }> = {
@@ -159,6 +160,7 @@ const CREATE_ROUTES: Record<string, { action: Action; siteField?: string }> = {
   '/receipts': { action: 'finance', siteField: 'siteId' },
   '/guards': { action: 'write', siteField: 'siteId' },
   '/equipments': { action: 'write', siteField: 'siteId' },
+  '/cards': { action: 'write', siteField: 'siteId' },
   '/expenses': { action: 'finance', siteField: 'siteId' },
   '/incidents': { action: 'write', siteField: 'siteId' },
   '/committee': { action: 'governance' },

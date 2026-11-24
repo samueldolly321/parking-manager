@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { notify } from '../services/notify';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
-import { Equipment, Site, User } from '../types';
+import { Equipment, GuardPersonnel, Site, User } from '../types';
 import { addEquipmentRecord, recordEquipmentEvent } from '../services/storage';
 import { roleCan } from '../services/permissions';
 import {
@@ -15,6 +15,8 @@ import {
 
 interface EquipmentViewProps {
   equipments: Equipment[];
+  /** Staff, to hand equipment over to a guard */
+  guards: GuardPersonnel[];
   sites: Site[];
   currentUser: User;
   selectedSiteId: string;
@@ -28,7 +30,7 @@ const EQUIPMENT_EDIT_FIELDS = [
   'responsibleName', 'commissioningDate', 'estimatedValueAr', 'totalCycles'
 ];
 
-type Dialog = null | 'add' | 'journal' | 'audit' | 'intervention' | 'panne' | 'remise_service';
+type Dialog = null | 'add' | 'journal' | 'audit' | 'intervention' | 'panne' | 'remise_service' | 'affectation' | 'restitution';
 
 const field = 'w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs';
 const label = 'block text-[11px] font-semibold text-slate-500 mb-1';
@@ -65,7 +67,7 @@ const Footer: React.FC<{ onClose: () => void; busy: boolean; submitLabel: string
   </div>
 );
 
-export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites, currentUser, selectedSiteId, initialSelectedId }) => {
+export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, guards, sites, currentUser, selectedSiteId, initialSelectedId }) => {
   const [selectedCode, setSelectedCode] = useState<string>(initialSelectedId || equipments[0]?.inventoryCode || '');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [siteFilter, setSiteFilter] = useState<string>(selectedSiteId || 'all');
@@ -301,14 +303,15 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
       {/* Main Content Workspace: Data Table + Detail Drawer */}
       <div className="flex flex-col xl:flex-row gap-6 items-start">
         <div className="flex-1 w-full bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden flex flex-col">
-          <div className="p-4 bg-[#F8FAFC] border-b border-[#E2E8F0] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+          <div className="p-4 bg-[#F8FAFC] border-b border-[#E2E8F0] flex flex-col gap-3 min-w-0">
+            {/* Categories: one line, scrolls horizontally */}
+            <div className="scroll-x flex items-center gap-1.5 overflow-x-auto pb-2 min-w-0 w-full">
               {[{ id: 'all', label: `Tous (${siteEquipments.length})` }, ...EQUIPMENT_CATEGORIES.map((c) => ({ id: c.id, label: `${c.label} (${countCategory(c.id)})` }))].map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
                   type="button"
-                  className={`px-3 py-1.5 rounded-lg text-xs font-headline whitespace-nowrap transition-all ${
+                  className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-headline whitespace-nowrap transition-all ${
                     categoryFilter === cat.id ? 'bg-[#0F172A] text-white font-bold shadow-sm' : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-100'
                   }`}
                 >
@@ -317,7 +320,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
               ))}
             </div>
 
-            <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-wrap items-center gap-2">
               <select
                 value={siteFilter}
                 onChange={(e) => setSiteFilter(e.target.value)}
@@ -492,6 +495,26 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
 
             {canWrite && (
               <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setDialog('affectation')}
+                    type="button"
+                    className="bg-cyan-50 text-[#0891b2] hover:bg-cyan-100 font-headline text-xs font-bold py-2 rounded-lg border border-cyan-200 flex items-center justify-center gap-1 transition-colors"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">assignment_ind</span>
+                    <span>Remettre à un gardien</span>
+                  </button>
+                  <button
+                    onClick={() => setDialog('restitution')}
+                    type="button"
+                    disabled={selectedItem.category !== 'assigned'}
+                    title={selectedItem.category !== 'assigned' ? 'Ce matériel n’est pas confié à un gardien' : undefined}
+                    className="bg-slate-100 text-[#0F172A] hover:bg-slate-200 font-headline text-xs font-bold py-2 rounded-lg border border-[#E2E8F0] flex items-center justify-center gap-1 transition-colors disabled:opacity-50"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">assignment_return</span>
+                    <span>Restitution</span>
+                  </button>
+                </div>
                 <button
                   onClick={() => setDialog('intervention')}
                   type="button"
@@ -596,6 +619,18 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
               for (const r of rows) await recordEquipmentEvent(r.id, { kind: 'audit', quantityFound: r.quantityFound, note: r.note });
             }, `Inventaire enregistré (${rows.length} matériel${rows.length > 1 ? 's' : ''}).`)
           }
+        />
+      )}
+
+      {selectedItem && (dialog === 'affectation' || dialog === 'restitution') && (
+        <HandoverModal
+          kind={dialog}
+          item={selectedItem}
+          guards={guards.filter((g) => g.siteId === selectedItem.siteId)}
+          defaultResponsible={currentUser.fullName}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onSubmit={(event, success) => run(() => recordEquipmentEvent(selectedItem.id, event), success)}
         />
       )}
 
@@ -905,6 +940,63 @@ const JournalModal: React.FC<{
           </table>
         </div>
       )}
+    </Modal>
+  );
+};
+
+/** Handing the equipment over to a guard of its site, or taking it back. */
+const HandoverModal: React.FC<{
+  kind: 'affectation' | 'restitution';
+  item: Equipment;
+  guards: GuardPersonnel[];
+  defaultResponsible: string;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (event: Record<string, unknown>, success: string) => void;
+}> = ({ kind, item, guards, defaultResponsible, busy, onClose, onSubmit }) => {
+  const [guardId, setGuardId] = useState(guards.find((g) => g.fullName !== item.responsibleName)?.id || guards[0]?.id || '');
+  const [responsibleName, setResponsibleName] = useState(defaultResponsible);
+  const [note, setNote] = useState('');
+  const head = (
+    <p className="text-[11px] text-slate-500">
+      <strong className="text-[#0F172A]">{item.designation}</strong> · {item.inventoryCode} · actuellement : <strong>{item.responsibleName || '—'}</strong>
+    </p>
+  );
+  if (kind === 'affectation') {
+    return (
+      <Modal title="Remettre à un gardien" icon="assignment_ind" onClose={onClose}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onSubmit({ kind, guardId, note }, 'Matériel remis au gardien.'); }}>
+          {head}
+          {guards.length === 0 ? (
+            <p className="text-slate-500">Aucun gardien sur le site de ce matériel.</p>
+          ) : (
+            <label className="block">
+              <span className={label}>Gardien *</span>
+              <select required value={guardId} onChange={(e) => setGuardId(e.target.value)} className={field}>
+                {guards.map((g) => (
+                  <option key={g.id} value={g.id}>{g.fullName} — {g.matricule}{g.isTeamLeader ? ' (chef)' : ''}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          <label className="block"><span className={label}>Remarque</span><input maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="État du matériel, accessoires…" className={field} /></label>
+          <p className="text-[10px] text-slate-400">Le matériel passe dans « Confiés aux gardiens » et apparaît sur la fiche du gardien.</p>
+          <Footer onClose={onClose} busy={busy} submitLabel="Remettre" disabled={guards.length === 0} />
+        </form>
+      </Modal>
+    );
+  }
+  return (
+    <Modal title="Restitution du matériel" icon="assignment_return" onClose={onClose}>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onSubmit({ kind, responsibleName, note }, 'Restitution enregistrée.'); }}>
+        {head}
+        <label className="block">
+          <span className={label}>Repris par *</span>
+          <input required maxLength={150} value={responsibleName} onChange={(e) => setResponsibleName(e.target.value)} placeholder="ex : Magasin, chef de poste…" className={field} />
+        </label>
+        <label className="block"><span className={label}>Remarque</span><input maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="État au retour…" className={field} /></label>
+        <Footer onClose={onClose} busy={busy} submitLabel="Enregistrer la restitution" />
+      </form>
     </Modal>
   );
 };

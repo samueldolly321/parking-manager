@@ -1,5 +1,4 @@
 import React, { useRef, useState } from 'react';
-import { notifyNotAvailable } from '../services/notify';
 import { QrCodeSvg } from './QrCodeSvg';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
@@ -8,7 +7,10 @@ import { toPng } from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import { SquareParking, Car, Bike, MapPin, ShieldCheck, BadgeCheck, Home, Phone } from 'lucide-react';
 import { EntityActions } from './EntityActions';
-import { MembershipCard, Member } from '../types';
+import { MembershipCard, Member, Site, Vehicle } from '../types';
+import { issueMembershipCard } from '../services/storage';
+import { notify } from '../services/notify';
+import { can } from '../services/access';
 
 /** CR80 card width, used to size the BAT pages. */
 const CARD_WIDTH_MM = 85.6;
@@ -25,6 +27,8 @@ const nextFrame = () => new Promise<void>((resolve) => requestAnimationFrame(() 
 interface CardsViewProps {
   cards: MembershipCard[];
   members: Member[];
+  vehicles: Vehicle[];
+  sites: Site[];
   onToggleCardBlock: (cardId: string) => void;
   onOpenScanner: () => void;
   /** Record selected on arrival (from the header search) */
@@ -34,17 +38,22 @@ interface CardsViewProps {
 export const CardsView: React.FC<CardsViewProps> = ({
   cards,
   members,
+  vehicles,
+  sites,
   onToggleCardBlock,
   onOpenScanner,
   initialSelectedId
 }) => {
   const { appName } = useBranding();
+  const [showIssue, setShowIssue] = useState(false);
+  const canWrite = can('write');
   const [selectedCardId, setSelectedCardId] = useState<string>(initialSelectedId || cards[0]?.id || '');
   const [currentSide, setCurrentSide] = useState<'recto' | 'verso'>('recto');
   const [filterType, setFilterType] = useState<'all' | 'actif' | 'a_renouveler' | 'bloquee_perdue'>('all');
 
   const currentCard = cards.find(c => c.id === selectedCardId) || cards[0];
   const currentMember = members.find(m => m.id === currentCard?.memberId);
+  const cardSite = sites.find((x) => x.id === currentCard?.siteId);
 
   const activeCardsCount = cards.filter(c => c.status === 'actif').length;
   const toRenewCount = cards.filter(c => c.status === 'a_renouveler').length;
@@ -54,6 +63,20 @@ export const CardsView: React.FC<CardsViewProps> = ({
     if (filterType === 'all') return true;
     return c.status === filterType;
   });
+
+  const issueModal = showIssue && (
+    <IssueCardModal
+      members={members}
+      vehicles={vehicles}
+      cards={cards}
+      onClose={() => setShowIssue(false)}
+      onIssued={(card) => {
+        setShowIssue(false);
+        setFilterType('all');
+        setSelectedCardId(card.id);
+      }}
+    />
+  );
 
   // BAT (bon à tirer): both faces are rendered off-screen only while the PDF is built
   const [batBusy, setBatBusy] = useState(false);
@@ -208,7 +231,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
           <div className="flex items-center justify-between text-[9px] text-black pt-0.5">
             <div className="flex items-center gap-1">
               <MapPin size={12} className="text-amber-500" aria-hidden="true" />
-              <span>Analakely Central (Porte P1)</span>
+              <span>{currentCard.siteName.replace(/^Site \d+\s*-\s*/, '')}</span>
             </div>
             <div className="font-mono-data text-[8.5px] text-black">
               RFID: <span className="text-black font-semibold">{currentCard.rfidTag}</span>
@@ -262,7 +285,8 @@ export const CardsView: React.FC<CardsViewProps> = ({
         <div className="col-span-8 flex flex-col justify-between space-y-1.5 pl-1">
           <p className="text-[8px] leading-[11px] text-black text-justify">
             Cette carte est strictement personnelle et demeure la propriété de {appName}.
-            Tout stationnement implique l'acceptation sans réserve du règlement intérieur. En cas de perte, aviser immédiatement le poste d'Analakely au <strong className="text-black">+261 34 12 345 67</strong>.
+            Tout stationnement implique l'acceptation sans réserve du règlement intérieur. En cas de perte, aviser immédiatement le {currentCard.siteName}
+            {cardSite?.presidentPhone ? <> au <strong className="text-black">{cardSite.presidentPhone}</strong></> : null}.
           </p>
           <div className="grid grid-cols-2 gap-2 pt-0.5">
             <div className="flex flex-col">
@@ -306,8 +330,24 @@ export const CardsView: React.FC<CardsViewProps> = ({
     </div>
   );
 
+  if (!currentCard) {
+    return (
+      <div className="bg-white rounded-xl p-10 border border-dashed border-[#CBD5E1] text-center text-sm text-slate-500 space-y-3">
+        <span className="material-symbols-outlined text-[40px] text-slate-300 block">credit_card</span>
+        <p>Aucune carte de membre n’a encore été émise.</p>
+        {canWrite && (
+          <button type="button" onClick={() => setShowIssue(true)} className="px-4 py-2 rounded-lg bg-[#0F172A] text-white text-xs font-bold">
+            + Émettre une carte
+          </button>
+        )}
+        {issueModal}
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col w-full space-y-6">
+      {issueModal}
       {/* Section Header */}
       <div className="p-5 bg-white rounded-xl shadow-sm border border-[#E2E8F0] flex flex-col xl:flex-row xl:items-center justify-between gap-4">
         <div className="flex flex-col gap-0.5">
@@ -342,14 +382,14 @@ export const CardsView: React.FC<CardsViewProps> = ({
             <span className="material-symbols-outlined text-[18px] text-slate-500">layers</span>
             <span>Imprimer par Lot (Planche PVC)</span>
           </button>
-          <button
-            onClick={() => notifyNotAvailable('Émission d’une nouvelle carte')}
+          {canWrite && <button
+            onClick={() => setShowIssue(true)}
             type="button"
             className="bg-[#0F172A] text-white font-headline text-xs font-bold px-4 py-2 rounded-lg shadow-md hover:bg-slate-800 transition-all flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_card</span>
-            <span>+ Générer Nouvelle Carte</span>
-          </button>
+            <span>+ Émettre une carte</span>
+          </button>}
         </div>
       </div>
 
@@ -566,14 +606,6 @@ export const CardsView: React.FC<CardsViewProps> = ({
           {/* Direct Commands */}
           <div className="bg-white rounded-xl p-4 shadow-sm border border-[#E2E8F0] flex flex-col sm:flex-row items-center justify-between gap-3">
             <button
-              onClick={() => notifyNotAvailable('Impression directe sur imprimante à cartes (utilisez le BAT PDF)')}
-              type="button"
-              className="w-full sm:w-auto flex-1 bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold py-2.5 px-4 rounded-lg hover:bg-[#0891b2] hover:text-white transition-all flex items-center justify-center gap-2 shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[18px]">print</span>
-              <span>Imprimer Recto/Verso (Evolis / Zebra)</span>
-            </button>
-            <button
               onClick={downloadBat}
               disabled={batBusy}
               type="button"
@@ -584,50 +616,18 @@ export const CardsView: React.FC<CardsViewProps> = ({
               </span>
               <span>{batBusy ? 'Génération du BAT…' : 'Télécharger BAT (300 DPI)'}</span>
             </button>
-            <button
-              onClick={() => onToggleCardBlock(currentCard.id)}
-              type="button"
-              className="w-full sm:w-auto bg-red-50 text-[#DC2626] hover:bg-red-100 font-headline text-xs font-bold py-2.5 px-4 rounded-lg border border-red-200 flex items-center justify-center gap-1.5"
-            >
-              <span className="material-symbols-outlined text-[18px]">block</span>
-              <span>{currentCard.status === 'bloquee_perdue' ? 'Débloquer' : 'Bloquer / Perdue'}</span>
-            </button>
+            {can('write') && (
+              <button
+                onClick={() => onToggleCardBlock(currentCard.id)}
+                type="button"
+                className="w-full sm:w-auto bg-red-50 text-[#DC2626] hover:bg-red-100 font-headline text-xs font-bold py-2.5 px-4 rounded-lg border border-red-200 flex items-center justify-center gap-1.5"
+              >
+                <span className="material-symbols-outlined text-[18px]">block</span>
+                <span>{currentCard.status === 'bloquee_perdue' ? 'Débloquer' : 'Bloquer / Perdue'}</span>
+              </button>
+            )}
           </div>
 
-          {/* Printer Hardware Telemetry */}
-          <div className="bg-white rounded-xl p-4 shadow-sm border border-[#E2E8F0] space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full bg-[#16A34A] animate-pulse"></div>
-                <span className="font-headline text-xs font-bold text-[#0F172A]">Périphérique d'Impression Connecté</span>
-              </div>
-              <span className="font-mono-data text-[10px] px-2 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold border border-[#E2E8F0]">
-                USB / IP 192.168.1.145
-              </span>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-              <div className="bg-[#F8FAFC] p-3 rounded-lg border border-[#E2E8F0]">
-                <div className="text-slate-400 text-[10px] uppercase font-semibold">Modèle Imprimante</div>
-                <div className="font-headline font-bold text-[#0F172A] mt-0.5">Evolis Primacy Duplex</div>
-                <div className="text-[#06B6D4] font-mono-data text-[11px] mt-1 font-medium">Prêt • 24 cartes dans le bac</div>
-              </div>
-
-              <div className="bg-[#F8FAFC] p-3 rounded-lg border border-[#E2E8F0]">
-                <div className="text-slate-400 text-[10px] uppercase font-semibold">Ruban Couleur YMCKO</div>
-                <div className="font-headline font-bold text-[#0F172A] mt-0.5">68% restant</div>
-                <div className="w-full bg-slate-200 h-1.5 rounded-full mt-2 overflow-hidden">
-                  <div className="bg-[#06B6D4] h-full rounded-full" style={{ width: '68%' }}></div>
-                </div>
-              </div>
-
-              <div className="bg-[#F8FAFC] p-3 rounded-lg border border-[#E2E8F0]">
-                <div className="text-slate-400 text-[10px] uppercase font-semibold">Encodeur Contactless</div>
-                <div className="font-headline font-bold text-[#0F172A] mt-0.5">SpringCard CrazyWriter</div>
-                <div className="text-[#16A34A] font-mono-data text-[11px] mt-1 font-medium">Driver PC/SC Opérationnel</div>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* RIGHT PANEL: Registry of Recently Issued Cards (5 Cols) */}
@@ -774,6 +774,124 @@ export const CardsView: React.FC<CardsViewProps> = ({
         </div>
       </div>
       )}
+    </div>
+  );
+};
+
+/** Issuing a card: member, vehicle(s), validity; the member's current active card can be replaced. */
+const IssueCardModal: React.FC<{
+  members: Member[];
+  vehicles: Vehicle[];
+  cards: MembershipCard[];
+  onClose: () => void;
+  onIssued: (card: MembershipCard) => void;
+}> = ({ members, vehicles, cards, onClose, onIssued }) => {
+  const eligible = members.filter((m) => m.status !== 'radie' && vehicles.some((v) => v.memberId === m.id && v.status !== 'radie'));
+  const [memberId, setMemberId] = useState(eligible[0]?.id || '');
+  const own = vehicles.filter((v) => v.memberId === memberId && v.status !== 'radie');
+  const [primaryPlate, setPrimaryPlate] = useState(own[0]?.licensePlate || '');
+  const [secondaryPlate, setSecondaryPlate] = useState('');
+  const [validityMonths, setValidityMonths] = useState('12');
+  const [replaceActive, setReplaceActive] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const active = cards.filter((c) => c.memberId === memberId && c.status === 'actif');
+
+  const pickMember = (id: string) => {
+    setMemberId(id);
+    setPrimaryPlate(vehicles.find((v) => v.memberId === id && v.status !== 'radie')?.licensePlate || '');
+    setSecondaryPlate('');
+    setReplaceActive(false);
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      const card = await issueMembershipCard({
+        memberId,
+        primaryPlate,
+        secondaryPlate: secondaryPlate || undefined,
+        validityMonths: Number(validityMonths),
+        replaceActive
+      });
+      notify(`Carte ${card.cardNumber} émise pour ${card.memberName}.`, 'success');
+      onIssued(card);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Émission impossible.', 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const field = 'w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs';
+  return (
+    <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 text-left">
+      <form onSubmit={submit} className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-3 text-xs">
+        <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+          <h3 className="font-headline text-lg font-bold text-[#0F172A] flex items-center gap-2">
+            <span className="material-symbols-outlined text-[#06B6D4]">add_card</span>
+            Émettre une carte de membre
+          </h3>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-[#0F172A]" aria-label="Fermer">
+            <span className="material-symbols-outlined text-[20px]">close</span>
+          </button>
+        </div>
+        {eligible.length === 0 ? (
+          <p className="text-slate-500 py-4">Aucun membre actif avec véhicule.</p>
+        ) : (
+          <>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">Membre *</span>
+              <select value={memberId} onChange={(e) => pickMember(e.target.value)} className={field} required>
+                {eligible.map((m) => (
+                  <option key={m.id} value={m.id}>{m.memberNumber} — {m.fullName}</option>
+                ))}
+              </select>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">Véhicule principal *</span>
+                <select value={primaryPlate} onChange={(e) => setPrimaryPlate(e.target.value)} className={field} required>
+                  {own.map((v) => <option key={v.id} value={v.licensePlate}>{v.licensePlate} — {v.brand} {v.model}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="block text-[11px] font-semibold text-slate-500 mb-1">Second véhicule</span>
+                <select value={secondaryPlate} onChange={(e) => setSecondaryPlate(e.target.value)} className={field}>
+                  <option value="">— Aucun —</option>
+                  {own.filter((v) => v.licensePlate !== primaryPlate).map((v) => <option key={v.id} value={v.licensePlate}>{v.licensePlate}</option>)}
+                </select>
+              </label>
+            </div>
+            <label className="block">
+              <span className="block text-[11px] font-semibold text-slate-500 mb-1">Validité</span>
+              <select value={validityMonths} onChange={(e) => setValidityMonths(e.target.value)} className={field}>
+                {[6, 12, 24, 36].map((n) => <option key={n} value={n}>{n} mois</option>)}
+              </select>
+            </label>
+            {active.length > 0 && (
+              <label className="flex items-start gap-2 p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-900">
+                <input type="checkbox" checked={replaceActive} onChange={(e) => setReplaceActive(e.target.checked)} className="mt-0.5" />
+                <span>
+                  Ce membre a déjà une carte active ({active.map((c) => c.cardNumber).join(', ')}). Cochez pour la <strong>révoquer</strong> et la remplacer
+                  (perte, changement de véhicule…).
+                </span>
+              </label>
+            )}
+            <p className="text-[10px] text-slate-400">Le numéro de carte, le badge et le jeton du QR code sont générés automatiquement.</p>
+          </>
+        )}
+        <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+          <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">Annuler</button>
+          <button
+            type="submit"
+            disabled={busy || eligible.length === 0 || !primaryPlate || (active.length > 0 && !replaceActive)}
+            className="px-5 py-2 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold hover:bg-[#0891B2] hover:text-white disabled:opacity-50"
+          >
+            {busy ? 'Émission…' : 'Émettre la carte'}
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

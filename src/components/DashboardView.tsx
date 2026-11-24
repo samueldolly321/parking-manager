@@ -1,4 +1,5 @@
 import React from 'react';
+import { can } from '../services/access';
 import {
   Site,
   ParkingSpot,
@@ -223,14 +224,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="material-symbols-outlined text-[18px] text-slate-500">download</span>
             <span>Exporter un rapport (PDF / Excel)</span>
           </button>
-          <button
-            onClick={onOpenNewPayment}
-            type="button"
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0F172A] text-white hover:bg-slate-800 transition-all shadow-md text-xs font-headline font-bold"
-          >
-            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
-            <span>+ Encaisser</span>
-          </button>
+          {can('finance') && (
+            <button
+              onClick={onOpenNewPayment}
+              type="button"
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#0F172A] text-white hover:bg-slate-800 transition-all shadow-md text-xs font-headline font-bold"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_circle</span>
+              <span>+ Encaisser</span>
+            </button>
+          )}
         </div>
       </div>
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { can } from '../services/access';
 import { AppState, Site, User, USER_ROLES } from '../types';
 import { userSite } from '../services/permissions';
 import { DashboardAlert, formatLongDate, todayInTana } from '../services/dashboardMetrics';
@@ -281,18 +282,20 @@ export const Header: React.FC<HeaderProps> = ({
             <span className="material-symbols-outlined text-[20px]">{mobileSearchOpen ? 'close' : 'search'}</span>
           </button>
 
-          <button
-            onClick={onOpenNewPayment}
-            type="button"
-            aria-label="Nouvel encaissement"
-            className="bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold p-1.5 sm:px-3.5 sm:py-2 rounded-lg hover:bg-[#0891B2] hover:text-white transition-all shadow-sm flex items-center gap-1.5"
-          >
-            <span className="material-symbols-outlined text-[18px]">add_circle</span>
-            <span className="hidden sm:inline whitespace-nowrap">
-              <span className="xl:hidden">Encaisser</span>
-              <span className="hidden xl:inline">Nouvel Encaissement</span>
-            </span>
-          </button>
+          {can('finance') && (
+            <button
+              onClick={onOpenNewPayment}
+              type="button"
+              aria-label="Nouvel encaissement"
+              className="bg-[#06B6D4] text-[#0F172A] font-headline text-xs font-bold p-1.5 sm:px-3.5 sm:py-2 rounded-lg hover:bg-[#0891B2] hover:text-white transition-all shadow-sm flex items-center gap-1.5"
+            >
+              <span className="material-symbols-outlined text-[18px]">add_circle</span>
+              <span className="hidden sm:inline whitespace-nowrap">
+                <span className="xl:hidden">Encaisser</span>
+                <span className="hidden xl:inline">Nouvel Encaissement</span>
+              </span>
+            </button>
+          )}
 
           {/* Date Display */}
           <div className="hidden min-[1400px]:flex flex-col text-right whitespace-nowrap">

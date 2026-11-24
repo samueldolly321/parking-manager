@@ -74,3 +74,13 @@ test('inventaire : conforme ou écart, quantité et date mises à jour', () => {
   assert.equal(missing.entry.title, 'Inventaire : écart de -1 (4 → 3)');
   assert.equal(missing.entry.isCritical, true);
 });
+
+test('remise à un gardien puis restitution', () => {
+  const a = applyEquipmentEvent(eq({ category: 'security', responsibleName: 'Magasin' }), { kind: 'affectation', guardName: 'Rakoto Jean' }, '24/11/2026 09:00', 'Chef');
+  assert.deepEqual(a.patch, { category: 'assigned', responsibleName: 'Rakoto Jean' });
+  assert.equal(a.entry.title, 'Remis à Rakoto Jean');
+  assert.match(a.entry.description, /Précédent détenteur : Magasin/);
+  const r = applyEquipmentEvent(eq({ category: 'assigned', responsibleName: 'Rakoto Jean' }), { kind: 'restitution', responsibleName: 'Magasin' }, '24/11/2026 18:00', '');
+  assert.deepEqual(r.patch, { responsibleName: 'Magasin' });
+  assert.equal(r.entry.title, 'Rendu par Rakoto Jean');
+});

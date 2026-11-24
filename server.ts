@@ -18,6 +18,7 @@ import {
   updateSpotRecord,
   createSpotRecords,
   createEquipmentRecord,
+  createCardRecord,
   updateZoneSpots,
   deleteZoneSpots,
   createReceiptRecord,
@@ -77,6 +78,9 @@ import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
 import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
 import { LOG_TYPES } from './src/services/guards.ts';
+import { buildCard, cardProblem } from './src/services/cards.ts';
+import { closeRegister, openRegister } from './src/services/cashRegister.ts';
+import { randomUUID } from 'crypto';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS, applyEquipmentEvent, isoToFr, nextInventoryCode, type EquipmentEvent } from './src/services/equipment.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
 
@@ -290,9 +294,9 @@ async function startServer() {
   /** Public: the sign-in page shows the name and logo before any login. */
   app.get('/api/v1/settings/branding', async (_req, res) => {
     try {
-      const s = await getAppSettings(['branding.name', 'branding.logo']);
+      const s = await getAppSettings(['branding.name', 'branding.logo', 'branding.nif', 'branding.stat']);
       res.setHeader('Cache-Control', 'no-cache');
-      res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null });
+      res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null, nif: s['branding.nif'] || '', stat: s['branding.stat'] || '' });
     } catch (error) {
       console.error('Branding read error:', error);
       res.json({ appName: DEFAULT_APP_NAME, logoUrl: null });
@@ -314,13 +318,18 @@ async function startServer() {
         }
         if (logo.length > MAX_LOGO_CHARS) return res.status(400).json({ error: 'Le logo est trop lourd (300 Ko maximum).' });
       }
+      const taxId = (v: unknown) => (typeof v === 'string' ? v.trim().replace(/\s+/g, ' ').slice(0, 40) : undefined);
+      const nif = taxId(req.body?.nif);
+      const stat = taxId(req.body?.stat);
       await setAppSettings({
         'branding.name': name === DEFAULT_APP_NAME ? null : name,
-        ...(logo === undefined ? {} : { 'branding.logo': logo })
+        ...(logo === undefined ? {} : { 'branding.logo': logo }),
+        ...(nif === undefined ? {} : { 'branding.nif': nif || null }),
+        ...(stat === undefined ? {} : { 'branding.stat': stat || null })
       });
       await recordAudit('MODIFICATION_IDENTITE', 'Paramètres', `Nom de l'application : « ${name} »${logo === undefined ? '' : logo === null ? ', logo par défaut rétabli' : ', nouveau logo'}`);
-      const s = await getAppSettings(['branding.name', 'branding.logo']);
-      return res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null });
+      const s = await getAppSettings(['branding.name', 'branding.logo', 'branding.nif', 'branding.stat']);
+      return res.json({ appName: s['branding.name'] || DEFAULT_APP_NAME, logoUrl: s['branding.logo'] || null, nif: s['branding.nif'] || '', stat: s['branding.stat'] || '' });
     } catch (error) {
       console.error('Branding write error:', error);
       return res.status(500).json({ error: 'Enregistrement impossible.' });
@@ -562,11 +571,11 @@ async function startServer() {
         memberNumber: nextNum,
         fullName: req.body.fullName,
         category: req.body.category || 'standard',
-        cin: req.body.cin || '101 000 000 000',
+        cin: typeof req.body.cin === 'string' ? req.body.cin.trim().slice(0, 30) : '',
         cinIssuedDate: req.body.cinIssuedDate,
         cinIssuedLocation: req.body.cinIssuedLocation,
         phone: req.body.phone,
-        mobileMoneyProvider: req.body.mobileMoneyProvider || 'MVola',
+        mobileMoneyProvider: ['MVola', 'Orange Money', 'Airtel Money'].includes(req.body.mobileMoneyProvider) ? req.body.mobileMoneyProvider : undefined,
         emergencyContactName: req.body.emergencyContactName,
         emergencyContactPhone: req.body.emergencyContactPhone,
         address: req.body.address || 'Antananarivo',
@@ -858,6 +867,44 @@ async function startServer() {
     }
   });
 
+  // Issue a membership card (optionally revoking the member's current active card)
+  app.post('/api/v1/cards', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const state = await getFullState();
+      const member = state.members.find((m) => m.id === b.memberId);
+      const input = {
+        primaryPlate: typeof b.primaryPlate === 'string' ? b.primaryPlate : '',
+        secondaryPlate: typeof b.secondaryPlate === 'string' && b.secondaryPlate ? b.secondaryPlate : undefined,
+        validityMonths: Math.floor(Number(b.validityMonths) || 12)
+      };
+      const problem = cardProblem(member, state.vehicles, input);
+      if (problem) return res.status(400).json({ error: problem });
+      // A site-bound account only issues cards to members of its site
+      if (b.siteId && member!.primarySiteId !== b.siteId) return res.status(403).json({ error: 'Ce membre est rattaché à un autre site.' });
+      const active = state.cards.filter((c) => c.memberId === member!.id && c.status === 'actif');
+      if (active.length && b.replaceActive !== true) {
+        return res.status(409).json({ error: `Ce membre a déjà une carte active (${active.map((c) => c.cardNumber).join(', ')}). Cochez « Remplacer » pour la révoquer.` });
+      }
+      for (const c of active) await updateRecord('cards', c.id, { status: 'revoquee' });
+      const today = formatEntryTime().slice(0, 10);
+      const card = await createCardRecord(
+        buildCard(member!, state.sites.find((s) => s.id === member!.primarySiteId), input, state.cards, today, randomUUID())
+      );
+      await recordAudit(
+        'EMISSION_CARTE',
+        'Cartes',
+        `Carte ${card.cardNumber} émise pour ${card.memberName} (${card.primaryPlate}), valable jusqu’au ${card.expirationDate}` +
+          (active.length ? ` — remplace ${active.map((c) => c.cardNumber).join(', ')}` : ''),
+        card.siteId
+      );
+      return res.status(201).json({ card, revoked: active.map((c) => c.id) });
+    } catch (error) {
+      console.error('Create card error:', error);
+      return res.status(500).json({ error: 'Impossible d’émettre la carte.' });
+    }
+  });
+
   app.post('/api/v1/cards/:id/toggle-block', async (req, res) => {
     try {
       const card = await toggleCardStatus(req.params.id);
@@ -1133,6 +1180,19 @@ async function startServer() {
           ev = { kind: 'transfert', siteId, location: text(b.location, 150) || '—', siteName: siteName(siteId), fromSiteName: siteName(eq.siteId), reason: text(b.reason, 300) };
           break;
         }
+        case 'affectation': {
+          const guard = state.guards.find((g) => g.id === b.guardId);
+          if (!guard) return res.status(400).json({ error: 'Choisissez le gardien.' });
+          if (guard.siteId !== eq.siteId) return res.status(400).json({ error: 'Ce gardien travaille sur un autre site que le matériel.' });
+          ev = { kind: 'affectation', guardName: guard.fullName, note: text(b.note, 300) };
+          break;
+        }
+        case 'restitution': {
+          const responsibleName = text(b.responsibleName, 150);
+          if (!responsibleName) return res.status(400).json({ error: 'Indiquez qui reprend le matériel.' });
+          ev = { kind: 'restitution', responsibleName, note: text(b.note, 300) };
+          break;
+        }
         case 'audit': {
           const quantityFound = Math.floor(Number(b.quantityFound));
           if (!Number.isInteger(quantityFound) || quantityFound < 0) return res.status(400).json({ error: 'Quantité constatée invalide.' });
@@ -1181,6 +1241,42 @@ async function startServer() {
       res.json(state.cashRegisters);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des caisses' });
+    }
+  });
+
+  // Closing / reopening a cash register
+  app.post('/api/v1/cash-registers/:id/:action(close|open)', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const reg = state.cashRegisters.find((r) => r.id === req.params.id);
+      if (!reg) return res.status(404).json({ error: 'Caisse introuvable.' });
+      const b = req.body || {};
+      const now = formatEntryTime();
+      const by = res.locals.user?.fullName || '';
+      if (req.params.action === 'close') {
+        if (reg.status !== 'ouverte') return res.status(400).json({ error: 'Cette caisse est déjà clôturée.' });
+        const counted = Number(b.countedCashAr);
+        if (!Number.isFinite(counted) || counted < 0) return res.status(400).json({ error: 'Indiquez le montant d’espèces compté.' });
+        const { patch, closure } = closeRegister(reg, { countedCashAr: counted, notes: typeof b.notes === 'string' ? b.notes.slice(0, 500) : '' }, now, by);
+        await updateRecord('cash-registers', reg.id, patch as Record<string, unknown>);
+        await recordAudit(
+          'CLOTURE_CAISSE',
+          'Trésorerie',
+          `Caisse ${reg.registerCode} clôturée : ${closure.countedCashAr} Ar comptés pour ${closure.expectedCashAr} Ar attendus (écart ${closure.differenceAr} Ar)`,
+          reg.siteId
+        );
+        return res.json({ register: { ...reg, ...patch }, closure });
+      }
+      if (reg.status === 'ouverte') return res.status(400).json({ error: 'Cette caisse est déjà ouverte.' });
+      const opening = Number(b.openingBalanceAr);
+      if (!Number.isFinite(opening) || opening < 0) return res.status(400).json({ error: 'Indiquez le fond de caisse.' });
+      const patch = openRegister(reg, { openingBalanceAr: opening, cashierName: typeof b.cashierName === 'string' ? b.cashierName.slice(0, 150) : '' }, now);
+      await updateRecord('cash-registers', reg.id, patch as Record<string, unknown>);
+      await recordAudit('OUVERTURE_CAISSE', 'Trésorerie', `Caisse ${reg.registerCode} ouverte par ${patch.cashierName} avec ${patch.openingBalanceAr} Ar`, reg.siteId);
+      return res.json({ register: { ...reg, ...patch } });
+    } catch (error) {
+      console.error('Cash register action error:', error);
+      return res.status(500).json({ error: 'Opération impossible sur la caisse.' });
     }
   });
 

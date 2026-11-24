@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
+import { formatEntryTime } from '../services/spots';
+import { addMonthsFr } from '../services/cards';
 import { initialsAvatar } from '../services/avatar';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
@@ -34,34 +37,24 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
   const [photoModalTarget, setPhotoModalTarget] = useState<{ id: string; name: string; currentPhoto: string } | null>(null);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
 
-  const sampleCommitteeAvatars = [
-    'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80'
-  ];
 
   // New member form
   const [newRole, setNewRole] = useState<CommitteeMember['role']>('President Site');
   const [newFullName, setNewFullName] = useState('');
-  const [newSiteId, setNewSiteId] = useState('S1');
+  const [newSiteId, setNewSiteId] = useState(state.sites[0]?.id || '');
   const [newPhone, setNewPhone] = useState('+261 34 ');
   const [newEmail, setNewEmail] = useState('');
-  const [newAvatar] = useState(sampleCommitteeAvatars[0]);
-  /** Photo imported from the PC or taken with the camera (takes precedence over the default portrait) */
+  /** Photo imported from the PC or taken with the camera (none = initials) */
   const [newPhoto, setNewPhoto] = useState<string | undefined>(undefined);
   const [newIndemnity, setNewIndemnity] = useState(450000);
-  const [newMandateStart, setNewMandateStart] = useState('01/01/2024');
-  const [newMandateEnd, setNewMandateEnd] = useState('31/12/2026');
+  // Mandate: from today, 3 years by default
+  const [newMandateStart, setNewMandateStart] = useState(() => formatEntryTime().slice(0, 10));
+  const [newMandateEnd, setNewMandateEnd] = useState(() => addMonthsFr(formatEntryTime().slice(0, 10), 36));
 
   // New meeting form
   const [newMeetingTitle, setNewMeetingTitle] = useState('');
-  const [newMeetingDate, setNewMeetingDate] = useState('25/05/2024');
-  const [newMeetingLocation, setNewMeetingLocation] = useState('Salle de réunion - Hôtel de Ville Analakely');
+  const [newMeetingDate, setNewMeetingDate] = useState(() => formatEntryTime().slice(0, 10));
+  const [newMeetingLocation, setNewMeetingLocation] = useState('');
   const [newMeetingAgenda, setNewMeetingAgenda] = useState('');
   const [newMeetingPV, setNewMeetingPV] = useState('');
   const [newResolutionsCount, setNewResolutionsCount] = useState(3);
@@ -75,7 +68,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
       siteId: newRole.includes('Site') ? newSiteId : undefined,
       phone: newPhone,
       email: newEmail || undefined,
-      avatarUrl: newPhoto || newAvatar,
+      avatarUrl: newPhoto,
       monthlyIndemnityAr: Number(newIndemnity) || 450000,
       mandateStart: newMandateStart,
       mandateEnd: newMandateEnd,
@@ -133,20 +126,24 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
         </div>
 
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowMeetingModal(true)}
-            className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-colors"
-          >
-            <FileText className="w-4 h-4 text-cyan-400" />
-            Consigner un PV
-          </button>
-          <button
-            onClick={() => setShowMemberModal(true)}
-            className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Nouveau Dirigeant
-          </button>
+          {can('governance') && (
+            <button
+              onClick={() => setShowMeetingModal(true)}
+              className="px-4 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-medium text-sm flex items-center gap-2 transition-colors"
+            >
+              <FileText className="w-4 h-4 text-cyan-400" />
+              Consigner un PV
+            </button>
+          )}
+          {can('governance') && (
+            <button
+              onClick={() => setShowMemberModal(true)}
+              className="px-4 py-2.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold text-sm flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-colors"
+            >
+              <Plus className="w-4 h-4" />
+              Nouveau Dirigeant
+            </button>
+          )}
         </div>
       </div>
 
@@ -729,7 +726,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
 
             <div className="flex items-center justify-center py-2">
               <img
-                src={customPhotoUrl || photoModalTarget.currentPhoto}
+                src={customPhotoUrl || photoModalTarget.currentPhoto || initialsAvatar(photoModalTarget.name)}
                 alt="Aperçu"
                 className="w-24 h-24 rounded-2xl object-cover border-2 border-cyan-500 shadow-md"
               />
@@ -758,25 +755,6 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
                   placeholder="https://..."
                   className="w-full px-3.5 py-2 rounded-xl border border-slate-300 text-xs focus:ring-2 focus:ring-cyan-500 focus:outline-none"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-2">
-                  Ou sélectionner parmi les portraits administratifs :
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {sampleCommitteeAvatars.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`Portrait ${i}`}
-                      onClick={() => setCustomPhotoUrl(url)}
-                      className={`w-14 h-14 rounded-xl object-cover cursor-pointer border-2 transition-all ${
-                        customPhotoUrl === url ? 'border-cyan-500 scale-105 shadow-md' : 'border-slate-200 hover:border-slate-400'
-                      }`}
-                    />
-                  ))}
-                </div>
               </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">

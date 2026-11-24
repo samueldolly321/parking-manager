@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { can } from '../services/access';
 import { initialsAvatar } from '../services/avatar';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
@@ -303,14 +304,16 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, equipments, curr
             </button>
           </div>
 
-          <button
-            onClick={openNewModal}
-            type="button"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] text-white shadow-md hover:bg-slate-800 text-xs font-bold"
-          >
-            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">person_add</span>
-            <span>+ Nouveau personnel</span>
-          </button>
+          {can('write') && (
+            <button
+              onClick={openNewModal}
+              type="button"
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] text-white shadow-md hover:bg-slate-800 text-xs font-bold"
+            >
+              <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">person_add</span>
+              <span>+ Nouveau personnel</span>
+            </button>
+          )}
 
           <button
             onClick={printRoster}
@@ -456,14 +459,16 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, equipments, curr
                   </div>
 
                   {leader && (
-                    <button
-                      onClick={() => setOrderModalTeam({ id: teamId, name: group.teamName, leaderName: leader.fullName })}
-                      type="button"
-                      className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-colors"
-                    >
-                      <span className="material-symbols-outlined text-[16px]">campaign</span>
-                      <span>Émettre un ordre du jour</span>
-                    </button>
+                    can('write') && (
+                      <button
+                        onClick={() => setOrderModalTeam({ id: teamId, name: group.teamName, leaderName: leader.fullName })}
+                        type="button"
+                        className="px-3.5 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-md transition-colors"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">campaign</span>
+                        <span>Émettre un ordre du jour</span>
+                      </button>
+                    )
                   )}
                 </div>
 
@@ -877,14 +882,16 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, equipments, curr
                   </button>
                 </>
               ) : (
-                <button
-                  type="button"
-                  onClick={startPlanningEdit}
-                  className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1"
-                >
-                  <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
-                  Modifier le planning
-                </button>
+                can('write') && (
+                  <button
+                    type="button"
+                    onClick={startPlanningEdit}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">edit_calendar</span>
+                    Modifier le planning
+                  </button>
+                )
               )}
             </div>
           </div>

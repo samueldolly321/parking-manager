@@ -5,13 +5,16 @@ export interface Branding {
   appName: string;
   /** Image data URL, or null for the default parking icon */
   logoUrl: string | null;
+  /** Tax numbers printed on receipts (empty = not printed) */
+  nif: string;
+  stat: string;
 }
 
-export const DEFAULT_BRANDING: Branding = { appName: 'Parking Mada', logoUrl: null };
+export const DEFAULT_BRANDING: Branding = { appName: 'Parking Mada', logoUrl: null, nif: '', stat: '' };
 
 interface BrandingContextValue extends Branding {
   /** Saves on the server, then updates every screen. Throws with a readable message on failure. */
-  save: (next: { appName: string; logoUrl?: string | null }) => Promise<void>;
+  save: (next: { appName: string; logoUrl?: string | null; nif?: string; stat?: string }) => Promise<void>;
 }
 
 const BrandingContext = createContext<BrandingContextValue>({ ...DEFAULT_BRANDING, save: async () => {} });
@@ -38,13 +41,13 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   useEffect(() => {
     fetch('/api/v1/settings/branding')
       .then((r) => (r.ok ? r.json() : DEFAULT_BRANDING))
-      .then((b: Branding) => setBranding({ appName: b.appName || DEFAULT_BRANDING.appName, logoUrl: b.logoUrl || null }))
+      .then((b: Branding) => setBranding({ appName: b.appName || DEFAULT_BRANDING.appName, logoUrl: b.logoUrl || null, nif: b.nif || '', stat: b.stat || '' }))
       .catch(() => undefined);
   }, []);
 
   useEffect(() => applyToDocument(branding), [branding]);
 
-  const save = useCallback(async (next: { appName: string; logoUrl?: string | null }) => {
+  const save = useCallback(async (next: { appName: string; logoUrl?: string | null; nif?: string; stat?: string }) => {
     let res: Response;
     try {
       res = await fetch('/api/v1/settings/branding', {
@@ -57,7 +60,7 @@ export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
     const body = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(body?.error || `Enregistrement impossible (erreur ${res.status}).`);
-    setBranding({ appName: body.appName, logoUrl: body.logoUrl || null });
+    setBranding({ appName: body.appName, logoUrl: body.logoUrl || null, nif: body.nif || '', stat: body.stat || '' });
   }, []);
 
   return <BrandingContext.Provider value={{ ...branding, save }}>{children}</BrandingContext.Provider>;

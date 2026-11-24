@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { AppState, ParkingSpot, Site } from '../types';
 import { addSiteRecord, deleteZone, updateZone } from '../services/storage';
@@ -173,14 +174,16 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
             {state.sites.length} site{state.sites.length > 1 ? 's' : ''} · capacité totale {fmt(totalCapacity)} places · {fmt(totalOccupied)} occupée{totalOccupied > 1 ? 's' : ''} actuellement
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => { setForm(emptyForm); setError(null); setShowNew(true); }}
-          className="self-start lg:self-auto px-4 py-2.5 rounded-lg bg-[#0F172A] text-white hover:bg-slate-800 shadow-md text-xs font-bold flex items-center gap-1.5"
-        >
-          <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_business</span>
-          + Nouveau site
-        </button>
+        {can('sites') && (
+          <button
+            type="button"
+            onClick={() => { setForm(emptyForm); setError(null); setShowNew(true); }}
+            className="self-start lg:self-auto px-4 py-2.5 rounded-lg bg-[#0F172A] text-white hover:bg-slate-800 shadow-md text-xs font-bold flex items-center gap-1.5"
+          >
+            <span className="material-symbols-outlined text-[18px] text-[#06B6D4]">add_business</span>
+            + Nouveau site
+          </button>
+        )}
       </div>
 
       {/* Site cards */}

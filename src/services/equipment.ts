@@ -23,7 +23,9 @@ export const HISTORY_KIND_LABELS: Record<NonNullable<EquipmentHistoryEntry['kind
   panne: 'Panne',
   remise_service: 'Remise en service',
   transfert: 'Transfert',
-  audit: 'Inventaire'
+  audit: 'Inventaire',
+  affectation: 'Remise à un gardien',
+  restitution: 'Restitution'
 };
 
 export const categoryLabel = (id: string) => EQUIPMENT_CATEGORIES.find((c) => c.id === id)?.label || id;
@@ -57,7 +59,9 @@ export type EquipmentEvent =
   | { kind: 'panne'; description: string; critical: boolean }
   | { kind: 'remise_service'; description?: string }
   | { kind: 'transfert'; siteId: string; location: string; siteName: string; fromSiteName: string; reason?: string }
-  | { kind: 'audit'; quantityFound: number; note?: string };
+  | { kind: 'audit'; quantityFound: number; note?: string }
+  | { kind: 'affectation'; guardName: string; note?: string }
+  | { kind: 'restitution'; responsibleName: string; note?: string };
 
 /**
  * Applies an event to an equipment: returns the changed fields (status, quantity, site…)
@@ -99,6 +103,29 @@ export function applyEquipmentEvent(
           kind: 'transfert',
           title: `Transfert : ${ev.fromSiteName} → ${ev.siteName}`,
           description: `Nouvel emplacement : ${ev.location}${ev.reason ? ` · ${ev.reason}` : ''}${sign}`
+        }
+      };
+    case 'affectation':
+      return {
+        // Handed to a guard: it appears in the guards' log book and on the guard's file
+        patch: { category: 'assigned', responsibleName: ev.guardName },
+        entry: {
+          date: now,
+          kind: 'affectation',
+          title: `Remis à ${ev.guardName}`,
+          description: [eq.responsibleName && eq.responsibleName !== ev.guardName ? `Précédent détenteur : ${eq.responsibleName}` : '', ev.note || '']
+            .filter(Boolean)
+            .join(' · ') + sign
+        }
+      };
+    case 'restitution':
+      return {
+        patch: { responsibleName: ev.responsibleName },
+        entry: {
+          date: now,
+          kind: 'restitution',
+          title: `Rendu par ${eq.responsibleName || '—'}`,
+          description: `Désormais sous la responsabilité de ${ev.responsibleName}${ev.note ? ` · ${ev.note}` : ''}${sign}`
         }
       };
     case 'audit': {

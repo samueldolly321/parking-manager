@@ -386,6 +386,7 @@ export async function getFullState(): Promise<AppState> {
       totalMobileMoneyAr: reg.totalMobileMoneyAr,
       totalExpensesPaidAr: reg.totalExpensesPaidAr,
       currentCashInHandAr: reg.currentCashInHandAr,
+      closures: (reg.closures ?? []) as unknown as CashRegister['closures'],
       status: reg.status as CashRegister['status']
     })),
     expenses: expenseRows.map((exp): ExpenseRecord => ({
@@ -539,6 +540,18 @@ export async function createVehicleRecord(vehicle: Vehicle): Promise<Vehicle> {
   }
   await db.insert(schema.vehicles).values(vehicle);
   return vehicle;
+}
+
+export async function createCardRecord(card: MembershipCard): Promise<MembershipCard> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    store.cards.unshift(card);
+    saveLocalStore(store);
+    return card;
+  }
+  await db.insert(schema.membershipCards).values(card as any);
+  return card;
 }
 
 export async function createEquipmentRecord(item: Equipment): Promise<Equipment> {
@@ -1253,6 +1266,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS unit VARCHAR(30)');
   await pool.query('ALTER TABLE members ADD COLUMN IF NOT EXISTS approved_by_president VARCHAR(150)');
   await pool.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS photo_url TEXT');
+  await pool.query("ALTER TABLE cash_registers ADD COLUMN IF NOT EXISTS closures JSONB NOT NULL DEFAULT '[]'::jsonb");
   await pool.query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT now())');
 }
 

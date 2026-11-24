@@ -11,20 +11,22 @@ export const BrandingPanel: React.FC = () => {
   const branding = useBranding();
   const [name, setName] = useState(branding.appName);
   const [logo, setLogo] = useState<string | null>(branding.logoUrl);
+  const [nif, setNif] = useState(branding.nif);
+  const [stat, setStat] = useState(branding.stat);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Follow the saved values (first load from the server)
-  useEffect(() => { setName(branding.appName); setLogo(branding.logoUrl); }, [branding.appName, branding.logoUrl]);
+  useEffect(() => { setName(branding.appName); setLogo(branding.logoUrl); setNif(branding.nif); setStat(branding.stat); }, [branding.appName, branding.logoUrl, branding.nif, branding.stat]);
 
-  const dirty = name.trim() !== branding.appName || logo !== branding.logoUrl;
+  const dirty = name.trim() !== branding.appName || logo !== branding.logoUrl || nif.trim() !== branding.nif || stat.trim() !== branding.stat;
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
     try {
-      await branding.save({ appName: name.trim(), logoUrl: logo });
+      await branding.save({ appName: name.trim(), logoUrl: logo, nif: nif.trim(), stat: stat.trim() });
       addAuditLog('MODIFICATION_IDENTITE', 'Paramètres', name.trim()); // reloads the journal from the server
       setMessage({ ok: true, text: 'Identité enregistrée : le nom et le logo sont mis à jour partout.' });
     } catch (err) {
@@ -74,6 +76,18 @@ export const BrandingPanel: React.FC = () => {
             </p>
           </div>
 
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">NIF</span>
+              <input value={nif} onChange={(e) => setNif(e.target.value)} maxLength={40} placeholder="N° d’identification fiscale" className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-mono-data focus:outline-none focus:ring-2 focus:ring-[#06B6D4]" />
+            </label>
+            <label className="block">
+              <span className="block text-xs font-semibold text-slate-700 mb-1">STAT</span>
+              <input value={stat} onChange={(e) => setStat(e.target.value)} maxLength={40} placeholder="N° statistique" className="w-full px-3 py-2.5 rounded-xl border border-slate-300 text-sm font-mono-data focus:outline-none focus:ring-2 focus:ring-[#06B6D4]" />
+            </label>
+            <p className="col-span-2 -mt-1 text-[11px] text-slate-400">Imprimés sur les reçus quand ils sont renseignés.</p>
+          </div>
+
           {message && (
             <p role={message.ok ? 'status' : 'alert'} className={`p-2.5 rounded-lg border text-xs ${message.ok ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-red-50 border-red-200 text-[#DC2626]'}`}>
               {message.text}
@@ -91,7 +105,7 @@ export const BrandingPanel: React.FC = () => {
             {dirty && (
               <button
                 type="button"
-                onClick={() => { setName(branding.appName); setLogo(branding.logoUrl); setMessage(null); }}
+                onClick={() => { setName(branding.appName); setLogo(branding.logoUrl); setNif(branding.nif); setStat(branding.stat); setMessage(null); }}
                 className="px-4 py-2 rounded-xl border border-slate-200 text-slate-600 text-xs font-semibold hover:bg-slate-50"
               >
                 Annuler les changements

@@ -27,6 +27,7 @@ CREATE TABLE "cash_registers" (
 	"total_expenses_paid_ar" bigint DEFAULT 0 NOT NULL,
 	"current_cash_in_hand_ar" bigint DEFAULT 0 NOT NULL,
 	"status" varchar(30) DEFAULT 'ouverte' NOT NULL,
+	"closures" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "cash_registers_register_code_unique" UNIQUE("register_code")
 );
 --> statement-breakpoint

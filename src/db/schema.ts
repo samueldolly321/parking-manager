@@ -250,7 +250,8 @@ export const cashRegisters = pgTable('cash_registers', {
   totalMobileMoneyAr: bigint('total_mobile_money_ar', { mode: 'number' }).default(0).notNull(),
   totalExpensesPaidAr: bigint('total_expenses_paid_ar', { mode: 'number' }).default(0).notNull(),
   currentCashInHandAr: bigint('current_cash_in_hand_ar', { mode: 'number' }).default(0).notNull(),
-  status: varchar('status', { length: 30 }).default('ouverte').notNull()
+  status: varchar('status', { length: 30 }).default('ouverte').notNull(),
+  closures: jsonb('closures').$type<Record<string, unknown>[]>().default([]).notNull()
 });
 
 export const expenses = pgTable('expenses', {

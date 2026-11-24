@@ -253,7 +253,10 @@ export default function App() {
       id: `mbr-${Date.now()}`,
       memberNumber: memberCode,
       fullName: memberData.fullName || 'Nouveau Membre',
-      cin: memberData.cin || '101 000 000 000',
+      cin: memberData.cin || '',
+      emergencyContactName: memberData.emergencyContactName,
+      emergencyContactPhone: memberData.emergencyContactPhone,
+      mobileMoneyProvider: memberData.mobileMoneyProvider,
       category: memberData.category || 'standard',
       phone: memberData.phone || memberData.primaryPhone || '+261 34 00 000 00',
       address: memberData.address || 'Antananarivo',
@@ -542,6 +545,8 @@ export default function App() {
             initialSelectedId={focus.selectId}
             cards={state.cards}
             members={state.members}
+            vehicles={state.vehicles}
+            sites={state.sites}
             onToggleCardBlock={handleToggleCardBlock}
             onOpenScanner={() => setIsScannerOpen(true)}
           />
@@ -609,6 +614,7 @@ export default function App() {
             key={viewKey}
             initialSelectedId={focus.selectId}
             equipments={state.equipments}
+            guards={state.guards}
             sites={state.sites}
             currentUser={state.currentUser}
             selectedSiteId={state.selectedSiteId}

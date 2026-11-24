@@ -1,5 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { notify } from '../services/notify';
+import { can } from '../services/access';
+import { collectionAction } from '../services/permissions';
 import { deleteEntity, loadState, updateEntity, EntityCollection } from '../services/storage';
 import { PhotoInput } from './PhotoInput';
 import { VEHICLE_CATEGORIES } from '../types';
@@ -244,20 +246,31 @@ export const EntityActions: React.FC<EntityActionsProps> = ({ collection, record
     }
   };
 
+  // Only the actions the signed-in role allows (the server checks them anyway)
+  const stateKey = collection === 'committee' ? 'committeeMembers' : collection === 'cash-registers' ? 'cashRegisters' : collection;
+  const need = collectionAction(stateKey);
+  const canEdit = can(need);
+  const canDelete = can('delete') && (need === 'write' || can(need));
+  if (!canEdit && !canDelete) return null;
+
   const btn = compact
     ? 'p-1 rounded-md hover:bg-slate-100 transition-colors'
     : 'px-2.5 py-1.5 rounded-lg border border-[#E2E8F0] bg-white hover:bg-slate-50 text-xs font-bold flex items-center gap-1';
 
   return (
     <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
-      <button type="button" title="Modifier" className={btn} onClick={() => setEditing(true)}>
-        <span className="material-symbols-outlined text-[18px] text-[#0891b2]">edit</span>
-        {!compact && <span>Modifier</span>}
-      </button>
-      <button type="button" title="Supprimer" className={btn} onClick={remove} disabled={busy}>
-        <span className="material-symbols-outlined text-[18px] text-rose-600">delete</span>
-        {!compact && <span className="text-rose-600">Supprimer</span>}
-      </button>
+      {canEdit && (
+        <button type="button" title="Modifier" className={btn} onClick={() => setEditing(true)}>
+          <span className="material-symbols-outlined text-[18px] text-[#0891b2]">edit</span>
+          {!compact && <span>Modifier</span>}
+        </button>
+      )}
+      {canDelete && (
+        <button type="button" title="Supprimer" className={btn} onClick={remove} disabled={busy}>
+          <span className="material-symbols-outlined text-[18px] text-rose-600">delete</span>
+          {!compact && <span className="text-rose-600">Supprimer</span>}
+        </button>
+      )}
       {editing && (
         <EntityEditModal
           collection={collection}
