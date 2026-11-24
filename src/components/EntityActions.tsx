@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { COMMITTEE_ROLE_LABELS } from '../services/committee';
 import { notify } from '../services/notify';
 import { can } from '../services/access';
 import { collectionAction } from '../services/permissions';
@@ -109,11 +110,22 @@ interface EditModalProps {
 export const EntityEditModal: React.FC<EditModalProps> = ({ collection, record, title, fields, onClose }) => {
   const keys = useMemo(() => editableKeys(collection, record, fields), [collection, record, fields]);
   const sites = useMemo(() => loadState().sites, []);
+  // Site president: chosen among the committee members already registered
+  const committee = useMemo(() => loadState().committeeMembers || [], []);
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...record }));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  const set = (key: string, value: unknown) => setValues((prev) => ({ ...prev, [key]: value }));
+  const set = (key: string, value: unknown) =>
+    setValues((prev) => {
+      const next = { ...prev, [key]: value };
+      // Choosing a committee member as site president also fills in their phone
+      if (collection === 'sites' && key === 'presidentName' && 'presidentPhone' in prev) {
+        const c = committee.find((m) => m.fullName === value);
+        if (c) next.presidentPhone = c.phone || '';
+      }
+      return next;
+    });
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -159,7 +171,13 @@ export const EntityEditModal: React.FC<EditModalProps> = ({ collection, record, 
         <div className="px-6 py-4 space-y-3 overflow-y-auto">
           {keys.map((key) => {
             const value = values[key];
-            const options = FIELD_OPTIONS[`${collection}.${key}`] || FIELD_OPTIONS[key];
+            const options =
+              collection === 'sites' && key === 'presidentName'
+                ? [
+                    { value: 'À désigner', label: '— À désigner —' },
+                    ...committee.map((c) => ({ value: c.fullName, label: `${c.fullName} — ${COMMITTEE_ROLE_LABELS[c.role] || c.role}` }))
+                  ]
+                : FIELD_OPTIONS[`${collection}.${key}`] || FIELD_OPTIONS[key];
             return (
               <label key={key} className="block space-y-1">
                 <span className="text-xs font-bold text-slate-600">{humanize(key)}</span>

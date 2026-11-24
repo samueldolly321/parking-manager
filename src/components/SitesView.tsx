@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { COMMITTEE_ROLE_LABELS } from '../services/committee';
 import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { AppState, ParkingSpot, Site } from '../types';
@@ -411,7 +412,27 @@ export const SitesView: React.FC<SitesViewProps> = ({ state, onNavigate }) => {
               {field('address', 'Adresse', { placeholder: 'Rue, quartier' })}
               {field('city', 'Ville')}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {field('presidentName', 'Président du site *', { required: true })}
+                <label className="block">
+                  <span className="block text-xs font-semibold text-slate-700 mb-1">Président du site *</span>
+                  <select
+                    required
+                    value={form.presidentName}
+                    onChange={(e) => {
+                      const c = (state.committeeMembers || []).find((m) => m.fullName === e.target.value);
+                      setForm((f) => ({ ...f, presidentName: e.target.value, presidentPhone: c?.phone || f.presidentPhone }));
+                    }}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#06B6D4]"
+                  >
+                    <option value="">— Choisir dans le comité —</option>
+                    <option value="À désigner">À désigner</option>
+                    {(state.committeeMembers || []).map((c) => (
+                      <option key={c.id} value={c.fullName}>{c.fullName} — {COMMITTEE_ROLE_LABELS[c.role] || c.role}</option>
+                    ))}
+                  </select>
+                  {(state.committeeMembers || []).length === 0 && (
+                    <span className="block mt-1 text-[11px] text-amber-600">Aucun membre du comité : ajoutez-les dans « Gouvernance ».</span>
+                  )}
+                </label>
                 {field('presidentPhone', 'Téléphone du président', { type: 'tel', placeholder: '+261 34 …' })}
               </div>
               {field('tresorierName', 'Trésorier du site')}

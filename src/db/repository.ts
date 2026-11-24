@@ -44,7 +44,7 @@ import {
 } from '../services/storage.ts';
 import { seedDatabaseIfEmpty } from './seed.ts';
 
-const LOCAL_DB_FILE = path.resolve(process.cwd(), '.data', 'parking_mada_db.json');
+const LOCAL_DB_FILE = path.resolve(process.env.PM_DATA_DIR || process.cwd(), '.data', 'parking_mada_db.json');
 
 function buildInitialState(): AppState {
   return {
@@ -1247,7 +1247,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   const { rows } = await pool.query("SELECT to_regclass('public.sites') AS t");
   if (!rows[0]?.t) {
     // Full schema generated from src/db/schema.ts (always in sync with the code)
-    const file = path.resolve(process.cwd(), 'database', 'schema.sql');
+    const file = path.resolve(process.env.PM_APP_ROOT || process.cwd(), 'database', 'schema.sql');
     const client = await pool.connect();
     try {
       await client.query('BEGIN');

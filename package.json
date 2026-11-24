@@ -1,7 +1,7 @@
 {
-  "name": "react-example",
+  "name": "parking-manager",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.1",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
@@ -15,7 +15,15 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "reset-password": "tsx scripts/reset-password.ts"
+    "reset-password": "tsx scripts/reset-password.ts",
+    "license:init": "tsx scripts/license/keygen.ts init",
+    "license:create": "tsx scripts/license/keygen.ts create",
+    "desktop:icon": "node scripts/desktop/make-icon.mjs",
+    "desktop:bundle": "node scripts/desktop/bundle.mjs",
+    "desktop:start": "npm run build && npm run desktop:bundle && electron .",
+    "desktop:dist": "npm run build && npm run desktop:icon && npm run desktop:bundle && electron-builder --win nsis --x64",
+    "license:app": "node scripts/desktop/make-icon.mjs && node scripts/desktop/bundle-keygen.mjs && electron build-keygen/main.mjs",
+    "license:app:dist": "node scripts/desktop/make-icon.mjs && node scripts/desktop/bundle-keygen.mjs && electron-builder --config keygen-builder.json --win portable --x64"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",
@@ -25,6 +33,7 @@
     "canvas-confetti": "^1.9.4",
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.4",
+    "embedded-postgres": "18.7.0-beta.19",
     "express": "^4.21.2",
     "html-to-image": "^1.11.11",
     "jspdf": "^2.5.2",
@@ -46,6 +55,8 @@
     "@types/react-dom": "^19.3.0",
     "autoprefixer": "^10.4.21",
     "drizzle-kit": "^0.31.11",
+    "electron": "^45.4.1",
+    "electron-builder": "^26.18.0",
     "esbuild": "^0.28.0",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.21.0",
@@ -53,5 +64,53 @@
   },
   "engines": {
     "node": ">=20"
+  },
+  "description": "Parking Manager — gestion de parkings multi-sites",
+  "author": "Parking Manager",
+  "main": "build/main.mjs",
+  "build": {
+    "appId": "mg.parkingmanager.desktop",
+    "productName": "Parking Manager",
+    "copyright": "Parking Manager",
+    "directories": {
+      "output": "release",
+      "buildResources": "build-resources"
+    },
+    "asar": false,
+    "npmRebuild": false,
+    "files": [
+      "package.json",
+      "build/**/*",
+      "dist/**/*",
+      "database/**/*",
+      "build-resources/icon.png",
+      "!node_modules/**/*",
+      "node_modules/@embedded-postgres/windows-x64/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build-resources/icon.ico",
+      "artifactName": "Parking-Manager-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Parking Manager",
+      "installerLanguages": [
+        "fr_FR"
+      ],
+      "language": "1036",
+      "deleteAppDataOnUninstall": false
+    }
   }
 }

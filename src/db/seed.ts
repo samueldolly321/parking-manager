@@ -28,6 +28,53 @@ export async function seedDatabaseIfEmpty(): Promise<boolean> {
     return false;
   }
 
+  // Installed version: a clean start (one site to rename, the administrator account, no demo data)
+  if (process.env.PM_DESKTOP === '1') {
+    await db.transaction(async (tx) => {
+      await tx.insert(schema.sites).values({
+        id: 'S1',
+        code: 'S1-PRINCIPAL',
+        name: 'Site 01 - Site principal',
+        address: '',
+        city: 'Antananarivo',
+        totalCapacity: 50,
+        presidentName: 'À désigner',
+        presidentPhone: '',
+        tresorierName: 'À désigner',
+        guardCount: 0,
+        status: 'actif'
+      }).onConflictDoNothing();
+      await tx.insert(schema.users).values({
+        ...initialCurrentUser,
+        fullName: 'Administrateur',
+        email: 'admin@parking.local',
+        phone: '',
+        avatarUrl: null,
+        lastLogin: null,
+        siteId: null,
+        // No password: it is created on the first-launch screen
+        passwordHash: ''
+      } as any).onConflictDoNothing();
+      await tx.insert(schema.tariffs).values(initialTariffs.filter((t) => !t.siteId || t.siteId === 'S1')).onConflictDoNothing();
+      await tx.insert(schema.cashRegisters).values({
+        id: 'reg-S1',
+        siteId: 'S1',
+        siteName: 'Site 01 - Site principal',
+        registerCode: 'CAISSE-S1',
+        cashierName: 'À désigner',
+        openedAt: new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' }),
+        openingBalanceAr: 0,
+        totalCashCollectedAr: 0,
+        totalMobileMoneyAr: 0,
+        totalExpensesPaidAr: 0,
+        currentCashInHandAr: 0,
+        status: 'ouverte'
+      }).onConflictDoNothing();
+    });
+    console.log('[db] Première installation : site principal et compte administrateur créés (sans données de démonstration).');
+    return true;
+  }
+
   await db.transaction(async (tx) => {
     await tx.insert(schema.sites).values(initialSites).onConflictDoNothing();
 

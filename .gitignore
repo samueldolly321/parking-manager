@@ -7,3 +7,12 @@ coverage/
 .env*
 !.env.example
 .data/
+
+# Clé privée des licences (ne jamais publier)
+license-keys/
+
+# Version bureau (.exe) : fichiers générés
+release/
+build-keygen/
+release-keygen/
+release-*/

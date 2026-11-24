@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { membershipApprovers } from '../services/committee';
 import { RECEIPT_CSV_HEADER, downloadCsv, receiptCsvRow } from '../services/documents';
 import { can } from '../services/access';
 import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
@@ -15,7 +16,7 @@ import { EntityActions } from './EntityActions';
 
 const MEMBER_EDIT_FIELDS = [
   'avatarUrl', 'fullName', 'phone', 'cin', 'cinIssuedDate', 'cinIssuedLocation', 'address', 'category',
-  'primarySiteId', 'status', 'mobileMoneyProvider', 'emergencyContactName', 'emergencyContactPhone',
+  'primarySiteId', 'status', 'emergencyContactName', 'emergencyContactPhone',
   'currentBalanceAr', 'joinedDate', 'approvedByPresident', 'notes'
 ];
 
@@ -86,7 +87,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
   const [formPresident, setFormPresident] = useState<string>('');
   const [formEmergencyName, setFormEmergencyName] = useState<string>('');
   const [formEmergencyPhone, setFormEmergencyPhone] = useState<string>('');
-  const [formMobileMoney, setFormMobileMoney] = useState<string>('');
   // The member's vehicle (required: only owners of a vehicle are members)
   const [formPlate, setFormPlate] = useState<string>('');
   const [formBrand, setFormBrand] = useState<string>('');
@@ -99,23 +99,9 @@ export const MembersView: React.FC<MembersViewProps> = ({
     return !!p && vehicles.some((v) => v.licensePlate.replace(/\s+/g, '').toUpperCase() === p);
   };
 
-  /** Presidents who can accept a membership: the Président Général and the president of each site */
-  const hasPresident = (name?: string) => !!name?.trim() && name.trim() !== 'À désigner';
-  const presidentGeneral = committeeMembers.find((c) => c.role === 'President General' && c.status === 'actif')
-    || committeeMembers.find((c) => c.role === 'President General');
-  const presidentOptions: { value: string; label: string; siteId?: string }[] = [
-    ...(presidentGeneral
-      ? [{ value: `${presidentGeneral.fullName} (Président Général)`, label: `${presidentGeneral.fullName} — Président Général` }]
-      : []),
-    ...sites
-      .filter((s) => hasPresident(s.presidentName))
-      .map((s) => ({
-        value: `${s.presidentName.trim()} (Président du site ${s.name})`,
-        label: `${s.presidentName.trim()} — Président du site ${s.name}`,
-        siteId: s.id
-      }))
-  ];
-  const sitesWithoutPresident = sites.filter((s) => !hasPresident(s.presidentName));
+  /** Who can accept a membership: the presidents of the committee (Président Général and presidents of site) */
+  const presidentOptions = membershipApprovers(committeeMembers, sites);
+  const sitesWithoutPresident = sites.filter((s) => !presidentOptions.some((o) => o.siteId === s.id));
   /** Option of the president of a site (pre-selected when the site is chosen) */
   const sitePresident = (siteId: string) => presidentOptions.find((o) => o.siteId === siteId)?.value || '';
   const openAddModal = () => {
@@ -152,7 +138,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
       phone: formPhone,
       emergencyContactName: formEmergencyName.trim() || undefined,
       emergencyContactPhone: formEmergencyPhone.trim() || undefined,
-      mobileMoneyProvider: (formMobileMoney || undefined) as Member['mobileMoneyProvider'],
       address: formAddress || 'Antananarivo',
       category: formCategory,
       primarySiteId: formSiteId,
@@ -182,7 +167,6 @@ export const MembersView: React.FC<MembersViewProps> = ({
     setFormPresident('');
     setFormEmergencyName('');
     setFormEmergencyPhone('');
-    setFormMobileMoney('');
     setFormPlate('');
     setFormBrand('');
     setFormModel('');
@@ -458,10 +442,12 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <div className="flex flex-col">
               <span className="text-[10px] text-slate-400 uppercase font-semibold">Téléphone Principal</span>
               <span className="font-mono-data text-xs font-bold text-[#0F172A] mt-0.5">{currentMember?.phone}</span>
-              <span className="text-[11px] text-[#06B6D4] flex items-center gap-1 mt-0.5 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></span>
-                {currentMember?.mobileMoneyProvider ? `${currentMember.mobileMoneyProvider} associé` : 'Mobile Money non renseigné'}
-              </span>
+              {currentMember?.mobileMoneyProvider && (
+                <span className="text-[11px] text-[#06B6D4] flex items-center gap-1 mt-0.5 font-medium">
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#06B6D4]"></span>
+                  {currentMember.mobileMoneyProvider} associé
+                </span>
+              )}
             </div>
 
             <div className="flex flex-col">
@@ -1050,16 +1036,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                 </div>
               </div>
 
-              <div className="grid grid-cols-3 gap-3">
-                <div className="col-span-3 sm:col-span-1">
-                  <label className="block text-[11px] font-semibold text-slate-500 mb-1">Mobile Money</label>
-                  <select value={formMobileMoney} onChange={(e) => setFormMobileMoney(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]">
-                    <option value="">— Aucun —</option>
-                    <option value="MVola">MVola</option>
-                    <option value="Orange Money">Orange Money</option>
-                    <option value="Airtel Money">Airtel Money</option>
-                  </select>
-                </div>
+              <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-semibold text-slate-500 mb-1">Contact d’urgence</label>
                   <input type="text" maxLength={150} placeholder="Nom" value={formEmergencyName} onChange={(e) => setFormEmergencyName(e.target.value)} className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0]" />
@@ -1186,10 +1163,10 @@ export const MembersView: React.FC<MembersViewProps> = ({
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
-                <p className="text-[10px] text-slate-400 mt-1">Le président du site choisi est proposé par défaut.</p>
+                <p className="text-[10px] text-slate-400 mt-1">Les présidents du comité (Gouvernance). Le président du site choisi est proposé par défaut.</p>
                 {sitesWithoutPresident.length > 0 && (
                   <p className="text-[10px] text-amber-600 mt-1">
-                    Sans président : {sitesWithoutPresident.map((s) => s.name).join(', ')}. À renseigner dans Sites.
+                    Sans président de site dans le comité : {sitesWithoutPresident.map((s) => s.name).join(', ')}. À nommer dans « Gouvernance ».
                   </p>
                 )}
               </div>

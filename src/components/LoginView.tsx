@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { FirstSetupView } from './FirstSetupView';
 import { useBranding, BrandLogo } from '../services/branding';
 import type { User } from '../types';
 import { APP_INFO, CguContent } from '../content/legal';
@@ -18,6 +19,15 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showCgu, setShowCgu] = useState(false);
+  // Installed version, first launch: the administrator account is created first
+  const [setupNeeded, setSetupNeeded] = useState(false);
+  const [setupDone, setSetupDone] = useState(false);
+  useEffect(() => {
+    fetch('/api/v1/setup/status')
+      .then((r) => (r.ok ? r.json() : { needed: false }))
+      .then((b) => setSetupNeeded(!!b.needed))
+      .catch(() => undefined);
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,6 +52,18 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
       setLoading(false);
     }
   };
+
+  if (setupNeeded) {
+    return (
+      <FirstSetupView
+        onDone={(created) => {
+          setSetupNeeded(false);
+          setSetupDone(true);
+          setEmail(created);
+        }}
+      />
+    );
+  }
 
   return (
     <div className="relative min-h-screen w-full overflow-hidden bg-[#0B1322] font-sans text-white">
@@ -109,6 +131,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoggedIn, notice }) => {
             )}
 
             <form onSubmit={submit} className="mt-6 space-y-4" noValidate={false}>
+              {setupDone && (
+                <p className="p-2.5 rounded-lg bg-emerald-500/15 border border-emerald-400/40 text-emerald-200 text-xs">
+                  Compte administrateur créé. Connectez-vous avec votre mot de passe.
+                </p>
+              )}
               <div>
                 <label htmlFor="login-email" className="block text-xs font-semibold text-slate-700 mb-1.5">Adresse email</label>
                 <div className="relative">

@@ -4,10 +4,10 @@
  */
 
 import 'dotenv/config';
+import { sitePresidentOf } from './src/services/committee.ts';
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 import {
   getStorageMode,
   getFullState,
@@ -61,6 +61,8 @@ import {
   lockedMinutes,
   parseCookies,
   passwordProblem,
+  hashPassword,
+  isUsableHash,
   readSessionToken,
   recordFailure,
   sessionCookie,
@@ -74,6 +76,8 @@ import {
   updateAccount,
   deleteAccount
 } from './src/db/auth.ts';
+import { getDb, schema } from './src/db/index.ts';
+import { eq } from 'drizzle-orm';
 import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
 import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
@@ -81,6 +85,7 @@ import { LOG_TYPES } from './src/services/guards.ts';
 import { buildCard, cardProblem, checkCard, findCardByCode } from './src/services/cards.ts';
 import { closeRegister, openRegister } from './src/services/cashRegister.ts';
 import { vehicleLimitProblem } from './src/services/vehicleLimit.ts';
+import { activateLicense, isDesktop, licenseAllowsUse, licenseStatus } from './src/license/runtime.ts';
 import { randomUUID } from 'crypto';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS, applyEquipmentEvent, isoToFr, nextInventoryCode, type EquipmentEvent } from './src/services/equipment.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
@@ -161,12 +166,101 @@ async function startServer() {
     }
   };
 
+  /**
+   * A committee member named "Président de site" (active, attached to a site) becomes the president
+   * shown on that site. `onlyIds`: only these committee members (after a change); otherwise every
+   * site still showing "À désigner" / no president is filled (start-up).
+   */
+  const syncSitePresidents = async (onlyIds?: string[]) => {
+    const state = await getFullState();
+    for (const site of state.sites) {
+      const pres = sitePresidentOf(state.committeeMembers, site.id);
+      if (!pres || (onlyIds && !onlyIds.includes(pres.id))) continue;
+      const empty = !site.presidentName?.trim() || site.presidentName.trim() === 'À désigner';
+      if (!onlyIds && !empty) continue;
+      if (site.presidentName === pres.fullName && site.presidentPhone === pres.phone) continue;
+      await updateRecord('sites', site.id, { presidentName: pres.fullName, presidentPhone: pres.phone || '' });
+      await recordAudit('PRESIDENT_SITE', 'Sites', `${site.name} : président ${pres.fullName}`, site.code);
+    }
+  };
+
   const normPlate = (p: unknown) => (typeof p === 'string' ? p.replace(/\s+/g, ' ').trim().toUpperCase() : '');
   const plateTaken = (vehicles: Vehicle[], plate: string, exceptId?: string) =>
     vehicles.some((v) => v.id !== exceptId && normPlate(v.licensePlate).replace(/ /g, '') === plate.replace(/ /g, ''));
 
+  // ===================== LICENCE (version installée .exe) =====================
+  // The hosted web version is not concerned: these routes answer { mode: 'web' } and nothing is blocked.
+  app.get('/api/v1/license/status', async (_req, res) => {
+    try {
+      res.setHeader('Cache-Control', 'no-store');
+      return res.json(await licenseStatus());
+    } catch (error) {
+      console.error('License status error:', error);
+      return res.status(500).json({ error: 'État de la licence indisponible.' });
+    }
+  });
+  let activationAttempts: number[] = [];
+  app.post('/api/v1/license/activate', async (req, res) => {
+    if (!isDesktop()) return res.status(400).json({ error: 'Pas de licence à activer sur la version en ligne.' });
+    // A few attempts per minute at most
+    const now = Date.now();
+    activationAttempts = activationAttempts.filter((t) => now - t < 60_000);
+    if (activationAttempts.length >= 10) return res.status(429).json({ error: 'Trop d’essais : patientez une minute.' });
+    activationAttempts.push(now);
+    const key = typeof req.body?.key === 'string' ? req.body.key : '';
+    const result = await activateLicense(key);
+    if (!result.ok) return res.status(400).json({ error: result.error });
+    await recordAudit('ACTIVATION_LICENCE', 'Système', `Licence activée (${result.status.state?.state === 'active' ? result.status.state.customer : ''})`);
+    return res.json(result.status);
+  });
+  // Trial over and no licence: only the licence, branding and first-launch routes still answer
+  app.use('/api', async (req, res, next) => {
+    if (!isDesktop()) return next();
+    const p = `${req.baseUrl}${req.path}`;
+    if (p.startsWith('/api/v1/license/') || p === '/api/v1/settings/branding' || p === '/api/v1/health' || p.startsWith('/api/v1/setup')) return next();
+    if (await licenseAllowsUse().catch(() => false)) return next();
+    return res.status(402).json({ error: 'Période d’essai terminée : activez l’application avec votre clé.', license: true });
+  });
+
+  // ===================== PREMIER LANCEMENT (version installée) =====================
+  // No administrator password yet: the first person to open the installed application creates it.
+  const setupNeeded = async () => {
+    if (!isDesktop()) return false;
+    const db = getDb();
+    if (!db) return false;
+    const rows = await db.select().from(schema.users);
+    return !rows.some((r) => isUsableHash(r.passwordHash));
+  };
+  app.get('/api/v1/setup/status', async (_req, res) => res.json({ needed: await setupNeeded().catch(() => false) }));
+  app.post('/api/v1/setup', async (req, res) => {
+    try {
+      if (!(await setupNeeded())) return res.status(400).json({ error: 'L’application est déjà configurée.' });
+      const b = req.body || {};
+      const email = typeof b.email === 'string' ? b.email.trim().toLowerCase() : '';
+      const fullName = typeof b.fullName === 'string' ? b.fullName.trim().slice(0, 150) : '';
+      const password = typeof b.password === 'string' ? b.password : '';
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: 'Adresse email invalide.' });
+      const problem = passwordProblem(password);
+      if (problem) return res.status(400).json({ error: problem });
+      const db = getDb()!;
+      const rows = await db.select().from(schema.users);
+      const admin = rows.find((r) => r.role === 'super_admin') || rows[0];
+      if (!admin) return res.status(500).json({ error: 'Compte administrateur introuvable.' });
+      await db
+        .update(schema.users)
+        .set({ email, passwordHash: hashPassword(password), ...(fullName ? { fullName } : {}) })
+        .where(eq(schema.users.id, admin.id));
+      await recordAudit('CONFIGURATION_INITIALE', 'Système', `Compte administrateur créé (${email})`);
+      return res.json({ ok: true });
+    } catch (error) {
+      console.error('Setup error:', error);
+      return res.status(500).json({ error: 'Configuration impossible.' });
+    }
+  });
+
   // ===================== AUTHENTIFICATION =====================
-  const secureCookie = isProd;
+  // The installed version runs on http://127.0.0.1: a "Secure" cookie would never be sent back
+  const secureCookie = isProd && !isDesktop();
   const PUBLIC_API = new Set(['/api/v1/auth/login', '/api/v1/auth/logout', '/api/v1/health']);
 
   /** Every /api route needs a valid session, except login/logout/health. */
@@ -1476,6 +1570,7 @@ async function startServer() {
         status: req.body.status || 'actif'
       });
       await recordAudit('NOUVEAU_MEMBRE_COMITE', 'Gouvernance', `${created.role} nommé: ${created.fullName}`);
+      await syncSitePresidents([created.id]);
       res.status(201).json(created);
     } catch (error) {
       res.status(500).json({ error: 'Impossible d\'ajouter le membre du comité' });
@@ -1589,6 +1684,7 @@ async function startServer() {
       const ok = await updateRecord(collection, id, req.body || {});
       if (!ok) return res.status(404).json({ error: 'Enregistrement introuvable' });
       await recordAudit('MODIFICATION', collection, `Modification de ${collection} / ${id}`);
+      if (collection === 'committee') await syncSitePresidents([id]);
       if (oldVehicle) {
         // Owner changed or vehicle struck off: check the former and the new owner
         await applyVehicleRule([oldVehicle.memberId], { reactivate: false });
@@ -1657,17 +1753,24 @@ async function startServer() {
 
   // Mount Vite middleware in development
   if (!isProd) {
+    // Loaded only in development (the packaged application has no Vite)
+    const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    app.use(express.static(path.resolve(__dirname, 'dist')));
+    // PM_APP_ROOT: folder of the installed application (the server bundle lives in a sub-folder)
+    const appRoot = process.env.PM_APP_ROOT || __dirname;
+    app.use(express.static(path.resolve(appRoot, 'dist')));
     app.get('*', (_req, res) => {
-      res.sendFile(path.resolve(__dirname, 'dist', 'index.html'));
+      res.sendFile(path.resolve(appRoot, 'dist', 'index.html'));
     });
   }
+
+  // Start-up: sites without president take the "Président de site" named in the committee
+  await syncSitePresidents().catch((error) => console.error('Site presidents sync error:', error));
 
   // Start-up check: members without vehicle are struck off (manual strikings-off are never undone here)
   try {
@@ -1677,8 +1780,10 @@ async function startServer() {
     console.error('Member/vehicle check error:', error);
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
-    console.log(`[Parking Manager Madagascar] Full-Stack server running on http://0.0.0.0:${PORT}`);
+  // The installed version only listens on this computer
+  const HOST = process.env.PM_HOST || '0.0.0.0';
+  app.listen(PORT, HOST, () => {
+    console.log(`[Parking Manager Madagascar] Full-Stack server running on http://${HOST}:${PORT}`);
   });
 }
 

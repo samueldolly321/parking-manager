@@ -1,0 +1,14 @@
+{
+  "appId": "mg.parkingmanager.licences",
+  "productName": "Parking Manager - Licences",
+  "directories": { "output": "release-keygen", "buildResources": "build-resources" },
+  "extraMetadata": { "name": "parking-manager-licences", "main": "build-keygen/main.mjs" },
+  "asar": true,
+  "npmRebuild": false,
+  "files": ["package.json", "build-keygen/**/*", "!node_modules/**/*"],
+  "win": {
+    "target": [{ "target": "portable", "arch": ["x64"] }],
+    "icon": "build-resources/icon.ico",
+    "artifactName": "Parking-Manager-Licences-${version}.${ext}"
+  }
+}

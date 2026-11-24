@@ -2260,7 +2260,8 @@ export function addCommitteeMember(member: Omit<CommitteeMember, 'id'>) {
   state.committeeMembers = [...state.committeeMembers, newMember];
   addAuditLog('NOUVEAU_MEMBRE_COMITE', 'Gouvernance', `${member.role} nommé: ${member.fullName}`);
   saveState(state);
-  syncApi('/api/v1/committee', 'POST', newMember);
+  // The server may set this member as president of a site: reload afterwards
+  void syncApi('/api/v1/committee', 'POST', newMember).then((r) => { if (r.ok) void hydrateFromBackend(); });
 }
 
 export function addMeeting(meeting: Omit<GovernanceMeeting, 'id'>) {
@@ -2502,8 +2503,9 @@ export async function updateEntity(collection: EntityCollection, id: string, pat
   const list = (state as any)[key] as Array<Record<string, unknown>>;
   (state as any)[key] = list.map((item) => (item.id === id ? { ...item, ...patch, id } : item));
   saveState(state);
-  // Changing a vehicle may strike off / reactivate its owner on the server: reload
-  if (collection === 'vehicles') await hydrateFromBackend();
+  // Changing a vehicle may strike off / reactivate its owner, and a committee president updates
+  // the site's president, on the server: reload
+  if (collection === 'vehicles' || collection === 'committee') await hydrateFromBackend();
 }
 
 /** Deletes one record (server + local state). Throws with a user-facing message on failure. */

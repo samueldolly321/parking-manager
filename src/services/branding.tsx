@@ -23,16 +23,14 @@ const BrandingContext = createContext<BrandingContextValue>({ ...DEFAULT_BRANDIN
 function applyToDocument(b: Branding) {
   document.title = b.appName;
   let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
-  if (b.logoUrl) {
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'icon';
-      document.head.appendChild(link);
-    }
-    link.href = b.logoUrl;
-  } else if (link) {
-    link.remove();
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
   }
+  // The uploaded logo, otherwise the default "P" icon of the application
+  link.type = b.logoUrl ? '' : 'image/svg+xml';
+  link.href = b.logoUrl || '/favicon.svg';
 }
 
 export const BrandingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
