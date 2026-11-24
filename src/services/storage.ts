@@ -2751,3 +2751,28 @@ export async function recordCardPassage(cardId: string, gate: string): Promise<M
   saveState(state);
   return card;
 }
+
+/** Saves the promotion on several months paid at once. */
+export async function savePricing(promo: { enabled: boolean; percent: number; minMonths: number }) {
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/settings/pricing', { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(promo) });
+  } catch {
+    throw new Error('Serveur injoignable : la promotion n’a pas été enregistrée.');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(body?.error || `Enregistrement impossible (erreur ${res.status}).`);
+  const state = loadState();
+  state.pricing = body;
+  saveState(state);
+  return body as { enabled: boolean; percent: number; minMonths: number };
+}
+
+/** Creates a tariff (formula offered at the cash desk). */
+export async function addTariffRecord(input: Partial<Tariff>): Promise<Tariff> {
+  const tariff = (await postJson('/api/v1/tariffs', input, 'Serveur injoignable : la formule n’a pas été créée.')) as Tariff;
+  const state = loadState();
+  state.tariffs = [...state.tariffs, tariff];
+  saveState(state);
+  return tariff;
+}

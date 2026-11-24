@@ -4,6 +4,8 @@
  */
 
 import 'dotenv/config';
+import { TARIFF_DURATION_LABELS, TARIFF_FORMULA_LABELS, oneTimeAlreadyPaid } from './src/services/pricing.ts';
+import { cleanPromo } from './src/services/pricing.ts';
 import { sitePresidentOf } from './src/services/committee.ts';
 import express from 'express';
 import path from 'path';
@@ -19,6 +21,7 @@ import {
   createSpotRecords,
   createEquipmentRecord,
   createCardRecord,
+  createTariffRecord,
   updateZoneSpots,
   deleteZoneSpots,
   createReceiptRecord,
@@ -398,6 +401,67 @@ async function startServer() {
     }
   });
 
+  // ===================== TARIFS : PROMOTION SUR PAIEMENT ANNUEL =====================
+  const readPricing = async () => {
+    const s = await getAppSettings(['promo.annual.enabled', 'promo.annual.percent', 'promo.annual.months']).catch(() => ({} as Record<string, string>));
+    return cleanPromo({
+      enabled: s['promo.annual.enabled'] === undefined ? undefined : s['promo.annual.enabled'] === '1',
+      percent: s['promo.annual.percent'] === undefined ? undefined : Number(s['promo.annual.percent']),
+      minMonths: s['promo.annual.months'] === undefined ? undefined : Number(s['promo.annual.months'])
+    });
+  };
+  // New tariff (formula offered at the cash desk)
+  app.post('/api/v1/tariffs', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const name = typeof b.name === 'string' ? b.name.trim().replace(/\s+/g, ' ').slice(0, 150) : '';
+      const amount = Math.round(Number(b.amountAr));
+      const state = await getFullState();
+      if (!name) return res.status(400).json({ error: 'Le nom de la formule est obligatoire.' });
+      if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: 'Le prix doit être un montant positif.' });
+      if (!(b.typeFormula in TARIFF_FORMULA_LABELS)) return res.status(400).json({ error: 'Type de formule inconnu.' });
+      if (!(b.duration in TARIFF_DURATION_LABELS)) return res.status(400).json({ error: 'Fréquence de paiement inconnue.' });
+      const siteId = typeof b.siteId === 'string' && b.siteId ? b.siteId : undefined;
+      if (siteId && !state.sites.some((s) => s.id === siteId)) return res.status(400).json({ error: 'Site inconnu.' });
+      if (state.tariffs.some((t) => t.name.toLowerCase() === name.toLowerCase() && (t.siteId || '') === (siteId || ''))) {
+        return res.status(400).json({ error: `Une formule « ${name} » existe déjà${siteId ? ' pour ce site' : ''}.` });
+      }
+      const tariff = await createTariffRecord({
+        id: `tarif-${Date.now().toString(36)}`,
+        name,
+        category: 'Autre',
+        siteId,
+        typeFormula: b.typeFormula,
+        duration: b.duration,
+        amountAr: amount,
+        description: typeof b.description === 'string' ? b.description.trim().slice(0, 500) : '',
+        isActive: true
+      });
+      await recordAudit('CREATION_TARIF', 'Tarifs', `${name} : ${amount} Ar (${TARIFF_DURATION_LABELS[tariff.duration]})`);
+      return res.status(201).json(tariff);
+    } catch (error) {
+      console.error('Create tariff error:', error);
+      return res.status(500).json({ error: 'Impossible de créer la formule.' });
+    }
+  });
+
+  app.get('/api/v1/settings/pricing', async (_req, res) => res.json(await readPricing()));
+  app.put('/api/v1/settings/pricing', async (req, res) => {
+    if (!roleCan(res.locals.user?.role, 'tariffs')) return res.status(403).json({ error: forbiddenMessage('tariffs') });
+    const p = cleanPromo(req.body || {});
+    await setAppSettings({
+      'promo.annual.enabled': p.enabled ? '1' : '0',
+      'promo.annual.percent': String(p.percent),
+      'promo.annual.months': String(p.minMonths)
+    });
+    await recordAudit(
+      'MODIFICATION_PROMOTION',
+      'Tarifs',
+      p.enabled ? `Remise de ${p.percent} % pour ${p.minMonths} mois payés d’un coup` : 'Promotion sur paiement annuel désactivée'
+    );
+    return res.json(p);
+  });
+
   app.put('/api/v1/settings/branding', async (req, res) => {
     try {
       const user = res.locals.user;
@@ -563,7 +627,7 @@ async function startServer() {
   app.get('/api/v1/bootstrap', async (_req, res) => {
     try {
       const state = await scopedState(res);
-      res.json(state);
+      res.json({ ...state, pricing: await readPricing() });
     } catch (error) {
       console.error('Bootstrap error:', error);
       res.status(500).json({ error: 'Impossible de charger les données' });
@@ -909,6 +973,12 @@ async function startServer() {
     try {
       const state = await getFullState();
       const receiptNum = pickYearlyNumber(req.body.receiptNumber, state.receipts.map((r) => r.receiptNumber), 'REC');
+      // A one-time fee (e.g. membership fee) is paid only once per member
+      const oneTime = state.tariffs.find((t) => t.duration === 'unique' && typeof req.body.purpose === 'string' && req.body.purpose.startsWith(t.name));
+      if (oneTime) {
+        const previous = oneTimeAlreadyPaid(state.receipts, req.body.memberId, oneTime.name);
+        if (previous) return res.status(400).json({ error: `${oneTime.name} déjà payé par ce membre (reçu ${previous.receiptNumber}).` });
+      }
       const amountDueAr = Number(req.body.amountDueAr || 0);
       const amountPaidAr = Number(req.body.amountPaidAr || 0);
       const remaining = req.body.remainingBalanceAr ?? Math.max(0, amountDueAr - amountPaidAr);

@@ -162,6 +162,7 @@ const CREATE_ROUTES: Record<string, { action: Action; siteField?: string }> = {
   '/guards': { action: 'write', siteField: 'siteId' },
   '/equipments': { action: 'write', siteField: 'siteId' },
   '/cards': { action: 'write', siteField: 'siteId' },
+  '/tariffs': { action: 'tariffs' },
   '/expenses': { action: 'finance', siteField: 'siteId' },
   '/incidents': { action: 'write', siteField: 'siteId' },
   '/committee': { action: 'governance' },

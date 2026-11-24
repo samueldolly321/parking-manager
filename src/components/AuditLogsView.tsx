@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { ResetDataPanel } from './ResetDataPanel';
 import { BrandingPanel } from './BrandingPanel';
+import { TariffsPanel } from './TariffsPanel';
 
 interface AuditLogsViewProps {
   state: AppState;
@@ -95,6 +96,8 @@ export const AuditLogsView: React.FC<AuditLogsViewProps> = ({ state }) => {
       </div>
 
       <BrandingPanel />
+
+      <TariffsPanel state={state} />
 
       {/* Stats Bar */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

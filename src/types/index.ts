@@ -186,8 +186,9 @@ export interface Tariff {
   name: string;
   category: VehicleCategory;
   siteId?: string; // null = all sites
-  typeFormula: 'placement_libre_interieur' | 'emplacement_privatif_dedie' | 'deux_roues' | 'adhesion_annuelle' | 'carte_pvc';
-  duration: 'jour' | 'semaine' | 'mois' | 'an';
+  typeFormula: 'placement_libre_interieur' | 'emplacement_privatif_dedie' | 'deux_roues' | 'adhesion_annuelle' | 'carte_pvc' | 'droit_adhesion' | 'autre';
+  /** How it is paid: per month (months chosen), per year, once in the membership, or per day / week */
+  duration: 'jour' | 'semaine' | 'mois' | 'an' | 'unique';
   amountAr: number;
   description: string;
   isActive: boolean;
@@ -482,6 +483,8 @@ export interface AppState {
   meetings: GovernanceMeeting[];
   auditLogs: AuditLogItem[];
   payrolls: PayrollRecord[];
+  /** Promotion when several months are paid at once (from the settings) */
+  pricing?: { enabled: boolean; percent: number; minMonths: number };
 }
 
 

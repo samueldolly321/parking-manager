@@ -1,4 +1,6 @@
 import React, { useMemo, useState } from 'react';
+import { AnnualPromo, DEFAULT_PROMO, PaymentFormula, monthlyAmount, oneTimeAlreadyPaid, paymentFormulas } from '../services/pricing';
+import type { Tariff } from '../types';
 import { Member, Vehicle, PaymentMethod, Site, PaymentReceipt } from '../types';
 import { MONTH_SHORT, formatMonthsPeriod, monthKey, monthLabel, parseMonthsPeriod } from '../services/months';
 
@@ -12,6 +14,10 @@ interface NewPaymentModalProps {
   receipts: PaymentReceipt[];
   /** Opened from a subscription: member, vehicle, formula, price and months pre-filled */
   prefill?: PaymentPrefill | null;
+  /** Tariffs of the database (prices of the formulas) */
+  tariffs?: Tariff[];
+  /** Promotion when several months are paid at once */
+  pricing?: AnnualPromo;
   onSubmitPayment: (data: {
     memberId: string;
     memberName: string;
@@ -27,30 +33,28 @@ interface NewPaymentModalProps {
   }) => void;
 }
 
-export type FormulaId = 'standard' | 'privatif' | 'moto' | 'adhesion' | 'carte';
-
 export interface PaymentPrefill {
   memberId: string;
   plate?: string;
-  formula?: FormulaId;
+  /** Kind of tariff to pre-select (e.g. the subscription's) */
+  formula?: Tariff['typeFormula'];
   monthlyAmountAr?: number;
   months?: string[];
 }
 
-/** Payment formula matching a subscription's tariff. */
-export function formulaForTariff(tariffType: string): FormulaId {
+/** Kind of tariff matching a subscription's tariff. */
+export function formulaForTariff(tariffType: string): Tariff['typeFormula'] {
   const t = tariffType.toLowerCase();
-  if (/deux|2r|moto/.test(t)) return 'moto';
-  if (/privatif|dédié|dedie/.test(t)) return 'privatif';
-  return 'standard';
+  if (/deux|2r|moto/.test(t)) return 'deux_roues';
+  if (/privatif|dédié|dedie/.test(t)) return 'emplacement_privatif_dedie';
+  return 'placement_libre_interieur';
 }
 
-const FORMULAS: { id: FormulaId; label: string; price: number; billing: 'mensuel' | 'annuel' | 'ponctuel'; purpose: string }[] = [
-  { id: 'standard', label: 'Libre Intérieur', price: 120000, billing: 'mensuel', purpose: 'Abonnement Standard VL (Placement Libre Intérieur)' },
-  { id: 'privatif', label: 'Privatif Dédié', price: 180000, billing: 'mensuel', purpose: 'Abonnement Privatif Dédié (Voirie Extérieure)' },
-  { id: 'moto', label: 'Deux-Roues (2R)', price: 40000, billing: 'mensuel', purpose: 'Abonnement Deux-Roues Moto (Zone C)' },
-  { id: 'adhesion', label: 'Cotisation Annuelle', price: 160000, billing: 'annuel', purpose: 'Cotisation Statutaire Annuelle Membre' },
-  { id: 'carte', label: 'Carte PVC CR80', price: 25000, billing: 'ponctuel', purpose: 'Émission / Remplacement Carte PVC RFID' }
+/** Used only when no tariff is recorded yet (the real prices are set in « Tarifs & promotions »). */
+const DEFAULT_FORMULAS: PaymentFormula[] = [
+  { id: 'builtin-standard', label: 'Placement libre intérieur', price: 120000, billing: 'mensuel', purpose: 'Abonnement Standard VL (Placement Libre Intérieur)', typeFormula: 'placement_libre_interieur' },
+  { id: 'builtin-privatif', label: 'Privatif dédié', price: 180000, billing: 'mensuel', purpose: 'Abonnement Privatif Dédié (Voirie Extérieure)', typeFormula: 'emplacement_privatif_dedie' },
+  { id: 'builtin-moto', label: 'Deux-roues', price: 40000, billing: 'mensuel', purpose: 'Abonnement Deux-Roues Moto (Zone C)', typeFormula: 'deux_roues' }
 ];
 
 const formatAr = (v: number) => new Intl.NumberFormat('fr-MG').format(v).replace(/,/g, ' ');
@@ -67,6 +71,8 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
   sites,
   receipts,
   prefill,
+  tariffs = [],
+  pricing = DEFAULT_PROMO,
   onSubmitPayment
 }) => {
   const startMember = members.find((m) => m.id === prefill?.memberId) || members[0];
@@ -75,9 +81,21 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
   const [selectedPlate, setSelectedPlate] = useState<string>(
     () => prefill?.plate || vehicles.find((v) => v.memberId === startMember?.id)?.licensePlate || ''
   );
-  const [formulaType, setFormulaType] = useState<FormulaId>(prefill?.formula || 'standard');
+
+  /** Formulas of the site, built from the tariffs (Paramètres → Tarifs & promotions) */
+  const formulasOf = (siteId: string) => {
+    const list = paymentFormulas(tariffs, siteId);
+    return list.length ? list : DEFAULT_FORMULAS;
+  };
+  const formulas = formulasOf(selectedSiteId);
+  /** Formula of the same kind on another site (when the site changes), otherwise the first monthly one */
+  const pickFormula = (list: PaymentFormula[], kind?: Tariff['typeFormula'], billing?: PaymentFormula['billing']) =>
+    list.find((f) => f.typeFormula === kind && (!billing || f.billing === billing)) || list.find((f) => f.billing === 'mensuel') || list[0];
+
+  const [formulaType, setFormulaType] = useState<string>(() => pickFormula(formulasOf(startMember?.primarySiteId || 'S1'), prefill?.formula, 'mensuel')?.id || '');
+  const formula = formulas.find((f) => f.id === formulaType) || pickFormula(formulas);
   const [unitPrice, setUnitPrice] = useState<number>(
-    () => prefill?.monthlyAmountAr || FORMULAS.find((f) => f.id === (prefill?.formula || 'standard'))!.price
+    () => prefill?.monthlyAmountAr || pickFormula(formulasOf(startMember?.primarySiteId || 'S1'), prefill?.formula, 'mensuel')?.price || 0
   );
   const [selectedMonths, setSelectedMonths] = useState<string[]>(() => [...(prefill?.months || [])].sort());
   const [viewYear, setViewYear] = useState<number>(() => Number(prefill?.months?.[0]?.slice(0, 4)) || CURRENT_YEAR);
@@ -86,10 +104,11 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('MVola');
   const [error, setError] = useState('');
 
-  const formula = FORMULAS.find((f) => f.id === formulaType)!;
-  const isMonthly = formula.billing === 'mensuel';
+  const isMonthly = formula?.billing === 'mensuel';
   const currentMember = members.find((m) => m.id === selectedMemberId);
   const memberVehicles = vehicles.filter((v) => v.memberId === selectedMemberId);
+  // One-time fee (membership fee) already paid by this member
+  const alreadyPaidOnce = formula?.billing === 'unique' ? oneTimeAlreadyPaid(receipts, selectedMemberId, formula.purpose) : undefined;
 
   /** Months already covered by this member's receipts for the same formula (and vehicle). */
   const { paidMonths, partialMonths } = useMemo(() => {
@@ -101,8 +120,9 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
           r.memberId === selectedMemberId &&
           r.status !== 'annule' &&
           r.status !== 'rembourse' &&
-          r.purpose === formula.purpose &&
-          (!selectedPlate || !r.vehiclePlate || r.vehiclePlate === selectedPlate)
+          // Day pass (a single date) is not a monthly payment
+          !/^\s*\d{1,2}\/\d{1,2}\/\d{4}\s*$/.test(r.period || '') &&
+          (!selectedPlate || !r.vehiclePlate || r.vehiclePlate.split(/[/,;]+/).some((p) => p.trim() === selectedPlate))
       )
       .forEach((r) => {
         const target = r.remainingBalanceAr > 0 ? partial : paid;
@@ -110,10 +130,12 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
       });
     paid.forEach((k) => partial.delete(k));
     return { paidMonths: paid, partialMonths: partial };
-  }, [receipts, selectedMemberId, selectedPlate, formula.purpose]);
+  }, [receipts, selectedMemberId, selectedPlate]);
 
   const monthsCount = selectedMonths.length;
-  const amountDue = isMonthly ? unitPrice * monthsCount : unitPrice;
+  // Monthly formulas: months × price, minus the promotion when enough months are paid at once
+  const calc = isMonthly ? monthlyAmount(unitPrice, monthsCount, pricing) : { grossAr: unitPrice, discountAr: 0, netAr: unitPrice, applied: false };
+  const amountDue = calc.netAr;
   const amountPaid = amountPaidOverride ?? amountDue;
   const remaining = Math.max(0, amountDue - amountPaid);
 
@@ -151,23 +173,42 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
     setError('');
   };
 
-  const handleFormulaChange = (id: FormulaId) => {
-    const f = FORMULAS.find((x) => x.id === id)!;
+  const handleFormulaChange = (id: string) => {
     setFormulaType(id);
-    setUnitPrice(f.price);
+    setUnitPrice(formulas.find((f) => f.id === id)?.price || 0);
     resetMonths();
+  };
+
+  /** New site: the same kind of formula on that site (its own price) */
+  const followSite = (siteId: string) => {
+    const next = pickFormula(formulasOf(siteId), formula?.typeFormula, formula?.billing);
+    if (next) {
+      setFormulaType(next.id);
+      if (!prefill?.monthlyAmountAr) setUnitPrice(next.price);
+    }
   };
 
   const handleMemberChange = (memberId: string) => {
     setSelectedMemberId(memberId);
     const member = members.find((m) => m.id === memberId);
-    if (member?.primarySiteId) setSelectedSiteId(member.primarySiteId);
+    if (member?.primarySiteId) {
+      setSelectedSiteId(member.primarySiteId);
+      followSite(member.primarySiteId);
+    }
     setSelectedPlate(vehicles.find((v) => v.memberId === memberId)?.licensePlate || '');
     resetMonths();
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formula) {
+      setError('Aucun tarif disponible : ajoutez-en dans Paramètres → Tarifs & promotions.');
+      return;
+    }
+    if (alreadyPaidOnce) {
+      setError(`${formula.label} déjà payé par ce membre (reçu ${(alreadyPaidOnce as PaymentReceipt).receiptNumber}). Il ne se paie qu’une fois.`);
+      return;
+    }
     if (isMonthly && monthsCount === 0) {
       setError('Sélectionnez au moins un mois à payer.');
       return;
@@ -177,6 +218,8 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
       ? formatMonthsPeriod(selectedMonths)
       : formula.billing === 'annuel'
       ? `Année ${annualYear}`
+      : formula.billing === 'unique'
+      ? 'Paiement unique'
       : new Date().toLocaleDateString('fr-FR', { timeZone: 'Indian/Antananarivo' });
 
     // The period must list every month exactly (it is read back to mark months as paid)
@@ -191,7 +234,7 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
       vehiclePlate: selectedPlate || undefined,
       siteId: selectedSiteId,
       siteName: siteObj?.name || selectedSiteId,
-      purpose: formula.purpose,
+      purpose: calc.applied ? `${formula.purpose} — remise ${pricing.percent} % (${monthsCount} mois)` : formula.purpose,
       period,
       amountDueAr: amountDue,
       amountPaidAr: amountPaid,
@@ -243,7 +286,11 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
               <label className="block text-[11px] font-semibold text-slate-500 mb-1">Site Opérationnel</label>
               <select
                 value={selectedSiteId}
-                onChange={(e) => setSelectedSiteId(e.target.value)}
+                onChange={(e) => {
+                  setSelectedSiteId(e.target.value);
+                  followSite(e.target.value);
+                  setAmountPaidOverride(null);
+                }}
                 className="w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-[#0F172A]"
               >
                 {sites.map((s) => (
@@ -276,7 +323,7 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
           <div>
             <label className="block text-[11px] font-semibold text-slate-500 mb-1">Formule / Objet du Paiement</label>
             <div className="grid grid-cols-3 gap-2">
-              {FORMULAS.map((f) => (
+              {formulas.map((f) => (
                 <button
                   key={f.id}
                   type="button"
@@ -289,12 +336,20 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
                 >
                   <span className="block truncate text-[11px]">{f.label}</span>
                   <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold">
-                    {formatAr(f.price)} Ar{f.billing === 'mensuel' ? ' / mois' : f.billing === 'annuel' ? ' / an' : ''}
+                    {formatAr(f.price)} Ar{f.billing === 'mensuel' ? ' / mois' : f.billing === 'annuel' ? ' / an' : f.billing === 'unique' ? ' · une fois' : ''}
                   </span>
                 </button>
               ))}
             </div>
           </div>
+
+          {formula?.billing === 'unique' && (
+            <div className={`p-2.5 rounded-lg border text-[11px] ${alreadyPaidOnce ? 'bg-rose-50 border-rose-200 text-rose-700' : 'bg-cyan-50 border-cyan-200 text-cyan-900'}`}>
+              {alreadyPaidOnce
+                ? `Déjà payé par ce membre le ${(alreadyPaidOnce as PaymentReceipt).dateTime} (reçu ${(alreadyPaidOnce as PaymentReceipt).receiptNumber}) : il ne se paie qu’une fois.`
+                : 'Se paie une seule fois par membre.'}
+            </div>
+          )}
 
           {/* Months to pay */}
           {isMonthly && (
@@ -440,10 +495,27 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
             {isMonthly && (
               <div className="col-span-2 flex items-center justify-between text-xs">
                 <span className="text-slate-500">
-                  Total dû ({formatAr(unitPrice)} Ar × {monthsCount} mois) :
+                  {formatAr(unitPrice)} Ar × {monthsCount} mois :
                 </span>
+                <span className="font-mono-data font-bold text-[#0F172A]">{formatAr(calc.grossAr)} Ar</span>
+              </div>
+            )}
+            {isMonthly && calc.applied && (
+              <div className="col-span-2 flex items-center justify-between text-xs text-emerald-700 font-semibold">
+                <span>Remise paiement annuel ({pricing.percent} %) :</span>
+                <span className="font-mono-data">− {formatAr(calc.discountAr)} Ar</span>
+              </div>
+            )}
+            {isMonthly && (
+              <div className="col-span-2 flex items-center justify-between text-xs">
+                <span className="text-slate-500 font-semibold">Total dû :</span>
                 <span className="font-mono-data font-bold text-[#0F172A]">{formatAr(amountDue)} Ar</span>
               </div>
+            )}
+            {isMonthly && pricing.enabled && pricing.percent > 0 && !calc.applied && monthsCount > 0 && (
+              <p className="col-span-2 text-[11px] text-emerald-700">
+                Astuce : {pricing.percent} % de remise en réglant {pricing.minMonths} mois d’un coup.
+              </p>
             )}
 
             <div className="col-span-2 flex items-center justify-between text-xs pt-1 border-t border-[#E2E8F0]">
@@ -484,7 +556,8 @@ export const NewPaymentModal: React.FC<NewPaymentModalProps> = ({
             </button>
             <button
               type="submit"
-              className="px-5 py-2.5 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold text-xs hover:bg-[#0891B2] hover:text-white transition-colors shadow-md flex items-center gap-1.5"
+              disabled={!!alreadyPaidOnce || !formula}
+              className="px-5 py-2.5 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold text-xs hover:bg-[#0891B2] hover:text-white transition-colors shadow-md flex items-center gap-1.5 disabled:opacity-50"
             >
               <span className="material-symbols-outlined text-[18px]">verified</span>
               <span>Confirmer l'Encaissement{isMonthly && monthsCount > 0 ? ` (${monthsCount} mois)` : ''}</span>

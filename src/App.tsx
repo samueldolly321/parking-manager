@@ -740,6 +740,8 @@ export default function App() {
           vehicles={state.vehicles}
           sites={state.sites}
           receipts={state.receipts}
+          tariffs={state.tariffs}
+          pricing={state.pricing}
           prefill={paymentPrefill}
           onSubmitPayment={handlePaymentSubmit}
         />

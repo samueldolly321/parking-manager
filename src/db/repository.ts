@@ -542,6 +542,18 @@ export async function createVehicleRecord(vehicle: Vehicle): Promise<Vehicle> {
   return vehicle;
 }
 
+export async function createTariffRecord(tariff: Tariff): Promise<Tariff> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    store.tariffs.push(tariff);
+    saveLocalStore(store);
+    return tariff;
+  }
+  await db.insert(schema.tariffs).values(tariff as any);
+  return tariff;
+}
+
 export async function createCardRecord(card: MembershipCard): Promise<MembershipCard> {
   const db = getDb();
   if (!db) {

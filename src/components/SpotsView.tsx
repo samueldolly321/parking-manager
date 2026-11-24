@@ -50,7 +50,7 @@ const SpotTypeIcon: React.FC<{ type: ParkingSpot['type']; status: SpotStatus; si
 const ZONE_COLORS = ['bg-[#0F172A]', 'bg-[#F59E0B]', 'bg-[#06B6D4]', 'bg-[#8B5CF6]', 'bg-[#16A34A]', 'bg-[#DC2626]'];
 
 const formatAr = (n: number) => new Intl.NumberFormat('fr-FR').format(n).replace(/ |,/g, ' ');
-const PERIOD: Record<Tariff['duration'], string> = { jour: 'jour', semaine: 'semaine', mois: 'mois', an: 'an' };
+const PERIOD: Record<Tariff['duration'], string> = { jour: 'jour', semaine: 'semaine', mois: 'mois', an: 'an', unique: 'une fois' };
 
 /** Re-renders every minute so that parking durations stay current. */
 function useNow(intervalMs = 60_000): Date {

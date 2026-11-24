@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { TARIFF_DURATION_LABELS, TARIFF_FORMULA_LABELS } from '../services/pricing';
 import { COMMITTEE_ROLE_LABELS } from '../services/committee';
 import { notify } from '../services/notify';
 import { can } from '../services/access';
@@ -29,8 +30,8 @@ const FIELD_OPTIONS: Record<string, Option[]> = {
   'receipts.paymentMethod': opts('Espèces', 'MVola', 'Orange Money', 'Airtel Money', 'Virement BNI', 'Virement BMOI', 'Chèque'),
   'receipts.status': opts('confirme', 'en_attente', 'annule', 'rembourse'),
   'subscriptions.status': opts('a_jour', 'proche_echeance', 'en_retard', 'expire'),
-  typeFormula: opts('placement_libre_interieur', 'emplacement_privatif_dedie', 'deux_roues', 'adhesion_annuelle', 'carte_pvc'),
-  duration: opts('jour', 'semaine', 'mois', 'an'),
+  typeFormula: Object.entries(TARIFF_FORMULA_LABELS).map(([value, label]) => ({ value, label })),
+  duration: Object.entries(TARIFF_DURATION_LABELS).map(([value, label]) => ({ value, label })),
   'cards.status': opts('actif', 'a_renouveler', 'bloquee_perdue', 'revoquee'),
   shiftName: opts('Matin', 'Après-midi', 'Nuit', 'Repos'),
   'guards.status': opts('en_poste', 'de_repos', 'en_conge', 'absent'),
