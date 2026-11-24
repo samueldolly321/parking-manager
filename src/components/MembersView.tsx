@@ -246,7 +246,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       onClick={() => openMemberFile(m.id)}
                       className="cursor-pointer hover:bg-[#06B6D4]/5 transition-colors"
                     >
-                      <td className="px-3 py-2"><Avatar src={m.avatarUrl} name={m.fullName} /></td>
+                      <td className="px-3 py-2"><Avatar src={m.avatarUrl} name={m.fullName} zoomable /></td>
                       <td className="px-3 py-2.5 font-mono-data font-bold text-[#0F172A] whitespace-nowrap">{m.memberNumber}</td>
                       <td className="px-3 py-2.5 font-medium text-[#0F172A]">{m.fullName}</td>
                       <td className="px-3 py-2.5 font-mono-data text-slate-600 whitespace-nowrap">{m.phone}</td>
@@ -303,7 +303,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
             </span>
           </div>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5 mt-1">
-            {currentMember && <Avatar src={currentMember.avatarUrl} name={currentMember.fullName} size={48} />}
+            {currentMember && <Avatar src={currentMember.avatarUrl} name={currentMember.fullName} size={48} zoomable />}
             <h1 className="font-headline text-2xl font-bold text-[#0F172A] tracking-tight">
               {currentMember?.fullName}
             </h1>
@@ -379,6 +379,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
               <div className="relative">
                 <img
                   src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
+                  data-zoom={currentMember?.avatarUrl ? 'true' : undefined}
                   alt={currentMember?.fullName}
                   className="w-16 h-16 rounded-xl object-cover shadow-sm border-2 border-white ring-2 ring-[#06B6D4]"
                 />
@@ -591,6 +592,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         {veh.photoUrl ? (
                           <img
                             src={veh.photoUrl}
+                            data-zoom="true"
                             alt={veh.model}
                             className="w-24 h-16 rounded-lg object-cover shadow-sm border border-[#E2E8F0]"
                           />

@@ -2639,3 +2639,26 @@ export async function addSpotRecords(input: {
   saveState(state);
   return created;
 }
+
+/** Adds an equipment to the inventory (server first: it gives the inventory code). */
+export async function addEquipmentRecord(input: Partial<Equipment>): Promise<Equipment> {
+  const item = (await postJson('/api/v1/equipments', input, 'Serveur injoignable : l’équipement n’a pas été ajouté.')) as Equipment;
+  const state = loadState();
+  state.equipments = [item, ...state.equipments.filter((e) => e.id !== item.id)];
+  saveState(state);
+  return item;
+}
+
+/** Records an event on an equipment (intervention, breakdown, transfer, inventory…). */
+export async function recordEquipmentEvent(id: string, event: Record<string, unknown>): Promise<Equipment> {
+  const { equipment, incident } = (await postJson(
+    `/api/v1/equipments/${encodeURIComponent(id)}/events`,
+    event,
+    'Serveur injoignable : l’opération n’a pas été enregistrée.'
+  )) as { equipment: Equipment; incident: IncidentRecord | null };
+  const state = loadState();
+  state.equipments = state.equipments.map((e) => (e.id === equipment.id ? equipment : e));
+  if (incident) state.incidents = [incident, ...state.incidents];
+  saveState(state);
+  return equipment;
+}

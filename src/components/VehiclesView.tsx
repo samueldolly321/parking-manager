@@ -145,7 +145,7 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
 
                 <div className="flex items-center gap-3">
                   {veh.photoUrl ? (
-                    <img src={veh.photoUrl} alt={veh.model} className="w-20 h-14 rounded-lg object-cover border border-[#E2E8F0]" />
+                    <img src={veh.photoUrl} alt={`${veh.brand} ${veh.model} (${veh.licensePlate})`} data-zoom="true" className="w-20 h-14 rounded-lg object-cover border border-[#E2E8F0]" />
                   ) : (
                     <div className="w-20 h-14 rounded-lg bg-slate-100 flex items-center justify-center text-slate-400 border border-[#E2E8F0]">
                       <span className="material-symbols-outlined text-2xl">directions_car</span>

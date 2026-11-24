@@ -30,6 +30,7 @@ import {
 import { nextYearlyNumber } from './services/numbering';
 import { userSite } from './services/permissions';
 import { Toaster } from './components/Toaster';
+import { ImageLightbox } from './components/ImageLightbox';
 import { LoginView } from './components/LoginView';
 import { AccountModal } from './components/AccountModal';
 
@@ -607,6 +608,7 @@ export default function App() {
             initialSelectedId={focus.selectId}
             equipments={state.equipments}
             sites={state.sites}
+            currentUser={state.currentUser}
             selectedSiteId={state.selectedSiteId}
           />
         );
@@ -654,6 +656,7 @@ export default function App() {
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex font-sans antialiased text-[#0F172A]">
       <Toaster />
+      <ImageLightbox />
       {accountOpen && (
         <AccountModal
           user={state.currentUser}

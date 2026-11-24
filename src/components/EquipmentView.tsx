@@ -1,40 +1,93 @@
-import React, { useState } from 'react';
-import { notifyNotAvailable } from '../services/notify';
+import React, { useMemo, useState } from 'react';
+import { notify } from '../services/notify';
 import { EntityActions } from './EntityActions';
-import { Equipment, Site } from '../types';
+import { PhotoInput } from './PhotoInput';
+import { Equipment, Site, User } from '../types';
+import { addEquipmentRecord, recordEquipmentEvent } from '../services/storage';
+import { roleCan } from '../services/permissions';
+import {
+  EQUIPMENT_CATEGORIES,
+  EQUIPMENT_STATUS_LABELS,
+  HISTORY_KIND_LABELS,
+  categoryLabel,
+  historySortKey
+} from '../services/equipment';
 
 interface EquipmentViewProps {
   equipments: Equipment[];
   sites: Site[];
+  currentUser: User;
   selectedSiteId: string;
   /** Record selected on arrival (from the header search) */
   initialSelectedId?: string;
 }
 
-export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites, selectedSiteId, initialSelectedId }) => {
-  const [selectedCode, setSelectedCode] = useState<string>(initialSelectedId || equipments[0]?.inventoryCode || 'MAT-BAR-002');
+/** Fields of the "Modifier" window. */
+const EQUIPMENT_EDIT_FIELDS = [
+  'photoUrl', 'designation', 'category', 'modelSpecs', 'siteId', 'location', 'status', 'quantity',
+  'responsibleName', 'commissioningDate', 'estimatedValueAr', 'totalCycles'
+];
+
+type Dialog = null | 'add' | 'journal' | 'audit' | 'intervention' | 'panne' | 'remise_service';
+
+const field = 'w-full p-2.5 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs';
+const label = 'block text-[11px] font-semibold text-slate-500 mb-1';
+
+const Modal: React.FC<{ title: string; icon: string; onClose: () => void; wide?: boolean; children: React.ReactNode }> = ({ title, icon, onClose, wide, children }) => (
+  <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className={`bg-white rounded-2xl ${wide ? 'max-w-3xl' : 'max-w-md'} w-full p-6 shadow-2xl space-y-3 max-h-[90vh] overflow-y-auto text-xs`}>
+      <div className="flex items-center justify-between pb-3 border-b border-[#E2E8F0]">
+        <h3 className="font-headline text-lg font-bold text-[#0F172A] flex items-center gap-2">
+          <span className="material-symbols-outlined text-[#06B6D4]">{icon}</span>
+          {title}
+        </h3>
+        <button type="button" onClick={onClose} className="text-slate-400 hover:text-[#0F172A]" aria-label="Fermer">
+          <span className="material-symbols-outlined text-[20px]">close</span>
+        </button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+const Footer: React.FC<{ onClose: () => void; busy: boolean; submitLabel: string; danger?: boolean; disabled?: boolean }> = ({ onClose, busy, submitLabel, danger, disabled }) => (
+  <div className="flex items-center justify-end gap-3 pt-3 border-t border-[#E2E8F0]">
+    <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-slate-100 text-slate-700 hover:bg-slate-200">Annuler</button>
+    <button
+      type="submit"
+      disabled={busy || disabled}
+      className={`px-5 py-2 rounded-lg font-headline font-bold disabled:opacity-50 ${
+        danger ? 'bg-[#DC2626] text-white hover:bg-red-700' : 'bg-[#06B6D4] text-[#0F172A] hover:bg-[#0891B2] hover:text-white'
+      }`}
+    >
+      {busy ? 'Enregistrement…' : submitLabel}
+    </button>
+  </div>
+);
+
+export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites, currentUser, selectedSiteId, initialSelectedId }) => {
+  const [selectedCode, setSelectedCode] = useState<string>(initialSelectedId || equipments[0]?.inventoryCode || '');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [siteFilter, setSiteFilter] = useState<string>(selectedSiteId || 'all');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [dialog, setDialog] = useState<Dialog>(null);
+  const [busy, setBusy] = useState(false);
+
+  const canWrite = roleCan(currentUser.role, 'write');
 
   const filteredEquipments = equipments.filter((eq) => {
+    const q = searchQuery.toLowerCase();
     const matchesCat = categoryFilter === 'all' || eq.category === categoryFilter;
     const matchesSite = siteFilter === 'all' || eq.siteId === siteFilter;
     const matchesQuery =
-      eq.designation.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      eq.inventoryCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      eq.location.toLowerCase().includes(searchQuery.toLowerCase());
+      eq.designation.toLowerCase().includes(q) || eq.inventoryCode.toLowerCase().includes(q) || eq.location.toLowerCase().includes(q);
     return matchesCat && matchesSite && matchesQuery;
   });
 
-  const selectedItem = equipments.find((eq) => eq.inventoryCode === selectedCode) || equipments[0];
+  const selectedItem = equipments.find((eq) => eq.inventoryCode === selectedCode) || filteredEquipments[0] || equipments[0];
 
-  const formatAr = (val: number) => {
-    return new Intl.NumberFormat('fr-FR').format(val).replace(/[  ,]/g, ' ');
-  };
-
-  const siteName = (siteId: string) =>
-    (sites.find((s) => s.id === siteId)?.name || siteId).replace(/^Site \d+\s*-\s*/, '');
+  const formatAr = (val: number) => new Intl.NumberFormat('fr-FR').format(val).replace(/[  ,]/g, ' ');
+  const siteName = (siteId: string) => (sites.find((s) => s.id === siteId)?.name || siteId).replace(/^Site \d+\s*-\s*/, '');
 
   // KPI figures, computed on the site chosen in the filter
   const siteEquipments = equipments.filter((eq) => siteFilter === 'all' || eq.siteId === siteFilter);
@@ -51,13 +104,47 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
   const assignedUnits = units(assigned);
   const countCategory = (cat: Equipment['category']) => siteEquipments.filter((eq) => eq.category === cat).length;
   const filteredValueAr = filteredEquipments.reduce((sum, eq) => sum + (eq.estimatedValueAr || 0), 0);
+  const STATUS_LABEL = EQUIPMENT_STATUS_LABELS;
 
-  const STATUS_LABEL: Record<Equipment['status'], string> = {
-    operationnel: 'Opérationnel',
-    maintenance: 'Maintenance',
-    critique: 'Critique',
-    controle_requis: 'Contrôle'
+  /** Runs a server action, shows the result, closes the window. */
+  const run = async (action: () => Promise<unknown>, success: string) => {
+    setBusy(true);
+    try {
+      await action();
+      notify(success, 'success');
+      setDialog(null);
+    } catch (err) {
+      notify(err instanceof Error ? err.message : 'Opération impossible.', 'error');
+    } finally {
+      setBusy(false);
+    }
   };
+
+  const statusBadge = (eq: Equipment) => (
+    <span
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono-data font-bold ${
+        eq.status === 'operationnel'
+          ? 'bg-emerald-100 text-[#16A34A]'
+          : eq.status === 'maintenance' || eq.status === 'critique'
+          ? 'bg-red-100 text-[#DC2626]'
+          : 'bg-amber-100 text-amber-800'
+      }`}
+    >
+      <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
+      {STATUS_LABEL[eq.status] || eq.status}
+    </span>
+  );
+
+  const thumb = (eq: Equipment, size: string, iconSize = 18) =>
+    eq.photoUrl ? (
+      <img src={eq.photoUrl} alt={eq.designation} data-zoom="true" className={`${size} rounded-lg object-cover border border-[#E2E8F0] bg-white shrink-0`} />
+    ) : (
+      <div className={`${size} rounded-lg bg-slate-100 border border-[#E2E8F0] flex items-center justify-center text-slate-400 shrink-0`} title="Pas de photo">
+        <span className="material-symbols-outlined" style={{ fontSize: iconSize }}>
+          {EQUIPMENT_CATEGORIES.find((c) => c.id === eq.category)?.icon || 'inventory_2'}
+        </span>
+      </div>
+    );
 
   return (
     <div className="flex flex-col w-full space-y-6">
@@ -65,47 +152,46 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
       <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4 bg-white p-5 rounded-xl shadow-sm border border-[#E2E8F0]">
         <div className="space-y-1 max-w-3xl">
           <div className="flex items-center gap-2 font-mono-data text-xs">
-            <span className="px-2 py-0.5 rounded bg-slate-100 text-[#06B6D4] uppercase font-bold border border-slate-200">
-              PATRIMOINE TECHNIQUE
-            </span>
+            <span className="px-2 py-0.5 rounded bg-slate-100 text-[#06B6D4] uppercase font-bold border border-slate-200">PATRIMOINE TECHNIQUE</span>
             <span className="text-slate-300">•</span>
-            <span className="text-slate-500 font-semibold uppercase">
-              {siteFilter === 'all' ? 'Tous les sites' : siteName(siteFilter)}
-            </span>
+            <span className="text-slate-500 font-semibold uppercase">{siteFilter === 'all' ? 'Tous les sites' : siteName(siteFilter)}</span>
           </div>
-          <h1 className="font-headline text-2xl font-bold text-[#0F172A]">
-            Inventaire des Matériels &amp; Équipements
-          </h1>
+          <h1 className="font-headline text-2xl font-bold text-[#0F172A]">Inventaire des Matériels &amp; Équipements</h1>
           <p className="text-xs text-slate-500">
-            Suivi patrimonial des installations de péage, barrières automatiques, télécommunications, sécurité incendie et équipements remis aux gardiens.
+            Suivi des barrières, télécommunications, sécurité, monétique, mobilier et équipements remis aux gardiens.
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
           <button
-            onClick={() => notifyNotAvailable('Journal des mouvements de matériel')}
+            onClick={() => setDialog('journal')}
             type="button"
             className="bg-[#F8FAFC] text-[#0F172A] hover:bg-slate-100 text-xs font-headline font-bold px-3 py-2 rounded-lg border border-[#E2E8F0] flex items-center gap-1.5 transition-colors"
           >
             <span className="material-symbols-outlined text-[16px]">history</span>
-            <span>Journal Mouvements</span>
+            <span>Journal des mouvements</span>
           </button>
-          <button
-            onClick={() => notifyNotAvailable('Inventaire / audit physique')}
-            type="button"
-            className="bg-[#F8FAFC] text-[#0F172A] hover:bg-slate-100 text-xs font-headline font-bold px-3 py-2 rounded-lg border border-[#E2E8F0] flex items-center gap-1.5 transition-colors"
-          >
-            <span className="material-symbols-outlined text-[16px]">fact_check</span>
-            <span>Faire un Inventaire / Audit</span>
-          </button>
-          <button
-            onClick={() => notifyNotAvailable('Ajout d’un équipement')}
-            type="button"
-            className="bg-[#0F172A] text-white hover:bg-slate-800 text-xs font-headline font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-colors shadow-md"
-          >
-            <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">add_circle</span>
-            <span>+ Ajouter un Équipement</span>
-          </button>
+          {canWrite && (
+            <>
+              <button
+                onClick={() => setDialog('audit')}
+                type="button"
+                disabled={siteEquipments.length === 0}
+                className="bg-[#F8FAFC] text-[#0F172A] hover:bg-slate-100 text-xs font-headline font-bold px-3 py-2 rounded-lg border border-[#E2E8F0] flex items-center gap-1.5 transition-colors disabled:opacity-50"
+              >
+                <span className="material-symbols-outlined text-[16px]">fact_check</span>
+                <span>Faire un inventaire</span>
+              </button>
+              <button
+                onClick={() => setDialog('add')}
+                type="button"
+                className="bg-[#0F172A] text-white hover:bg-slate-800 text-xs font-headline font-bold px-3.5 py-2 rounded-lg flex items-center gap-1.5 transition-colors shadow-md"
+              >
+                <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">add_circle</span>
+                <span>+ Ajouter un équipement</span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -214,27 +300,16 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
 
       {/* Main Content Workspace: Data Table + Detail Drawer */}
       <div className="flex flex-col xl:flex-row gap-6 items-start">
-        {/* Table Section */}
         <div className="flex-1 w-full bg-white rounded-xl shadow-sm border border-[#E2E8F0] overflow-hidden flex flex-col">
-          {/* Filter Tabs & Site Selection */}
           <div className="p-4 bg-[#F8FAFC] border-b border-[#E2E8F0] flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
             <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
-              {[
-                { id: 'all', label: `Tous les matériels (${siteEquipments.length})` },
-                { id: 'barriers', label: `Barrières & Bornes (${countCategory('barriers')})` },
-                { id: 'telecom', label: `Télécoms & LoRa (${countCategory('telecom')})` },
-                { id: 'security', label: `Sécurité & Extincteurs (${countCategory('security')})` },
-                { id: 'monetique', label: `Monétique (${countCategory('monetique')})` },
-                { id: 'assigned', label: `Confiés Gardiens (${countCategory('assigned')})` }
-              ].map(cat => (
+              {[{ id: 'all', label: `Tous (${siteEquipments.length})` }, ...EQUIPMENT_CATEGORIES.map((c) => ({ id: c.id, label: `${c.label} (${countCategory(c.id)})` }))].map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setCategoryFilter(cat.id)}
                   type="button"
                   className={`px-3 py-1.5 rounded-lg text-xs font-headline whitespace-nowrap transition-all ${
-                    categoryFilter === cat.id
-                      ? 'bg-[#0F172A] text-white font-bold shadow-sm'
-                      : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-100'
+                    categoryFilter === cat.id ? 'bg-[#0F172A] text-white font-bold shadow-sm' : 'bg-white text-slate-600 border border-[#E2E8F0] hover:bg-slate-100'
                   }`}
                 >
                   {cat.label}
@@ -248,10 +323,9 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
                 onChange={(e) => setSiteFilter(e.target.value)}
                 className="bg-white text-xs font-medium text-[#0F172A] py-1.5 px-3 rounded-lg border border-[#E2E8F0]"
               >
-                <option value="all">Tous Sites</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sites.length > 1 && <option value="all">Tous sites</option>}
+                {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
-
               <div className="relative">
                 <input
                   type="text"
@@ -265,80 +339,53 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
             </div>
           </div>
 
-          {/* High-Density Equipment Data Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border-collapse">
               <thead>
                 <tr className="bg-[#F8FAFC] text-slate-500 uppercase tracking-wider font-semibold border-b border-[#E2E8F0]">
-                  <th className="py-2.5 px-3">Code Inv.</th>
-                  <th className="py-2.5 px-3">Désignation &amp; Modèle</th>
-                  <th className="py-2.5 px-3">Catégorie / Site</th>
-                  <th className="py-2.5 px-3">Qté &amp; Voie</th>
+                  <th className="py-2.5 px-3">Photo</th>
+                  <th className="py-2.5 px-3">Code inv.</th>
+                  <th className="py-2.5 px-3">Désignation &amp; modèle</th>
+                  <th className="py-2.5 px-3">Catégorie / site</th>
+                  <th className="py-2.5 px-3">Qté &amp; emplacement</th>
                   <th className="py-2.5 px-3">État</th>
                   <th className="py-2.5 px-3">Responsable</th>
-                  <th className="py-2.5 px-3 text-right">Dernier Audit</th>
+                  <th className="py-2.5 px-3 text-right">Dernier inventaire</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
+                {filteredEquipments.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="py-8 text-center text-slate-400">Aucun matériel ne correspond à ces filtres.</td>
+                  </tr>
+                )}
                 {filteredEquipments.map((eq) => {
-                  const isSelected = selectedItem?.inventoryCode === eq.inventoryCode;
+                  const isSelected = selectedItem?.id === eq.id;
                   return (
-                    <tr
-                      key={eq.id}
-                      onClick={() => setSelectedCode(eq.inventoryCode)}
-                      className={`hover:bg-slate-50 transition-colors cursor-pointer ${
-                        isSelected ? 'bg-cyan-50/50' : ''
-                      }`}
-                    >
+                    <tr key={eq.id} onClick={() => setSelectedCode(eq.inventoryCode)} className={`hover:bg-slate-50 transition-colors cursor-pointer ${isSelected ? 'bg-cyan-50/50' : ''}`}>
+                      <td className="py-2 px-3">{thumb(eq, 'w-11 h-11')}</td>
                       <td className="py-3 px-3 whitespace-nowrap">
-                        <span className="font-mono-plate text-xs font-bold text-[#0F172A] bg-white px-2 py-0.5 rounded border border-[#E2E8F0]">
-                          {eq.inventoryCode}
-                        </span>
+                        <span className="font-mono-plate text-xs font-bold text-[#0F172A] bg-white px-2 py-0.5 rounded border border-[#E2E8F0]">{eq.inventoryCode}</span>
                       </td>
-
                       <td className="py-3 px-3">
                         <div className="flex flex-col">
                           <span className="font-bold text-[#0F172A]">{eq.designation}</span>
                           <span className="font-mono-data text-[10px] text-slate-400 truncate max-w-xs">{eq.modelSpecs}</span>
                         </div>
                       </td>
-
                       <td className="py-3 px-3 whitespace-nowrap">
                         <div className="flex flex-col gap-0.5">
-                          <span className="text-[#06B6D4] font-semibold">{eq.category.toUpperCase()}</span>
-                          <span className="font-mono-data text-[10px] text-slate-500">
-                            {siteName(eq.siteId)}
-                          </span>
+                          <span className="text-[#06B6D4] font-semibold">{categoryLabel(eq.category)}</span>
+                          <span className="font-mono-data text-[10px] text-slate-500">{siteName(eq.siteId)}</span>
                         </div>
                       </td>
-
                       <td className="py-3 px-3 whitespace-nowrap">
-                        <span className="font-mono-data font-bold text-[#0F172A]">{eq.quantity} unit.</span>
+                        <span className="font-mono-data font-bold text-[#0F172A]">{eq.quantity} unité{eq.quantity > 1 ? 's' : ''}</span>
                         <div className="text-[10px] text-slate-400">{eq.location}</div>
                       </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-mono-data font-bold ${
-                            eq.status === 'operationnel'
-                              ? 'bg-emerald-100 text-[#16A34A]'
-                              : eq.status === 'maintenance' || eq.status === 'critique'
-                              ? 'bg-red-100 text-[#DC2626]'
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          <span className="w-1.5 h-1.5 rounded-full bg-current"></span>
-                          {STATUS_LABEL[eq.status] || eq.status}
-                        </span>
-                      </td>
-
-                      <td className="py-3 px-3 whitespace-nowrap">
-                        <span className="text-[#0F172A] font-medium block">{eq.responsibleName}</span>
-                      </td>
-
-                      <td className="py-3 px-3 text-right whitespace-nowrap font-mono-data text-slate-500">
-                        {eq.lastAuditDate}
-                      </td>
+                      <td className="py-3 px-3 whitespace-nowrap">{statusBadge(eq)}</td>
+                      <td className="py-3 px-3 whitespace-nowrap"><span className="text-[#0F172A] font-medium block">{eq.responsibleName}</span></td>
+                      <td className="py-3 px-3 text-right whitespace-nowrap font-mono-data text-slate-500">{eq.lastAuditDate}</td>
                     </tr>
                   );
                 })}
@@ -347,164 +394,150 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
           </div>
 
           <div className="p-3 bg-[#F8FAFC] border-t border-[#E2E8F0] flex items-center justify-between font-mono-data text-xs text-slate-500">
-            <span>Affichage de {filteredEquipments.length} matériels répertoriés</span>
+            <span>Affichage de {filteredEquipments.length} matériel{filteredEquipments.length > 1 ? 's' : ''}</span>
             <span>Valeur totale : {formatAr(filteredValueAr)} Ar</span>
           </div>
         </div>
 
-        {/* Right Drawer: Fiche de Vie Équipement (440px on XL) */}
+        {/* Fiche de vie */}
         {selectedItem && (
-        <div className="w-full xl:w-[420px] shrink-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] p-5 space-y-5 flex flex-col sticky top-20">
-          <div className="flex items-start justify-between pb-3 border-b border-[#E2E8F0]">
-            <div className="space-y-0.5">
-              <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold uppercase tracking-wider">
-                FICHE DE VIE ÉQUIPEMENT
-              </span>
-              <h2 className="font-headline text-lg font-bold text-[#0F172A] leading-tight">
-                {selectedItem.designation}
-              </h2>
-              <div className="pt-1"><EntityActions collection="equipments" record={selectedItem} label={selectedItem.designation} /></div>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="font-mono-plate text-xs font-bold text-[#0F172A] bg-slate-100 px-1.5 py-0.5 rounded border border-[#E2E8F0]">
-                  {selectedItem.inventoryCode}
-                </span>
-                <span className="text-xs text-slate-500">
-                  {siteName(selectedItem.siteId)}
-                </span>
+          <div className="w-full xl:w-[420px] shrink-0 bg-white rounded-xl shadow-sm border border-[#E2E8F0] p-5 space-y-5 flex flex-col sticky top-20">
+            <div className="flex items-start justify-between gap-3 pb-3 border-b border-[#E2E8F0]">
+              <div className="space-y-0.5 min-w-0">
+                <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold uppercase tracking-wider">FICHE DE VIE ÉQUIPEMENT</span>
+                <h2 className="font-headline text-lg font-bold text-[#0F172A] leading-tight">{selectedItem.designation}</h2>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="font-mono-plate text-xs font-bold text-[#0F172A] bg-slate-100 px-1.5 py-0.5 rounded border border-[#E2E8F0]">{selectedItem.inventoryCode}</span>
+                  <span className="text-xs text-slate-500">{siteName(selectedItem.siteId)}</span>
+                </div>
+                <div className="pt-1.5 flex items-center gap-2">
+                  {statusBadge(selectedItem)}
+                  <EntityActions collection="equipments" record={selectedItem} label={selectedItem.designation} fields={EQUIPMENT_EDIT_FIELDS} />
+                </div>
               </div>
             </div>
 
-            <span
-              className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                selectedItem.status === 'operationnel' ? 'bg-emerald-100 text-[#16A34A]' : 'bg-red-100 text-[#DC2626]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[18px]">
-                {selectedItem.status === 'operationnel' ? 'check_circle' : 'build'}
-              </span>
-            </span>
-          </div>
+            {/* Photo */}
+            {selectedItem.photoUrl ? (
+              <img src={selectedItem.photoUrl} alt={selectedItem.designation} data-zoom="true" className="w-full max-h-56 object-contain rounded-lg border border-[#E2E8F0] bg-[#F8FAFC]" />
+            ) : (
+              <div className="w-full h-28 rounded-lg border border-dashed border-[#CBD5E1] bg-[#F8FAFC] flex flex-col items-center justify-center text-slate-400 text-[11px] gap-1">
+                <span className="material-symbols-outlined text-[28px]">add_photo_alternate</span>
+                Pas de photo{canWrite ? ' — ajoutez-en une avec « Modifier »' : ''}
+              </div>
+            )}
 
-          {/* Technical Specifications */}
-          <div className="bg-[#F8FAFC] p-3.5 rounded-lg border border-[#E2E8F0] space-y-2 text-xs">
-            <div className="font-headline font-bold text-[#0F172A] flex items-center gap-1.5 text-xs">
-              <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">memory</span>
-              Spécifications &amp; Électromécanique
-            </div>
-            <div className="grid grid-cols-2 gap-2 pt-1 font-body text-xs">
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Modèle:</span>
-                <span className="font-bold text-[#0F172A]">{selectedItem.modelSpecs.split('•')[0] || selectedItem.designation}</span>
+            <div className="bg-[#F8FAFC] p-3.5 rounded-lg border border-[#E2E8F0] space-y-2 text-xs">
+              <div className="font-headline font-bold text-[#0F172A] flex items-center gap-1.5 text-xs">
+                <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">memory</span>
+                Caractéristiques
               </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Emplacement:</span>
-                <span className="font-bold text-[#0F172A]">{selectedItem.location || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Mise en service:</span>
-                <span className="font-mono-data text-[#0F172A]">{selectedItem.commissioningDate || '—'}</span>
-              </div>
-              <div>
-                <span className="text-slate-400 block text-[10px] uppercase font-semibold">Cycles totaux:</span>
-                <span className="font-mono-data text-[#06B6D4] font-bold">{selectedItem.totalCycles || '—'}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Incident / Maintenance Status Alert */}
-          {(selectedItem.status === 'maintenance' || selectedItem.status === 'critique') && (
-            <div className="bg-red-50 p-3.5 rounded-lg border border-red-200 space-y-1.5 text-xs">
-              <div className="flex items-center gap-1.5 text-[#DC2626] font-bold font-headline">
-                <span className="material-symbols-outlined text-[18px]">warning</span>
-                <span>{selectedItem.status === 'critique' ? 'Panne critique' : 'Matériel en maintenance'}</span>
-              </div>
-              {selectedItem.maintenanceHistory[0] && (
-                <p className="text-slate-700 text-xs">
-                  Dernière intervention ({selectedItem.maintenanceHistory[0].date}) : {selectedItem.maintenanceHistory[0].title}
-                </p>
-              )}
-              <div className="font-mono-data text-[10px] text-slate-500 pt-1">
-                Responsable : {selectedItem.responsibleName}
-              </div>
-            </div>
-          )}
-
-          {/* Maintenance History */}
-          <div className="space-y-2 flex-1">
-            <div className="flex items-center justify-between">
-              <span className="font-headline text-xs font-bold text-[#0F172A]">Historique Révisions &amp; Mouvements</span>
-              <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold">
-                {selectedItem.maintenanceHistory.length} interventions
-              </span>
-            </div>
-
-            <div className="space-y-3 relative pl-3 border-l-2 border-slate-200 ml-1">
-              {selectedItem.maintenanceHistory.length > 0 ? (
-                selectedItem.maintenanceHistory.map((m, idx) => (
-                  <div key={idx} className="relative pl-2">
-                    <span
-                      className={`absolute -left-[17px] top-1 w-2 h-2 rounded-full ${
-                        m.isCritical ? 'bg-[#DC2626]' : 'bg-[#06B6D4]'
-                      }`}
-                    ></span>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-bold text-[#0F172A]">{m.title}</span>
-                      <span className="font-mono-data text-[10px] text-slate-400">{m.date}</span>
-                    </div>
-                    <p className="text-[11px] text-slate-500 mt-0.5">{m.description}</p>
+              <div className="grid grid-cols-2 gap-2 pt-1 font-body text-xs">
+                {[
+                  ['Modèle', selectedItem.modelSpecs || '—'],
+                  ['Emplacement', selectedItem.location || '—'],
+                  ['Catégorie', categoryLabel(selectedItem.category)],
+                  ['Quantité', `${selectedItem.quantity} unité${selectedItem.quantity > 1 ? 's' : ''}`],
+                  ['Mise en service', selectedItem.commissioningDate || '—'],
+                  ['Valeur estimée', `${formatAr(selectedItem.estimatedValueAr || 0)} Ar`],
+                  ['Responsable', selectedItem.responsibleName || '—'],
+                  ['Cycles totaux', selectedItem.totalCycles || '—']
+                ].map(([k, v]) => (
+                  <div key={k}>
+                    <span className="text-slate-400 block text-[10px] uppercase font-semibold">{k}</span>
+                    <span className="font-bold text-[#0F172A] break-words">{v}</span>
                   </div>
-                ))
-              ) : (
-                <div className="text-xs text-slate-400 py-2">Aucune intervention majeure requise récemment. Contrôle nominal.</div>
-              )}
+                ))}
+              </div>
             </div>
-          </div>
 
-          {/* Action Buttons */}
-          <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
-            <button
-              onClick={() => notifyNotAvailable('Planification d’intervention technique')}
-              type="button"
-              className="w-full bg-[#0F172A] text-white hover:bg-slate-800 font-headline text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
-            >
-              <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">calendar_month</span>
-              <span>Planifier Intervention Technique</span>
-            </button>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                onClick={() => notifyNotAvailable('Déclaration de panne (utilisez la page Incidents)')}
-                type="button"
-                className="bg-red-50 text-[#DC2626] hover:bg-red-100 font-headline text-xs font-bold py-2 rounded-lg border border-red-200 flex items-center justify-center gap-1 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">report_problem</span>
-                <span>Déclarer Panne</span>
-              </button>
-              <button
-                onClick={() => notifyNotAvailable('Transfert de matériel entre sites')}
-                type="button"
-                className="bg-slate-100 text-[#0F172A] hover:bg-slate-200 font-headline text-xs font-bold py-2 rounded-lg border border-[#E2E8F0] flex items-center justify-center gap-1 transition-colors"
-              >
-                <span className="material-symbols-outlined text-[16px]">move_up</span>
-                <span>Transférer Site</span>
-              </button>
+            {(selectedItem.status === 'maintenance' || selectedItem.status === 'critique') && (
+              <div className="bg-red-50 p-3.5 rounded-lg border border-red-200 space-y-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-[#DC2626] font-bold font-headline">
+                  <span className="material-symbols-outlined text-[18px]">warning</span>
+                  <span>{selectedItem.status === 'critique' ? 'Panne critique' : 'Matériel en maintenance'}</span>
+                </div>
+                {selectedItem.maintenanceHistory[0] && (
+                  <p className="text-slate-700 text-xs">
+                    Dernier événement ({selectedItem.maintenanceHistory[0].date}) : {selectedItem.maintenanceHistory[0].title}
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div className="space-y-2 flex-1">
+              <div className="flex items-center justify-between">
+                <span className="font-headline text-xs font-bold text-[#0F172A]">Historique</span>
+                <span className="font-mono-data text-[10px] text-[#06B6D4] font-bold">
+                  {selectedItem.maintenanceHistory.length} événement{selectedItem.maintenanceHistory.length > 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="space-y-3 relative pl-3 border-l-2 border-slate-200 ml-1 max-h-72 overflow-y-auto">
+                {selectedItem.maintenanceHistory.length > 0 ? (
+                  selectedItem.maintenanceHistory.map((m, idx) => (
+                    <div key={idx} className="relative pl-2">
+                      <span className={`absolute -left-[17px] top-1 w-2 h-2 rounded-full ${m.isCritical ? 'bg-[#DC2626]' : 'bg-[#06B6D4]'}`}></span>
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="font-bold text-[#0F172A]">{m.title}</span>
+                        <span className="font-mono-data text-[10px] text-slate-400 shrink-0">{m.date}</span>
+                      </div>
+                      {m.description && <p className="text-[11px] text-slate-500 mt-0.5">{m.description}</p>}
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-xs text-slate-400 py-2">Aucun événement enregistré.</div>
+                )}
+              </div>
             </div>
+
+            {canWrite && (
+              <div className="space-y-2 pt-2 border-t border-[#E2E8F0]">
+                <button
+                  onClick={() => setDialog('intervention')}
+                  type="button"
+                  className="w-full bg-[#0F172A] text-white hover:bg-slate-800 font-headline text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-sm"
+                >
+                  <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">calendar_month</span>
+                  <span>Planifier une intervention</span>
+                </button>
+                <div>
+                  {selectedItem.status === 'operationnel' ? (
+                    <button
+                      onClick={() => setDialog('panne')}
+                      type="button"
+                      className="w-full bg-red-50 text-[#DC2626] hover:bg-red-100 font-headline text-xs font-bold py-2 rounded-lg border border-red-200 flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">report_problem</span>
+                      <span>Déclarer une panne</span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setDialog('remise_service')}
+                      type="button"
+                      className="w-full bg-emerald-50 text-[#16A34A] hover:bg-emerald-100 font-headline text-xs font-bold py-2 rounded-lg border border-emerald-200 flex items-center justify-center gap-1 transition-colors"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                      <span>Remettre en service</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
         )}
       </div>
 
-      {/* Main Courante des Équipements Remis aux Gardiens */}
+      {/* Main courante */}
       <div className="bg-white p-5 rounded-xl shadow-sm border border-[#E2E8F0] space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h3 className="font-headline text-base font-bold text-[#0F172A]">Main Courante des Équipements Remis aux Gardiens</h3>
-            <p className="text-xs text-slate-500">Matériel de la catégorie « Confiés Gardiens » et son responsable actuel.</p>
+            <h3 className="font-headline text-base font-bold text-[#0F172A]">Main courante des équipements remis aux gardiens</h3>
+            <p className="text-xs text-slate-500">Matériel de la catégorie « Confiés aux gardiens » et son responsable actuel.</p>
           </div>
           <span className="font-mono-data text-xs px-2.5 py-1 rounded bg-slate-100 text-slate-700 font-bold border border-[#E2E8F0]">
             {assigned.length} affectation{assigned.length > 1 ? 's' : ''}
           </span>
         </div>
-
         {assigned.length === 0 ? (
           <p className="py-6 text-center text-xs text-slate-400">Aucun matériel confié aux gardiens pour le moment.</p>
         ) : (
@@ -516,9 +549,7 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
                 onClick={() => setSelectedCode(eq.inventoryCode)}
                 className="text-left p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0] flex items-start gap-3 hover:border-[#06B6D4] transition-colors"
               >
-                <div className="w-10 h-10 rounded-lg bg-white flex items-center justify-center text-[#06B6D4] shrink-0 border border-[#E2E8F0] shadow-sm">
-                  <span className="material-symbols-outlined text-[20px]">assignment_ind</span>
-                </div>
+                {thumb(eq, 'w-10 h-10', 20)}
                 <div className="space-y-0.5 min-w-0 flex-1 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-bold text-[#0F172A] truncate">{eq.designation}</span>
@@ -534,6 +565,346 @@ export const EquipmentView: React.FC<EquipmentViewProps> = ({ equipments, sites,
           </div>
         )}
       </div>
+
+      {dialog === 'add' && (
+        <AddEquipmentModal
+          sites={sites}
+          defaultSiteId={siteFilter !== 'all' ? siteFilter : sites[0]?.id || ''}
+          defaultResponsible={currentUser.fullName}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onSubmit={(input) =>
+            run(async () => {
+              const item = await addEquipmentRecord(input);
+              setCategoryFilter('all');
+              setSelectedCode(item.inventoryCode);
+            }, 'Équipement ajouté à l’inventaire.')
+          }
+        />
+      )}
+
+      {dialog === 'journal' && <JournalModal equipments={siteEquipments} siteName={siteName} onClose={() => setDialog(null)} onOpen={(code) => { setSelectedCode(code); setDialog(null); }} />}
+
+      {dialog === 'audit' && (
+        <AuditModal
+          equipments={siteEquipments}
+          siteLabel={siteFilter === 'all' ? 'tous les sites' : siteName(siteFilter)}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onSubmit={(rows) =>
+            run(async () => {
+              for (const r of rows) await recordEquipmentEvent(r.id, { kind: 'audit', quantityFound: r.quantityFound, note: r.note });
+            }, `Inventaire enregistré (${rows.length} matériel${rows.length > 1 ? 's' : ''}).`)
+          }
+        />
+      )}
+
+      {selectedItem && dialog && ['intervention', 'panne', 'remise_service'].includes(dialog) && (
+        <EventModal
+          kind={dialog as 'intervention' | 'panne' | 'remise_service'}
+          item={selectedItem}
+          sites={sites}
+          siteName={siteName}
+          busy={busy}
+          onClose={() => setDialog(null)}
+          onSubmit={(event, success) => run(() => recordEquipmentEvent(selectedItem.id, event), success)}
+        />
+      )}
     </div>
+  );
+};
+
+/** New equipment form. */
+const AddEquipmentModal: React.FC<{
+  sites: Site[];
+  defaultSiteId: string;
+  defaultResponsible: string;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (input: Partial<Equipment>) => void;
+}> = ({ sites, defaultSiteId, defaultResponsible, busy, onClose, onSubmit }) => {
+  const [f, setF] = useState({
+    designation: '',
+    category: 'barriers' as Equipment['category'],
+    modelSpecs: '',
+    siteId: defaultSiteId,
+    location: '',
+    quantity: '1',
+    status: 'operationnel' as Equipment['status'],
+    responsibleName: defaultResponsible,
+    commissioningDate: '',
+    estimatedValueAr: '',
+    photoUrl: undefined as string | undefined
+  });
+  const set = (k: keyof typeof f, v: unknown) => setF((x) => ({ ...x, [k]: v }));
+  return (
+    <Modal title="Nouvel équipement" icon="add_circle" onClose={onClose}>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit({ ...f, quantity: Number(f.quantity), estimatedValueAr: Number(f.estimatedValueAr) || 0 });
+        }}
+      >
+        <div>
+          <span className={label}>Photo (importer depuis l’ordinateur ou prendre une photo)</span>
+          <PhotoInput value={f.photoUrl} onChange={(v) => set('photoUrl', v)} fileNameHint={`equipement_${f.designation || 'nouveau'}`} facingMode="environment" emptyIcon="inventory_2" maxSize={900} />
+        </div>
+        <label className="block">
+          <span className={label}>Désignation *</span>
+          <input required maxLength={200} value={f.designation} onChange={(e) => set('designation', e.target.value)} placeholder="ex : Barrière levante entrée principale" className={field} />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className={label}>Catégorie *</span>
+            <select value={f.category} onChange={(e) => set('category', e.target.value)} className={field}>
+              {EQUIPMENT_CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className={label}>État</span>
+            <select value={f.status} onChange={(e) => set('status', e.target.value)} className={field}>
+              {Object.entries(EQUIPMENT_STATUS_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </label>
+        </div>
+        <label className="block">
+          <span className={label}>Marque / modèle / caractéristiques</span>
+          <input maxLength={500} value={f.modelSpecs} onChange={(e) => set('modelSpecs', e.target.value)} placeholder="ex : CAME G4000, 24 V" className={field} />
+        </label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="block">
+            <span className={label}>Site *</span>
+            <select value={f.siteId} onChange={(e) => set('siteId', e.target.value)} disabled={sites.length === 1} className={field} required>
+              {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </label>
+          <label className="block">
+            <span className={label}>Emplacement</span>
+            <input maxLength={150} value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="ex : Voie sortie n°2" className={field} />
+          </label>
+          <label className="block">
+            <span className={label}>Quantité *</span>
+            <input type="number" min={1} step={1} required value={f.quantity} onChange={(e) => set('quantity', e.target.value)} className={field} />
+          </label>
+          <label className="block">
+            <span className={label}>Valeur estimée (Ar)</span>
+            <input type="number" min={0} step={1000} value={f.estimatedValueAr} onChange={(e) => set('estimatedValueAr', e.target.value)} className={field} />
+          </label>
+          <label className="block">
+            <span className={label}>Responsable</span>
+            <input maxLength={150} value={f.responsibleName} onChange={(e) => set('responsibleName', e.target.value)} className={field} />
+          </label>
+          <label className="block">
+            <span className={label}>Mise en service</span>
+            <input type="date" value={f.commissioningDate} onChange={(e) => set('commissioningDate', e.target.value)} className={field} />
+          </label>
+        </div>
+        <p className="text-[10px] text-slate-400">Le code d’inventaire (ex : MAT-BAR-004) est attribué automatiquement.</p>
+        <Footer onClose={onClose} busy={busy} submitLabel="Ajouter" />
+      </form>
+    </Modal>
+  );
+};
+
+/** Intervention / breakdown / back in service of the selected equipment. */
+const EventModal: React.FC<{
+  kind: 'intervention' | 'panne' | 'remise_service';
+  item: Equipment;
+  sites: Site[];
+  siteName: (id: string) => string;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (event: Record<string, unknown>, success: string) => void;
+}> = ({ kind, item, sites, siteName, busy, onClose, onSubmit }) => {
+  const [plannedDate, setPlannedDate] = useState('');
+  const [title, setTitle] = useState('');
+  const [provider, setProvider] = useState('');
+  const [description, setDescription] = useState('');
+  const [critical, setCritical] = useState(false);
+
+  const head = (
+    <p className="text-[11px] text-slate-500">
+      <strong className="text-[#0F172A]">{item.designation}</strong> · {item.inventoryCode} · {siteName(item.siteId)}
+    </p>
+  );
+  const textarea = (placeholder: string, required = false) => (
+    <textarea required={required} rows={3} maxLength={500} value={description} onChange={(e) => setDescription(e.target.value)} placeholder={placeholder} className={field} />
+  );
+
+  if (kind === 'intervention') {
+    return (
+      <Modal title="Planifier une intervention" icon="calendar_month" onClose={onClose}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onSubmit({ kind, plannedDate, title, provider, description }, 'Intervention planifiée.'); }}>
+          {head}
+          <div className="grid grid-cols-2 gap-3">
+            <label className="block"><span className={label}>Date prévue *</span><input type="date" required value={plannedDate} onChange={(e) => setPlannedDate(e.target.value)} className={field} /></label>
+            <label className="block"><span className={label}>Prestataire</span><input maxLength={150} value={provider} onChange={(e) => setProvider(e.target.value)} className={field} /></label>
+          </div>
+          <label className="block"><span className={label}>Objet *</span><input required maxLength={150} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ex : Révision moteur, remplacement de la lisse" className={field} /></label>
+          <label className="block"><span className={label}>Détails</span>{textarea('Pièces, accès, consignes…')}</label>
+          <p className="text-[10px] text-slate-400">L’intervention est ajoutée à l’historique. L’état du matériel ne change pas.</p>
+          <Footer onClose={onClose} busy={busy} submitLabel="Planifier" />
+        </form>
+      </Modal>
+    );
+  }
+  if (kind === 'panne') {
+    return (
+      <Modal title="Déclarer une panne" icon="report_problem" onClose={onClose}>
+        <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onSubmit({ kind, description, critical }, 'Panne déclarée : un incident a été ouvert.'); }}>
+          {head}
+          <label className="block"><span className={label}>Description de la panne *</span>{textarea('Que se passe-t-il ?', true)}</label>
+          <label className="flex items-center gap-2 text-xs text-[#0F172A]">
+            <input type="checkbox" checked={critical} onChange={(e) => setCritical(e.target.checked)} />
+            Panne critique (le matériel est hors service)
+          </label>
+          <p className="text-[10px] text-slate-400">
+            Le matériel passe en « {critical ? 'Critique' : 'Maintenance'} » et un incident est ouvert dans « Incidents & sécurité ».
+          </p>
+          <Footer onClose={onClose} busy={busy} submitLabel="Déclarer" danger />
+        </form>
+      </Modal>
+    );
+  }
+  return (
+    <Modal title="Remettre en service" icon="check_circle" onClose={onClose}>
+      <form className="space-y-3" onSubmit={(e) => { e.preventDefault(); onSubmit({ kind, description }, 'Matériel remis en service.'); }}>
+        {head}
+        <label className="block"><span className={label}>Commentaire</span>{textarea('Réparation effectuée, pièce changée…')}</label>
+        <p className="text-[10px] text-slate-400">Le matériel repasse en « Opérationnel ». Pensez à clore l’incident correspondant.</p>
+        <Footer onClose={onClose} busy={busy} submitLabel="Remettre en service" />
+      </form>
+    </Modal>
+  );
+};
+
+/** Physical inventory: count each equipment, the differences are recorded. */
+const AuditModal: React.FC<{
+  equipments: Equipment[];
+  siteLabel: string;
+  busy: boolean;
+  onClose: () => void;
+  onSubmit: (rows: { id: string; quantityFound: number; note: string }[]) => void;
+}> = ({ equipments, siteLabel, busy, onClose, onSubmit }) => {
+  const [rows, setRows] = useState(() =>
+    equipments.map((eq) => ({ id: eq.id, checked: true, quantityFound: String(eq.quantity), note: '' }))
+  );
+  const update = (id: string, patch: Partial<(typeof rows)[number]>) => setRows((list) => list.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+  const chosen = rows.filter((r) => r.checked);
+  const gaps = chosen.filter((r) => Number(r.quantityFound) !== equipments.find((e) => e.id === r.id)?.quantity).length;
+  return (
+    <Modal title={`Inventaire — ${siteLabel}`} icon="fact_check" onClose={onClose} wide>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(chosen.map((r) => ({ id: r.id, quantityFound: Math.max(0, Math.floor(Number(r.quantityFound) || 0)), note: r.note })));
+        }}
+      >
+        <p className="text-[11px] text-slate-500">
+          Comptez chaque matériel et indiquez la quantité réellement présente. La date d’inventaire est mise à jour, et chaque écart est noté dans l’historique.
+        </p>
+        <div className="overflow-x-auto border border-[#E2E8F0] rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="bg-[#F8FAFC] text-slate-500 text-[10px] uppercase">
+              <tr>
+                <th className="p-2 text-left">Compté</th>
+                <th className="p-2 text-left">Matériel</th>
+                <th className="p-2 text-right">Prévu</th>
+                <th className="p-2 text-right">Constaté</th>
+                <th className="p-2 text-left">Remarque</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {equipments.map((eq) => {
+                const r = rows.find((x) => x.id === eq.id)!;
+                const gap = r.checked && Number(r.quantityFound) !== eq.quantity;
+                return (
+                  <tr key={eq.id} className={gap ? 'bg-amber-50' : ''}>
+                    <td className="p-2"><input type="checkbox" checked={r.checked} onChange={(e) => update(eq.id, { checked: e.target.checked })} /></td>
+                    <td className="p-2">
+                      <span className="font-semibold text-[#0F172A] block">{eq.designation}</span>
+                      <span className="font-mono-data text-[10px] text-slate-400">{eq.inventoryCode} · {eq.location}</span>
+                    </td>
+                    <td className="p-2 text-right font-mono-data">{eq.quantity}</td>
+                    <td className="p-2 text-right">
+                      <input type="number" min={0} step={1} disabled={!r.checked} value={r.quantityFound} onChange={(e) => update(eq.id, { quantityFound: e.target.value })} className="w-16 p-1 border border-[#E2E8F0] rounded text-right" />
+                    </td>
+                    <td className="p-2">
+                      <input disabled={!r.checked} maxLength={300} value={r.note} onChange={(e) => update(eq.id, { note: e.target.value })} className="w-full p-1 border border-[#E2E8F0] rounded" />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-slate-600">
+          {chosen.length} matériel{chosen.length > 1 ? 's' : ''} compté{chosen.length > 1 ? 's' : ''}
+          {gaps ? ` · ${gaps} écart${gaps > 1 ? 's' : ''}` : ' · aucun écart'}
+        </p>
+        <Footer onClose={onClose} busy={busy} submitLabel="Enregistrer l’inventaire" disabled={chosen.length === 0} />
+      </form>
+    </Modal>
+  );
+};
+
+/** Every history entry of the equipments shown, newest first. */
+const JournalModal: React.FC<{
+  equipments: Equipment[];
+  siteName: (id: string) => string;
+  onClose: () => void;
+  onOpen: (inventoryCode: string) => void;
+}> = ({ equipments, siteName, onClose, onOpen }) => {
+  const [kind, setKind] = useState('all');
+  const entries = useMemo(
+    () =>
+      equipments
+        .flatMap((eq) => (eq.maintenanceHistory || []).map((m) => ({ ...m, eq })))
+        .sort((a, b) => historySortKey(b.date) - historySortKey(a.date)),
+    [equipments]
+  );
+  const shown = entries.filter((e) => kind === 'all' || (e.kind || 'intervention') === kind);
+  return (
+    <Modal title="Journal des mouvements" icon="history" onClose={onClose} wide>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-[11px] text-slate-500">{entries.length} événement{entries.length > 1 ? 's' : ''} sur {equipments.length} matériel{equipments.length > 1 ? 's' : ''}.</p>
+        <select value={kind} onChange={(e) => setKind(e.target.value)} className="p-2 bg-[#F8FAFC] rounded-lg border border-[#E2E8F0] text-xs">
+          <option value="all">Tous les événements</option>
+          {Object.entries(HISTORY_KIND_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+      {shown.length === 0 ? (
+        <p className="py-8 text-center text-slate-400">Aucun événement.</p>
+      ) : (
+        <div className="overflow-x-auto border border-[#E2E8F0] rounded-lg">
+          <table className="w-full text-xs">
+            <thead className="bg-[#F8FAFC] text-slate-500 text-[10px] uppercase">
+              <tr>
+                <th className="p-2 text-left">Date</th>
+                <th className="p-2 text-left">Matériel</th>
+                <th className="p-2 text-left">Événement</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {shown.map((e, i) => (
+                <tr key={`${e.eq.id}-${i}`} className="hover:bg-slate-50 cursor-pointer" onClick={() => onOpen(e.eq.inventoryCode)}>
+                  <td className="p-2 font-mono-data whitespace-nowrap text-slate-600">{e.date}</td>
+                  <td className="p-2">
+                    <span className="font-semibold text-[#0F172A] block">{e.eq.designation}</span>
+                    <span className="font-mono-data text-[10px] text-slate-400">{e.eq.inventoryCode} · {siteName(e.eq.siteId)}</span>
+                  </td>
+                  <td className="p-2">
+                    <span className={`font-semibold block ${e.isCritical ? 'text-[#DC2626]' : 'text-[#0F172A]'}`}>{e.title}</span>
+                    {e.description && <span className="text-[11px] text-slate-500">{e.description}</span>}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Modal>
   );
 };

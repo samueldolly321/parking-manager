@@ -371,7 +371,8 @@ export async function getFullState(): Promise<AppState> {
       estimatedValueAr: e.estimatedValueAr,
       totalCycles: e.totalCycles ?? undefined,
       lastAuditDate: e.lastAuditDate,
-      maintenanceHistory: e.maintenanceHistory ?? []
+      photoUrl: e.photoUrl ?? undefined,
+      maintenanceHistory: (e.maintenanceHistory ?? []) as Equipment['maintenanceHistory']
     })),
     cashRegisters: cashRegisterRows.map((reg): CashRegister => ({
       id: reg.id,
@@ -538,6 +539,18 @@ export async function createVehicleRecord(vehicle: Vehicle): Promise<Vehicle> {
   }
   await db.insert(schema.vehicles).values(vehicle);
   return vehicle;
+}
+
+export async function createEquipmentRecord(item: Equipment): Promise<Equipment> {
+  const db = getDb();
+  if (!db) {
+    const store = loadLocalStore();
+    store.equipments.unshift(item);
+    saveLocalStore(store);
+    return item;
+  }
+  await db.insert(schema.inventoryItems).values(item as any);
+  return item;
 }
 
 export async function createSpotRecords(spots: ParkingSpot[]): Promise<ParkingSpot[]> {
@@ -1239,6 +1252,7 @@ export async function ensureSchemaUpgrades(): Promise<void> {
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS quantity DOUBLE PRECISION');
   await pool.query('ALTER TABLE expenses ADD COLUMN IF NOT EXISTS unit VARCHAR(30)');
   await pool.query('ALTER TABLE members ADD COLUMN IF NOT EXISTS approved_by_president VARCHAR(150)');
+  await pool.query('ALTER TABLE inventory_items ADD COLUMN IF NOT EXISTS photo_url TEXT');
   await pool.query('CREATE TABLE IF NOT EXISTS app_settings (key VARCHAR(100) PRIMARY KEY, value TEXT NOT NULL, updated_at TIMESTAMP NOT NULL DEFAULT now())');
 }
 

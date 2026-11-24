@@ -466,6 +466,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
                         <div className="flex items-center gap-3">
                           <img
                             src={slip.avatarUrl || initialsAvatar(slip.beneficiaryName)}
+                            data-zoom={slip.avatarUrl ? 'true' : undefined}
                             alt={slip.beneficiaryName}
                             className="w-9 h-9 rounded-xl object-cover border border-slate-200 shadow-xs"
                           />
@@ -631,6 +632,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
               <div className="flex items-center gap-4">
                 <img
                   src={selectedSlip.avatarUrl || initialsAvatar(selectedSlip.beneficiaryName)}
+                  data-zoom={selectedSlip.avatarUrl ? 'true' : undefined}
                   alt={selectedSlip.beneficiaryName}
                   className="w-16 h-16 rounded-xl object-cover border border-slate-300"
                 />

@@ -140,6 +140,7 @@ CREATE TABLE "inventory_items" (
 	"estimated_value_ar" bigint DEFAULT 0 NOT NULL,
 	"total_cycles" varchar(100),
 	"last_audit_date" varchar(30) NOT NULL,
+	"photo_url" text,
 	"maintenance_history" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	CONSTRAINT "inventory_items_inventory_code_unique" UNIQUE("inventory_code")
 );

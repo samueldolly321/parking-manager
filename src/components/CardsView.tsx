@@ -154,6 +154,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
           <div className="relative w-16 h-20 rounded-lg overflow-hidden border-2 border-black shadow-md bg-slate-100 shrink-0">
             <img
               src={currentMember?.avatarUrl || initialsAvatar(currentMember?.fullName)}
+              data-zoom={currentMember?.avatarUrl ? 'true' : undefined}
               alt={currentCard.memberName}
               className="w-full h-full object-cover"
             />

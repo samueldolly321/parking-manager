@@ -196,7 +196,7 @@ export const PhotoInput: React.FC<PhotoInputProps> = ({
 };
 
 /** Small round avatar used in lists. */
-export const Avatar: React.FC<{ src?: string; name: string; size?: number }> = ({ src, name, size = 36 }) => {
+export const Avatar: React.FC<{ src?: string; name: string; size?: number; zoomable?: boolean }> = ({ src, name, size = 36, zoomable }) => {
   const initials = name
     .split(/\s+/)
     .filter(Boolean)
@@ -204,7 +204,7 @@ export const Avatar: React.FC<{ src?: string; name: string; size?: number }> = (
     .map((p) => p[0]?.toUpperCase())
     .join('');
   return src ? (
-    <img src={src} alt={name} style={{ width: size, height: size }} className="rounded-full object-cover border border-[#E2E8F0]" />
+    <img src={src} alt={name} data-zoom={zoomable ? 'true' : undefined} style={{ width: size, height: size }} className="rounded-full object-cover border border-[#E2E8F0]" />
   ) : (
     <div
       style={{ width: size, height: size }}

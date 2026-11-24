@@ -434,6 +434,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                           <div className="relative group">
                             <img
                               src={leader.avatarUrl || initialsAvatar(leader.fullName)}
+                              data-zoom={leader.avatarUrl ? 'true' : undefined}
                               alt={leader.fullName}
                               className="w-16 h-16 rounded-2xl object-cover border-2 border-amber-400 shadow-md"
                             />
@@ -533,6 +534,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                             <div className="relative">
                               <img
                                 src={sub.avatarUrl || initialsAvatar(sub.fullName)}
+                                data-zoom={sub.avatarUrl ? 'true' : undefined}
                                 alt={sub.fullName}
                                 className="w-12 h-12 rounded-xl object-cover border border-slate-200 shadow-sm"
                               />
@@ -632,6 +634,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                   <div className="flex items-center gap-3">
                     <img
                       src={g.avatarUrl || initialsAvatar(g.fullName)}
+                      data-zoom={g.avatarUrl ? 'true' : undefined}
                       alt={g.fullName}
                       className="w-10 h-10 rounded-xl object-cover border border-slate-200"
                     />
@@ -662,6 +665,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                 <div className="relative group">
                   <img
                     src={selectedAgent.avatarUrl || initialsAvatar(selectedAgent.fullName)}
+                    data-zoom={selectedAgent.avatarUrl ? 'true' : undefined}
                     alt={selectedAgent.fullName}
                     className="w-20 h-20 rounded-2xl object-cover border-2 border-cyan-500 shadow-md"
                   />
@@ -847,6 +851,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                         <div className="flex items-center gap-2.5">
                           <img
                             src={g.avatarUrl || initialsAvatar(g.fullName)}
+                            data-zoom={g.avatarUrl ? 'true' : undefined}
                             alt=""
                             className="w-8 h-8 rounded-lg object-cover shrink-0"
                           />

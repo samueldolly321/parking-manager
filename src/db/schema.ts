@@ -287,8 +287,9 @@ export const inventoryItems = pgTable('inventory_items', {
   estimatedValueAr: bigint('estimated_value_ar', { mode: 'number' }).default(0).notNull(),
   totalCycles: varchar('total_cycles', { length: 100 }),
   lastAuditDate: varchar('last_audit_date', { length: 30 }).notNull(),
+  photoUrl: text('photo_url'),
   maintenanceHistory: jsonb('maintenance_history').$type<{
-    date: string; title: string; description: string; isCritical?: boolean;
+    date: string; title: string; description: string; isCritical?: boolean; kind?: string;
   }[]>().default([]).notNull()
 });
 

@@ -4,6 +4,7 @@ import { deleteEntity, loadState, updateEntity, EntityCollection } from '../serv
 import { PhotoInput } from './PhotoInput';
 import { VEHICLE_CATEGORIES } from '../types';
 import { SPOT_TYPE_LABELS } from '../services/spots';
+import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS } from '../services/equipment';
 
 type Option = { value: string; label: string };
 const opts = (...values: string[]): Option[] =>
@@ -30,8 +31,8 @@ const FIELD_OPTIONS: Record<string, Option[]> = {
   'cards.status': opts('actif', 'a_renouveler', 'bloquee_perdue', 'revoquee'),
   shiftName: opts('Matin', 'Après-midi', 'Nuit', 'Repos'),
   'guards.status': opts('en_poste', 'de_repos', 'en_conge', 'absent'),
-  'equipments.category': opts('barriers', 'telecom', 'security', 'furniture', 'assigned', 'monetique'),
-  'equipments.status': opts('operationnel', 'maintenance', 'critique', 'controle_requis'),
+  'equipments.category': EQUIPMENT_CATEGORIES.map((c) => ({ value: c.id, label: c.label })),
+  'equipments.status': Object.entries(EQUIPMENT_STATUS_LABELS).map(([value, label]) => ({ value, label })),
   'cash-registers.status': opts('ouverte', 'cloturee'),
   'expenses.category': opts('Carburant Groupe', 'Entretien & Nettoyage', 'Fournitures Caisse', 'Pièces Barrières', 'Prime Gardiennage', 'Autre'),
   'expenses.status': opts('en_attente', 'approuve', 'rejete'),
@@ -52,6 +53,8 @@ const FIELD_LABELS: Record<string, string> = {
   status: 'Statut', primarySiteId: 'Site principal', siteId: 'Site', memberNumber: 'N° membre',
   joinedDate: "Date d'adhésion", approvedByPresident: "Adhésion acceptée par (Président)", currentBalanceAr: 'Solde (Ar)', notes: 'Notes', avatarUrl: 'Photo',
   mobileMoneyProvider: 'Mobile Money', emergencyContactName: "Contact d'urgence", emergencyContactPhone: "Tél. contact d'urgence",
+  designation: 'Désignation', modelSpecs: 'Marque / modèle', quantity: 'Quantité', responsibleName: 'Responsable',
+  commissioningDate: 'Mise en service', estimatedValueAr: 'Valeur estimée (Ar)', totalCycles: 'Cycles totaux', photoUrl: 'Photo',
   plateNumber: 'Immatriculation', licensePlate: 'Immatriculation', assignedSpotType: 'Type de place attribué', brand: 'Marque', model: 'Modèle', color: 'Couleur', type: 'Type',
   title: 'Titre', description: 'Description', date: 'Date', amountAr: 'Montant (Ar)', role: 'Fonction',
   email: 'E-mail', location: 'Lieu', agenda: 'Ordre du jour', summaryPV: 'Résumé du PV', severity: 'Gravité',
@@ -70,16 +73,27 @@ const humanize = (key: string) =>
 
 const isSiteField = (key: string) => key === 'siteId' || key === 'primarySiteId';
 
+/** Photo field of each kind of record: always offered, even when the record has no photo yet. */
+const PHOTO_FIELD_OF: Partial<Record<EntityCollection, string>> = {
+  vehicles: 'photoUrl',
+  equipments: 'photoUrl',
+  members: 'avatarUrl',
+  guards: 'avatarUrl',
+  committee: 'avatarUrl'
+};
+
 /** Which fields of a record should appear in the edit form. */
-function editableKeys(record: Record<string, unknown>, fields?: string[]): string[] {
-  if (fields) return fields;
-  return Object.keys(record).filter((k) => {
+function editableKeys(collection: EntityCollection, record: Record<string, unknown>, fields?: string[]): string[] {
+  const photo = PHOTO_FIELD_OF[collection];
+  const withPhoto = (keys: string[]) => (photo && !keys.includes(photo) ? [photo, ...keys] : keys);
+  if (fields) return withPhoto(fields);
+  return withPhoto(Object.keys(record).filter((k) => {
     if (HIDDEN_FIELDS.has(k)) return false;
     // Links to other records (memberId, teamId…) are kept read-only, except the site
     if (/Id$/.test(k) && !isSiteField(k)) return false;
     const v = record[k];
     return v === null || v === undefined || ['string', 'number', 'boolean'].includes(typeof v);
-  });
+  }));
 }
 
 interface EditModalProps {
@@ -91,7 +105,7 @@ interface EditModalProps {
 }
 
 export const EntityEditModal: React.FC<EditModalProps> = ({ collection, record, title, fields, onClose }) => {
-  const keys = useMemo(() => editableKeys(record, fields), [record, fields]);
+  const keys = useMemo(() => editableKeys(collection, record, fields), [collection, record, fields]);
   const sites = useMemo(() => loadState().sites, []);
   const [values, setValues] = useState<Record<string, unknown>>(() => ({ ...record }));
   const [saving, setSaving] = useState(false);
@@ -151,7 +165,10 @@ export const EntityEditModal: React.FC<EditModalProps> = ({ collection, record, 
                   <PhotoInput
                     value={(value as string) || undefined}
                     onChange={(v) => set(key, v)}
-                    fileNameHint={String(values.fullName || values.name || record.id)}
+                    fileNameHint={String(values.fullName || values.name || values.licensePlate || values.designation || record.id)}
+                    {...(collection === 'vehicles' || collection === 'equipments'
+                      ? { facingMode: 'environment' as const, emptyIcon: collection === 'vehicles' ? 'directions_car' : 'inventory_2', maxSize: 900 }
+                      : {})}
                   />
                 ) : isSiteField(key) ? (
                   <select className={inputCls} value={String(value ?? '')} onChange={(e) => set(key, e.target.value)}>

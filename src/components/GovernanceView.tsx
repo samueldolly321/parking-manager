@@ -205,6 +205,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
                     <div className="relative group/avatar">
                       <img
                         src={member.avatarUrl || initialsAvatar(member.fullName)}
+                        data-zoom={member.avatarUrl ? 'true' : undefined}
                         alt={member.fullName}
                         className="w-14 h-14 rounded-2xl object-cover border-2 border-slate-200 shadow-sm"
                       />

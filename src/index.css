@@ -47,6 +47,11 @@
   -webkit-font-smoothing: antialiased;
 }
 
+/* Photos that open in the full-screen viewer */
+img[data-zoom='true'] {
+  cursor: zoom-in;
+}
+
 /* Print styles for PVC card and receipts */
 @media print {
   body {

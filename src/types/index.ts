@@ -289,12 +289,18 @@ export interface Equipment {
   estimatedValueAr: number;
   totalCycles?: string;
   lastAuditDate: string;
-  maintenanceHistory: {
-    date: string;
-    title: string;
-    description: string;
-    isCritical?: boolean;
-  }[];
+  /** Photo of the equipment (data URL) */
+  photoUrl?: string;
+  /** Movement log: interventions, breakdowns, transfers, inventories… (newest first) */
+  maintenanceHistory: EquipmentHistoryEntry[];
+}
+
+export interface EquipmentHistoryEntry {
+  date: string;
+  title: string;
+  description: string;
+  isCritical?: boolean;
+  kind?: 'creation' | 'intervention' | 'panne' | 'remise_service' | 'transfert' | 'audit';
 }
 
 export interface CashRegister {

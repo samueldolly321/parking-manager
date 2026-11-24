@@ -17,6 +17,7 @@ import {
   createVehicleRecord,
   updateSpotRecord,
   createSpotRecords,
+  createEquipmentRecord,
   updateZoneSpots,
   deleteZoneSpots,
   createReceiptRecord,
@@ -44,7 +45,7 @@ import {
   getAppSettings,
   setAppSettings
 } from './src/db/repository.ts';
-import type { GuardPersonnel, ParkingSpot, Vehicle } from './src/types/index.ts';
+import type { Equipment, GuardPersonnel, ParkingSpot, Vehicle } from './src/types/index.ts';
 import { VEHICLE_CATEGORIES } from './src/types/index.ts';
 import { AsyncLocalStorage } from 'async_hooks';
 import { seedDatabaseIfEmpty } from './src/db/seed.ts';
@@ -74,7 +75,8 @@ import {
 } from './src/db/auth.ts';
 import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
-import { SPOT_TYPE_LABELS } from './src/services/spots.ts';
+import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
+import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS, applyEquipmentEvent, isoToFr, nextInventoryCode, type EquipmentEvent } from './src/services/equipment.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
 
 /** User of the request being handled (for the audit log). */
@@ -1021,6 +1023,130 @@ async function startServer() {
       res.json(state.equipments);
     } catch (error) {
       res.status(500).json({ error: 'Erreur lors du chargement des équipements' });
+    }
+  });
+
+  const imageOrUndefined = (v: unknown) => (typeof v === 'string' && v.startsWith('data:image/') ? v : undefined);
+
+  // New equipment in the inventory
+  app.post('/api/v1/equipments', async (req, res) => {
+    try {
+      const b = req.body || {};
+      const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const designation = text(b.designation, 200);
+      const category = EQUIPMENT_CATEGORIES.some((c) => c.id === b.category) ? (b.category as Equipment['category']) : null;
+      const siteId = text(b.siteId, 100);
+      const quantity = Math.floor(Number(b.quantity));
+      const value = Math.max(0, Math.round(Number(b.estimatedValueAr) || 0));
+      const state = await getFullState();
+      if (!designation) return res.status(400).json({ error: 'La désignation est obligatoire.' });
+      if (!category) return res.status(400).json({ error: 'Catégorie inconnue.' });
+      if (!state.sites.some((s) => s.id === siteId)) return res.status(400).json({ error: 'Site inconnu.' });
+      if (!Number.isInteger(quantity) || quantity < 1) return res.status(400).json({ error: 'La quantité doit être un nombre entier d’au moins 1.' });
+      const status = b.status in EQUIPMENT_STATUS_LABELS ? (b.status as Equipment['status']) : 'operationnel';
+      const now = formatEntryTime();
+      const by = res.locals.user?.fullName || '';
+      const item = await createEquipmentRecord({
+        id: `eq-${Date.now().toString(36)}`,
+        inventoryCode: nextInventoryCode(state.equipments, category),
+        designation,
+        category,
+        modelSpecs: text(b.modelSpecs, 500),
+        siteId,
+        location: text(b.location, 150) || '—',
+        status,
+        quantity,
+        responsibleName: text(b.responsibleName, 150) || by,
+        commissioningDate: isoToFr(text(b.commissioningDate, 30)) || now.slice(0, 10),
+        estimatedValueAr: value,
+        totalCycles: text(b.totalCycles, 100) || undefined,
+        lastAuditDate: now.slice(0, 10),
+        photoUrl: imageOrUndefined(b.photoUrl),
+        maintenanceHistory: [
+          { date: now, kind: 'creation', title: 'Entrée en inventaire', description: `${quantity} unité(s)${by ? ` — ${by}` : ''}` }
+        ]
+      });
+      const siteCode = state.sites.find((s) => s.id === siteId)?.code || siteId;
+      await recordAudit('AJOUT_EQUIPEMENT', 'Matériel', `${item.inventoryCode} — ${item.designation} (${quantity} unité(s))`, siteCode);
+      return res.status(201).json(item);
+    } catch (error) {
+      console.error('Create equipment error:', error);
+      return res.status(500).json({ error: 'Impossible d’ajouter l’équipement.' });
+    }
+  });
+
+  // Event on an equipment: planned intervention, breakdown, back in service, transfer, inventory count
+  app.post('/api/v1/equipments/:id/events', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const eq = state.equipments.find((x) => x.id === req.params.id);
+      if (!eq) return res.status(404).json({ error: 'Équipement introuvable.' });
+      const b = req.body || {};
+      const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const siteName = (id: string) => state.sites.find((s) => s.id === id)?.name || id;
+      let ev: EquipmentEvent;
+      switch (b.kind) {
+        case 'intervention': {
+          const plannedDate = isoToFr(text(b.plannedDate, 30));
+          const title = text(b.title, 150);
+          if (!plannedDate || !title) return res.status(400).json({ error: 'Date et objet de l’intervention sont obligatoires.' });
+          ev = { kind: 'intervention', plannedDate, title, description: text(b.description, 500), provider: text(b.provider, 150) };
+          break;
+        }
+        case 'panne': {
+          const description = text(b.description, 500);
+          if (!description) return res.status(400).json({ error: 'Décrivez la panne.' });
+          ev = { kind: 'panne', description, critical: b.critical === true };
+          break;
+        }
+        case 'remise_service':
+          ev = { kind: 'remise_service', description: text(b.description, 500) };
+          break;
+        case 'transfert': {
+          const siteId = text(b.siteId, 100);
+          if (!state.sites.some((s) => s.id === siteId)) return res.status(400).json({ error: 'Site de destination inconnu.' });
+          if (siteId === eq.siteId) return res.status(400).json({ error: 'Le matériel est déjà sur ce site.' });
+          ev = { kind: 'transfert', siteId, location: text(b.location, 150) || '—', siteName: siteName(siteId), fromSiteName: siteName(eq.siteId), reason: text(b.reason, 300) };
+          break;
+        }
+        case 'audit': {
+          const quantityFound = Math.floor(Number(b.quantityFound));
+          if (!Number.isInteger(quantityFound) || quantityFound < 0) return res.status(400).json({ error: 'Quantité constatée invalide.' });
+          ev = { kind: 'audit', quantityFound, note: text(b.note, 300) };
+          break;
+        }
+        default:
+          return res.status(400).json({ error: 'Type d’événement inconnu.' });
+      }
+      const by = res.locals.user?.fullName || '';
+      const { patch, entry } = applyEquipmentEvent(eq, ev, formatEntryTime(), by);
+      const maintenanceHistory = [entry, ...(eq.maintenanceHistory || [])].slice(0, 200);
+      await updateRecord('equipments', eq.id, { ...patch, maintenanceHistory });
+
+      // A declared breakdown is also an incident (it then appears in the alerts)
+      let incident = null;
+      if (ev.kind === 'panne') {
+        incident = await createIncidentRecord({
+          id: `inc-${Date.now()}`,
+          ticketCode: pickYearlyNumber(undefined, state.incidents.map((i) => i.ticketCode), 'INC'),
+          date: formatEntryTime(),
+          siteId: eq.siteId,
+          reporterName: by,
+          type: 'materiel',
+          severity: ev.critical ? 'critique' : 'eleve',
+          title: `Panne : ${eq.designation} (${eq.inventoryCode})`,
+          description: ev.description,
+          resolutionStatus: 'ouvert',
+          memberIds: [],
+          vehicleIds: []
+        });
+      }
+      const siteCode = state.sites.find((s) => s.id === (patch.siteId || eq.siteId))?.code || eq.siteId;
+      await recordAudit('MOUVEMENT_EQUIPEMENT', 'Matériel', `${eq.inventoryCode} — ${entry.title}`, siteCode);
+      return res.json({ equipment: { ...eq, ...patch, maintenanceHistory }, incident });
+    } catch (error) {
+      console.error('Equipment event error:', error);
+      return res.status(500).json({ error: 'Impossible d’enregistrer cet événement.' });
     }
   });
 

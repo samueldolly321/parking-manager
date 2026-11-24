@@ -235,7 +235,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ currentUser, sites, onSelf
               <li key={u.id} className={`p-4 flex flex-col lg:flex-row lg:items-center gap-3 ${u.isActive ? '' : 'bg-slate-50/70'}`}>
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {u.avatarUrl ? (
-                    <img src={u.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover shrink-0" />
+                    <img src={u.avatarUrl} alt={u.fullName} data-zoom="true" className="w-10 h-10 rounded-full object-cover shrink-0" />
                   ) : (
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${u.isActive ? 'bg-[#0F172A] text-white' : 'bg-slate-200 text-slate-500'}`}>{initials(u.fullName)}</div>
                   )}
