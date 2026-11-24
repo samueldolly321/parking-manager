@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { printPayrollBook, printPayslip } from '../services/documents';
 import { can } from '../services/access';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
@@ -76,6 +77,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
 
   // Modals
   const [selectedSlip, setSelectedSlip] = useState<PayrollRecord | null>(null);
+  const brand = useBranding();
   const [showNewSlipModal, setShowNewSlipModal] = useState<boolean>(false);
   const [showPaymentExecutionModal, setShowPaymentExecutionModal] = useState<PayrollRecord | null>(null);
   const [executionTxRef, setExecutionTxRef] = useState<string>('');
@@ -276,7 +278,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => window.print()}
+            onClick={() => printPayrollBook(filteredPayrolls, selectedPeriod === 'all' ? 'Tous les mois' : selectedPeriod, brand)}
             type="button"
             className="px-3.5 py-2.5 rounded-xl border border-slate-700 bg-slate-800 hover:bg-slate-700 text-white font-medium text-xs flex items-center gap-2 transition-colors"
           >
@@ -598,7 +600,7 @@ export const PayrollView: React.FC<PayrollViewProps> = ({ state }) => {
               </span>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => window.print()}
+                  onClick={() => printPayslip(selectedSlip, brand)}
                   className="px-4 py-2 rounded-xl bg-slate-900 text-white text-xs font-bold flex items-center gap-2 hover:bg-slate-800"
                 >
                   <span className="material-symbols-outlined text-[16px]">print</span>

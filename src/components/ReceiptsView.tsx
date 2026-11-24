@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RECEIPT_CSV_HEADER, downloadCsv, receiptCsvRow } from '../services/documents';
 import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { PaymentReceipt, Site } from '../types';
@@ -61,12 +62,20 @@ export const ReceiptsView: React.FC<ReceiptsViewProps> = ({
 
         <div className="flex flex-wrap items-center gap-3">
           <button
-            onClick={() => window.print()}
+            onClick={() =>
+              downloadCsv(
+                `journal_encaissements_${new Date().toISOString().slice(0, 10)}.csv`,
+                RECEIPT_CSV_HEADER,
+                filtered.map(receiptCsvRow)
+              )
+            }
+            disabled={filtered.length === 0}
+            title="Fichier CSV (Excel) des reçus affichés"
             type="button"
-            className="bg-white text-[#0F172A] font-headline text-xs font-bold px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 flex items-center gap-1.5"
+            className="bg-white text-[#0F172A] font-headline text-xs font-bold px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 flex items-center gap-1.5 disabled:opacity-50"
           >
             <span className="material-symbols-outlined text-[16px]">download</span>
-            <span>Exporter Journal Fiscal</span>
+            <span>Exporter le journal (CSV)</span>
           </button>
           {can('finance') && (
             <button

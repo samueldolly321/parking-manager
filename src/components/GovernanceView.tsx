@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import { useBranding } from '../services/branding';
+import { printMeetingPv } from '../services/documents';
 import { can } from '../services/access';
 import { formatEntryTime } from '../services/spots';
 import { addMonthsFr } from '../services/cards';
@@ -32,6 +34,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
   const [showMemberModal, setShowMemberModal] = useState(false);
   const [showMeetingModal, setShowMeetingModal] = useState(false);
   const [selectedMeeting, setSelectedMeeting] = useState<GovernanceMeeting | null>(state.meetings[0] || null);
+  const brand = useBranding();
 
   // Photo modal
   const [photoModalTarget, setPhotoModalTarget] = useState<{ id: string; name: string; currentPhoto: string } | null>(null);
@@ -347,7 +350,7 @@ export const GovernanceView: React.FC<GovernanceViewProps> = ({ state }) => {
                     </p>
                   </div>
                   <button 
-                    onClick={() => window.print()}
+                    onClick={() => printMeetingPv(selectedMeeting, brand)}
                     className="px-3 py-1.5 rounded-lg border border-slate-200 text-slate-700 hover:bg-slate-50 text-xs font-semibold flex items-center gap-1.5"
                   >
                     <Download className="w-3.5 h-3.5" />

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { RECEIPT_CSV_HEADER, downloadCsv, receiptCsvRow } from '../services/documents';
 import { can } from '../services/access';
 import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
 import { todayInTana } from '../services/dashboardMetrics';
@@ -921,12 +922,21 @@ export const MembersView: React.FC<MembersViewProps> = ({
                   <p className="text-xs text-slate-500">Registre d'audit officiel avec références de transaction.</p>
                 </div>
                 <button
-                  onClick={() => window.print()}
+                  onClick={() =>
+                    currentMember &&
+                    downloadCsv(
+                      `releve_${currentMember.memberNumber}_${new Date().toISOString().slice(0, 10)}.csv`,
+                      RECEIPT_CSV_HEADER,
+                      memberReceipts.map(receiptCsvRow)
+                    )
+                  }
+                  disabled={memberReceipts.length === 0}
+                  title="Fichier CSV (Excel) des reçus du membre"
                   type="button"
-                  className="bg-[#F8FAFC] text-[#0F172A] font-medium text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] hover:bg-slate-100 flex items-center gap-1.5"
+                  className="bg-[#F8FAFC] text-[#0F172A] font-medium text-xs px-3 py-1.5 rounded-lg border border-[#E2E8F0] hover:bg-slate-100 flex items-center gap-1.5 disabled:opacity-50"
                 >
                   <span className="material-symbols-outlined text-[16px]">download</span>
-                  <span>Exporter Relevé Fiscal</span>
+                  <span>Exporter le relevé (CSV)</span>
                 </button>
               </div>
 

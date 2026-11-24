@@ -1,4 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { formatEntryTime } from '../services/spots';
+import { checkCard } from '../services/cards';
+import { printCardSheet } from '../services/documents';
 import { QrCodeSvg } from './QrCodeSvg';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
@@ -397,12 +400,21 @@ export const CardsView: React.FC<CardsViewProps> = ({
             <span>Lecteur Scanner QR</span>
           </button>
           <button
-            onClick={() => window.print()}
+            onClick={() => {
+              const today = formatEntryTime().slice(0, 10);
+              const printable = filteredCards.filter((c) => checkCard(c, today).valid);
+              if (printable.length === 0) {
+                notify('Aucune carte valide à imprimer dans cette liste.', 'info');
+                return;
+              }
+              printCardSheet(printable, { appName });
+            }}
+            title="Planche A4 des cartes valides affichées (8 par page, avec QR code)"
             type="button"
             className="bg-white text-[#0F172A] font-medium text-xs px-3.5 py-2 rounded-lg border border-[#E2E8F0] shadow-sm hover:bg-slate-50 transition-colors flex items-center gap-1.5"
           >
             <span className="material-symbols-outlined text-[18px] text-slate-500">layers</span>
-            <span>Imprimer par Lot (Planche PVC)</span>
+            <span>Imprimer une planche (A4)</span>
           </button>
           {canWrite && <button
             onClick={() => setShowIssue(true)}
@@ -750,7 +762,7 @@ export const CardsView: React.FC<CardsViewProps> = ({
                               e.stopPropagation();
                               setSelectedCardId(card.id);
                               setCurrentSide('recto');
-                              window.print();
+                              printCardSheet([card], { appName });
                             }}
                             className="p-1 rounded text-slate-400 hover:text-[#0F172A] hover:bg-slate-100"
                             title="Imprimer"
