@@ -5,6 +5,7 @@ import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
 import { todayInTana } from '../services/dashboardMetrics';
 import { BILLING_START_KEY, MONTH_STATE_LABELS, MonthState, dateToMonthKey, subscriptionHealth, yearCalendar } from '../services/subscriptionCalendar';
 import { PaymentPrefill, formulaForTariff } from './NewPaymentModal';
+import { MAX_CARS_PER_MEMBER, carsOf } from '../services/vehicleLimit';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
@@ -567,7 +568,19 @@ export const MembersView: React.FC<MembersViewProps> = ({
             <div className="flex flex-col space-y-4">
               <div className="flex items-center justify-between pb-2">
                 <div>
-                  <h3 className="font-headline text-base font-bold text-[#0F172A]">Flotte Privée Rattachée</h3>
+                  <h3 className="font-headline text-base font-bold text-[#0F172A] flex items-center gap-2">
+                    Flotte Privée Rattachée
+                    {currentMember && (
+                      <span
+                        title="Deux-roues non comptés"
+                        className={`px-2 py-0.5 rounded-full text-[10px] font-mono-data font-bold ${
+                          carsOf(vehicles, currentMember.id).length >= MAX_CARS_PER_MEMBER ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {carsOf(vehicles, currentMember.id).length}/{MAX_CARS_PER_MEMBER} voitures
+                      </span>
+                    )}
+                  </h3>
                   <p className="text-xs text-slate-500">
                     Les véhicules ci-dessous sont autorisés au franchissement automatisé des barrières de péage.
                   </p>

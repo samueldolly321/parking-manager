@@ -3,6 +3,7 @@ import { can } from '../services/access';
 import { EntityActions } from './EntityActions';
 import { Vehicle, Member, Site, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
 import { PhotoInput } from './PhotoInput';
+import { MAX_CARS_PER_MEMBER, carsOf, vehicleLimitProblem } from '../services/vehicleLimit';
 
 interface VehiclesViewProps {
   vehicles: Vehicle[];
@@ -50,9 +51,12 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
     return matchesSite && matchesCat && matchesSearch;
   });
 
+  // At most 2 four-wheel vehicles per member (two-wheelers not counted)
+  const limitProblem = memberId ? vehicleLimitProblem(vehicles, memberId, { category }) : null;
+
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!plate.trim() || !brand.trim() || !model.trim()) return;
+    if (!plate.trim() || !brand.trim() || !model.trim() || limitProblem) return;
 
     onAddVehicle({
       licensePlate: plate.toUpperCase().trim(),
@@ -300,10 +304,11 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
                 >
                   {members.map(m => (
                     <option key={m.id} value={m.id}>
-                      {m.memberNumber} - {m.fullName}
+                      {m.memberNumber} - {m.fullName} ({carsOf(vehicles, m.id).length}/{MAX_CARS_PER_MEMBER} voitures)
                     </option>
                   ))}
                 </select>
+                {limitProblem && <p className="mt-1 text-[11px] text-rose-600">{limitProblem}</p>}
               </div>
 
               <div>
@@ -327,7 +332,8 @@ export const VehiclesView: React.FC<VehiclesViewProps> = ({
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold hover:bg-[#0891B2] hover:text-white transition-colors"
+                  disabled={!!limitProblem}
+                  className="px-5 py-2.5 rounded-lg bg-[#06B6D4] text-[#0F172A] font-headline font-bold hover:bg-[#0891B2] hover:text-white transition-colors disabled:opacity-50"
                 >
                   Enregistrer Véhicule
                 </button>

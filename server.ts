@@ -80,6 +80,7 @@ import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
 import { LOG_TYPES } from './src/services/guards.ts';
 import { buildCard, cardProblem } from './src/services/cards.ts';
 import { closeRegister, openRegister } from './src/services/cashRegister.ts';
+import { vehicleLimitProblem } from './src/services/vehicleLimit.ts';
 import { randomUUID } from 'crypto';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS, applyEquipmentEvent, isoToFr, nextInventoryCode, type EquipmentEvent } from './src/services/equipment.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
@@ -637,6 +638,9 @@ async function startServer() {
       if (!plate) return res.status(400).json({ error: 'L’immatriculation est obligatoire.' });
       if (!state.members.some((m) => m.id === req.body.memberId)) return res.status(400).json({ error: 'Propriétaire inconnu.' });
       if (plateTaken(state.vehicles, plate)) return res.status(400).json({ error: `L’immatriculation ${plate} est déjà enregistrée.` });
+      // At most 2 four-wheel vehicles per member (two-wheelers not counted)
+      const limit = vehicleLimitProblem(state.vehicles, req.body.memberId, { category: req.body.category || 'Voiture Légère (VL)' });
+      if (limit) return res.status(400).json({ error: limit });
       const newVeh = await createVehicleRecord({
         id: req.body.id || `veh-${Date.now()}`,
         licensePlate: String(req.body.licensePlate || '').toUpperCase().trim(),
@@ -1547,6 +1551,11 @@ async function startServer() {
         }
       }
       const oldVehicle = collection === 'vehicles' ? before.vehicles.find((v) => v.id === id) : undefined;
+      if (oldVehicle) {
+        const after = { ...oldVehicle, ...(req.body || {}) };
+        const limit = vehicleLimitProblem(before.vehicles, after.memberId, { id, category: after.category, status: after.status });
+        if (limit) return res.status(400).json({ error: limit });
+      }
       if (collection === 'vehicles' && req.body?.licensePlate !== undefined) {
         const plate = normPlate(req.body.licensePlate);
         if (!plate) return res.status(400).json({ error: 'L’immatriculation est obligatoire.' });
