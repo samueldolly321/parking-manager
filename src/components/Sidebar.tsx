@@ -1,6 +1,5 @@
 import React from 'react';
 import { useBranding, BrandLogo } from '../services/branding';
-import { APP_INFO } from '../content/legal';
 
 export type NavPath =
   | 'tableau-de-bord'
@@ -152,20 +151,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ currentPath, onNavigate, open 
         </nav>
       </div>
 
-      {/* Bottom Postgres & Node status */}
-      <div className="p-3 bg-[#0B1322] border-t border-white/10 space-y-1">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse"></span>
-            <span className="font-mono-data text-xs text-[#06B6D4] font-medium">PostgreSQL 16 OK</span>
-          </div>
-          <span className="font-mono-data text-[10px] text-slate-400">v{APP_INFO.version}</span>
-        </div>
-        <div className="font-mono-data text-[10px] text-slate-400 truncate flex items-center justify-between">
-          <span>Antananarivo Central DC</span>
-          <span className="text-emerald-400">GMT+3</span>
-        </div>
-      </div>
     </aside>
     </>
   );
