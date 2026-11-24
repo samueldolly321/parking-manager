@@ -29,6 +29,8 @@ interface MembersViewProps {
   committeeMembers?: CommitteeMember[];
   selectedSiteId: string;
   onAddMember: (memberData: Partial<Member>) => string;
+  /** Prints the member's card (or opens the issue window when there is no valid card) */
+  onPrintCard?: (memberId: string) => void;
   /** Opens the payment window (pre-filled when called from a subscription) */
   onOpenNewPayment: (prefill?: PaymentPrefill) => void;
   onSelectReceipt: (receipt: PaymentReceipt) => void;
@@ -57,6 +59,7 @@ export const MembersView: React.FC<MembersViewProps> = ({
   committeeMembers = [],
   selectedSiteId,
   onAddMember,
+  onPrintCard,
   onOpenNewPayment,
   onSelectReceipt,
   onToggleCardBlock,
@@ -271,7 +274,23 @@ export const MembersView: React.FC<MembersViewProps> = ({
                       </td>
                       <td className="px-3 py-2.5 font-mono-data text-slate-500 whitespace-nowrap">{m.joinedDate}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
-                        <EntityActions compact collection="members" record={m} label={m.fullName} fields={MEMBER_EDIT_FIELDS} />
+                        <div className="inline-flex items-center gap-1">
+                          {onPrintCard && m.status !== 'radie' && (
+                            <button
+                              type="button"
+                              title="Imprimer la carte de membre (PDF recto / verso)"
+                              aria-label={`Imprimer la carte de ${m.fullName}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onPrintCard(m.id);
+                              }}
+                              className="p-1 rounded-md hover:bg-slate-100 transition-colors"
+                            >
+                              <span className="material-symbols-outlined text-[18px] text-[#0F172A]">badge</span>
+                            </button>
+                          )}
+                          <EntityActions compact collection="members" record={m} label={m.fullName} fields={MEMBER_EDIT_FIELDS} />
+                        </div>
                       </td>
                     </tr>
                   );

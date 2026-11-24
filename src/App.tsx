@@ -30,6 +30,9 @@ import {
 import { nextYearlyNumber } from './services/numbering';
 import { userSite } from './services/permissions';
 import { Toaster } from './components/Toaster';
+import { notify } from './services/notify';
+import { formatEntryTime } from './services/spots';
+import { checkCard } from './services/cards';
 import { ImageLightbox } from './components/ImageLightbox';
 import { LoginView } from './components/LoginView';
 import { AccountModal } from './components/AccountModal';
@@ -64,14 +67,14 @@ export default function App() {
   const [currentPath, setCurrentPath] = useState<NavPath>('tableau-de-bord');
   const [searchTerm, setSearchTerm] = useState<string>('');
   // What the page opens on when reached from the header search; `nonce` remounts the page
-  const [focus, setFocus] = useState<{ selectId?: string; query?: string; nonce: number }>({ nonce: 0 });
+  const [focus, setFocus] = useState<{ selectId?: string; query?: string; action?: 'print' | 'issue'; memberId?: string; nonce: number }>({ nonce: 0 });
   // Sidebar as a drawer on small screens
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   /** Opens a page, optionally on a given record or with its search pre-filled. */
-  const goTo = (path: NavPath, target?: { selectId?: string; query?: string }) => {
+  const goTo = (path: NavPath, target?: { selectId?: string; query?: string; action?: 'print' | 'issue'; memberId?: string }) => {
     setCurrentPath(path);
-    setFocus((f) => ({ selectId: target?.selectId, query: target?.query, nonce: f.nonce + 1 }));
+    setFocus((f) => ({ selectId: target?.selectId, query: target?.query, action: target?.action, memberId: target?.memberId, nonce: f.nonce + 1 }));
     setSidebarOpen(false);
   };
   const viewKey = `${currentPath}-${focus.nonce}`;
@@ -244,6 +247,18 @@ export default function App() {
 
     setIsNewPaymentOpen(false);
     setSelectedReceipt(newReceipt);
+  };
+
+  /** Prints a member's card: its valid card (PDF), or a new card to issue when there is none. */
+  const handlePrintMemberCard = (memberId: string) => {
+    const today = formatEntryTime().slice(0, 10);
+    const valid = state.cards.filter((c) => c.memberId === memberId && checkCard(c, today).valid);
+    if (valid.length > 0) {
+      goTo('cartes-de-membres', { selectId: valid[0].id, action: 'print' });
+      return;
+    }
+    notify('Ce membre n’a pas de carte valide : émettez d’abord sa carte.', 'info');
+    goTo('cartes-de-membres', { action: 'issue', memberId });
   };
 
   const handleAddMember = (memberData: any) => {
@@ -532,6 +547,7 @@ export default function App() {
             committeeMembers={state.committeeMembers}
             selectedSiteId={state.selectedSiteId}
             onAddMember={handleAddMember}
+            onPrintCard={handlePrintMemberCard}
             onOpenNewPayment={handleOpenNewPayment}
             onSelectReceipt={handleSelectReceipt}
             onToggleCardBlock={handleToggleCardBlock}
@@ -547,6 +563,8 @@ export default function App() {
             members={state.members}
             vehicles={state.vehicles}
             sites={state.sites}
+            initialAction={focus.action}
+            initialMemberId={focus.memberId}
             onToggleCardBlock={handleToggleCardBlock}
             onOpenScanner={() => setIsScannerOpen(true)}
           />

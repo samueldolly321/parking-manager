@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { QrCodeSvg } from './QrCodeSvg';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
@@ -34,6 +34,10 @@ interface CardsViewProps {
   onOpenScanner: () => void;
   /** Record selected on arrival (from the header search) */
   initialSelectedId?: string;
+  /** On arrival: download the selected card's PDF, or open the issue window */
+  initialAction?: 'print' | 'issue';
+  /** Member pre-selected in the issue window */
+  initialMemberId?: string;
 }
 
 export const CardsView: React.FC<CardsViewProps> = ({
@@ -43,10 +47,12 @@ export const CardsView: React.FC<CardsViewProps> = ({
   sites,
   onToggleCardBlock,
   onOpenScanner,
-  initialSelectedId
+  initialSelectedId,
+  initialAction,
+  initialMemberId
 }) => {
   const { appName } = useBranding();
-  const [showIssue, setShowIssue] = useState(false);
+  const [showIssue, setShowIssue] = useState(initialAction === 'issue' && can('write'));
   const canWrite = can('write');
   const [selectedCardId, setSelectedCardId] = useState<string>(initialSelectedId || cards[0]?.id || '');
   const [currentSide, setCurrentSide] = useState<'recto' | 'verso'>('recto');
@@ -65,8 +71,23 @@ export const CardsView: React.FC<CardsViewProps> = ({
     return c.status === filterType;
   });
 
+  // Arrived from "Imprimer la carte" (member list): build the PDF once the card is displayed
+  const autoPrinted = useRef(false);
+  useEffect(() => {
+    if (initialAction !== 'print' || autoPrinted.current || !currentCard) return;
+    // Outside the effect: the PDF uses flushSync, which React forbids during an effect.
+    // If the card refreshes meanwhile, the timer is simply re-armed.
+    const t = window.setTimeout(() => {
+      autoPrinted.current = true;
+      void downloadBat();
+    }, 150);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAction, currentCard]);
+
   const issueModal = showIssue && (
     <IssueCardModal
+      initialMemberId={initialMemberId}
       members={members}
       vehicles={vehicles}
       cards={cards}
@@ -784,14 +805,15 @@ export const CardsView: React.FC<CardsViewProps> = ({
 
 /** Issuing a card: member, vehicle(s), validity; the member's current active card can be replaced. */
 const IssueCardModal: React.FC<{
+  initialMemberId?: string;
   members: Member[];
   vehicles: Vehicle[];
   cards: MembershipCard[];
   onClose: () => void;
   onIssued: (card: MembershipCard) => void;
-}> = ({ members, vehicles, cards, onClose, onIssued }) => {
+}> = ({ initialMemberId, members, vehicles, cards, onClose, onIssued }) => {
   const eligible = members.filter((m) => m.status !== 'radie' && vehicles.some((v) => v.memberId === m.id && v.status !== 'radie'));
-  const [memberId, setMemberId] = useState(eligible[0]?.id || '');
+  const [memberId, setMemberId] = useState(eligible.find((m) => m.id === initialMemberId)?.id || eligible[0]?.id || '');
   const own = vehicles.filter((v) => v.memberId === memberId && v.status !== 'radie');
   const [primaryPlate, setPrimaryPlate] = useState(own[0]?.licensePlate || '');
   const [secondaryPlate, setSecondaryPlate] = useState('');
