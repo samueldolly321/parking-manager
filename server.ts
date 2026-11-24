@@ -78,7 +78,7 @@ import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
 import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
 import { LOG_TYPES } from './src/services/guards.ts';
-import { buildCard, cardProblem } from './src/services/cards.ts';
+import { buildCard, cardProblem, checkCard, findCardByCode } from './src/services/cards.ts';
 import { closeRegister, openRegister } from './src/services/cashRegister.ts';
 import { vehicleLimitProblem } from './src/services/vehicleLimit.ts';
 import { randomUUID } from 'crypto';
@@ -920,27 +920,51 @@ async function startServer() {
     }
   });
 
+  // Gate check of a card: scanned QR token or typed card number (status + expiry date)
   app.post('/api/v1/cards/verify-qr', async (req, res) => {
     try {
-      const { qrToken } = req.body;
+      const code = String(req.body?.qrToken ?? req.body?.code ?? '');
       const state = await getFullState();
-      const card = state.cards.find((c) => c.qrToken === qrToken);
+      const card = findCardByCode(state.cards, code);
       if (!card) {
-        return res.status(404).json({ valid: false, message: 'Jeton QR inconnu ou non signé' });
+        return res.status(404).json({ valid: false, label: 'CARTE INCONNUE', message: 'Ce code ne correspond à aucune carte émise.' });
       }
       const member = state.members.find((m) => m.id === card.memberId);
+      const check = checkCard(card, formatEntryTime().slice(0, 10));
+      // A struck-off member no longer has access, whatever the card says
+      const valid = check.valid && member?.status !== 'radie' && member?.status !== 'suspendu';
       return res.json({
-        valid: card.status === 'actif',
+        valid,
+        label: valid ? check.label : check.valid ? 'MEMBRE NON AUTORISÉ' : check.label,
+        message: valid || !check.valid ? check.message : `Le membre est ${member?.status === 'radie' ? 'radié' : 'suspendu'}.`,
         status: card.status,
         card,
-        member,
-        message:
-          card.status === 'actif'
-            ? "Signature cryptographique vérifiée. Droits d'accès valides."
-            : 'CARTE BLOQUÉE / EN OPPOSITION'
+        member
       });
     } catch (error) {
-      return res.status(500).json({ error: 'Erreur vérification QR' });
+      return res.status(500).json({ error: 'Erreur de vérification de la carte' });
+    }
+  });
+
+  // Passage recorded at a checkpoint (only for a card accepted at the gate)
+  app.post('/api/v1/cards/:id/passage', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const card = state.cards.find((c) => c.id === req.params.id);
+      if (!card) return res.status(404).json({ error: 'Carte introuvable.' });
+      const member = state.members.find((m) => m.id === card.memberId);
+      const check = checkCard(card, formatEntryTime().slice(0, 10));
+      if (!check.valid || member?.status === 'radie' || member?.status === 'suspendu') {
+        return res.status(400).json({ error: 'Passage refusé : cette carte n’est pas autorisée.' });
+      }
+      const gate = (typeof req.body?.gate === 'string' ? req.body.gate.trim().slice(0, 100) : '') || 'Contrôle';
+      const patch = { lastPassageTimestamp: formatEntryTime(), lastPassageGate: gate };
+      await updateRecord('cards', card.id, patch);
+      await recordAudit('PASSAGE_CARTE', 'Cartes', `${card.cardNumber} — ${card.memberName} (${card.primaryPlate}) : ${gate}`, card.siteId);
+      return res.json({ card: { ...card, ...patch } });
+    } catch (error) {
+      console.error('Card passage error:', error);
+      return res.status(500).json({ error: 'Impossible d’enregistrer le passage.' });
     }
   });
 

@@ -11,6 +11,7 @@ import { MembershipCard, Member, Site, Vehicle } from '../types';
 import { issueMembershipCard } from '../services/storage';
 import { notify } from '../services/notify';
 import { can } from '../services/access';
+import { historySortKey } from '../services/equipment';
 
 /** CR80 card width, used to size the BAT pages. */
 const CARD_WIDTH_MM = 85.6;
@@ -752,7 +753,10 @@ export const CardsView: React.FC<CardsViewProps> = ({
               <h3 className="font-headline text-xs font-bold text-[#0F172A]">Derniers passages enregistrés</h3>
             </div>
             {(() => {
-              const passages = cards.filter((c) => c.lastPassageTimestamp).slice(0, 5);
+              const passages = cards
+                .filter((c) => c.lastPassageTimestamp)
+                .sort((a, b) => historySortKey(b.lastPassageTimestamp || '') - historySortKey(a.lastPassageTimestamp || ''))
+                .slice(0, 5);
               if (passages.length === 0) {
                 return <p className="text-xs text-slate-400 py-2">Aucun passage enregistré.</p>;
               }

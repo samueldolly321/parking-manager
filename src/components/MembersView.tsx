@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { can } from '../services/access';
-import { notifyNotAvailable } from '../services/notify';
 import { MONTH_SHORT, monthKey, monthLabel } from '../services/months';
 import { todayInTana } from '../services/dashboardMetrics';
 import { BILLING_START_KEY, MONTH_STATE_LABELS, MonthState, dateToMonthKey, subscriptionHealth, yearCalendar } from '../services/subscriptionCalendar';
 import { PaymentPrefill, formulaForTariff } from './NewPaymentModal';
 import { MAX_CARS_PER_MEMBER, carsOf } from '../services/vehicleLimit';
+import { historySortKey } from '../services/equipment';
 import { initialsAvatar } from '../services/avatar';
 import { useBranding, BrandLogo } from '../services/branding';
 import { Member, Vehicle, Subscription, PaymentReceipt, MembershipCard, Site, CommitteeMember, VehicleCategory, VEHICLE_CATEGORIES } from '../types';
@@ -666,16 +666,18 @@ export const MembersView: React.FC<MembersViewProps> = ({
                         <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">sensors</span>
                         Télécommande RFID : <strong className="text-[#0F172A]">{veh.rfidTag}</strong>
                       </span>
-                      <div className="flex items-center gap-1">
-                        <button
-                          onClick={() => notifyNotAvailable(`Historique des passages de ${veh.licensePlate}`)}
-                          type="button"
-                          className="p-1 rounded text-[#06B6D4] hover:bg-slate-200"
-                          title="Historique des passages"
-                        >
-                          <span className="material-symbols-outlined text-[18px]">history</span>
-                        </button>
-                      </div>
+                      {(() => {
+                        // Last passage recorded by the gate scanner on a card carrying this vehicle
+                        const card = cards
+                          .filter((c) => c.memberId === veh.memberId && (c.primaryPlate === veh.licensePlate || c.secondaryPlate === veh.licensePlate) && c.lastPassageTimestamp)
+                          .sort((a, b) => historySortKey(b.lastPassageTimestamp || '') - historySortKey(a.lastPassageTimestamp || ''))[0];
+                        return (
+                          <span className="text-[11px] text-slate-500 flex items-center gap-1" title="Dernier passage enregistré au contrôle des cartes">
+                            <span className="material-symbols-outlined text-[16px] text-[#06B6D4]">history</span>
+                            {card ? `${card.lastPassageTimestamp} · ${card.lastPassageGate || ''}` : 'Aucun passage'}
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 ))}

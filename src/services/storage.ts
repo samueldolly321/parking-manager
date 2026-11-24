@@ -2710,3 +2710,42 @@ export async function cashRegisterAction(
   saveState(state);
   return register;
 }
+
+export interface CardVerification {
+  valid: boolean;
+  label: string;
+  message: string;
+  card?: MembershipCard;
+  member?: Member;
+}
+
+/** Checks a scanned / typed card code on the server (status, expiry, member). */
+export async function verifyCardCode(code: string): Promise<CardVerification> {
+  let res: Response;
+  try {
+    res = await fetch('/api/v1/cards/verify-qr', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code })
+    });
+  } catch {
+    throw new Error('Serveur injoignable : la carte n’a pas pu être vérifiée.');
+  }
+  const body = await res.json().catch(() => ({}));
+  if (res.status === 404) return { valid: false, label: body.label || 'CARTE INCONNUE', message: body.message || 'Carte inconnue.' };
+  if (!res.ok) throw new Error(body?.error || `Vérification impossible (erreur ${res.status}).`);
+  return body as CardVerification;
+}
+
+/** Records a passage of an accepted card at a checkpoint. */
+export async function recordCardPassage(cardId: string, gate: string): Promise<MembershipCard> {
+  const { card } = (await postJson(
+    `/api/v1/cards/${encodeURIComponent(cardId)}/passage`,
+    { gate },
+    'Serveur injoignable : le passage n’a pas été enregistré.'
+  )) as { card: MembershipCard };
+  const state = loadState();
+  state.cards = state.cards.map((c) => (c.id === card.id ? card : c));
+  saveState(state);
+  return card;
+}

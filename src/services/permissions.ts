@@ -142,6 +142,7 @@ export type WriteRule =
 const RECORD_ROUTES: { re: RegExp; action: Action; stateKey: string }[] = [
   { re: /^\/spots\/([^/]+)$/, action: 'write', stateKey: 'spots' },
   { re: /^\/cards\/([^/]+)\/toggle-block$/, action: 'write', stateKey: 'cards' },
+  { re: /^\/cards\/([^/]+)\/passage$/, action: 'write', stateKey: 'cards' },
   { re: /^\/expenses\/([^/]+)\/(approve|reject)$/, action: 'expense_approve', stateKey: 'expenses' },
   { re: /^\/incidents\/([^/]+)$/, action: 'write', stateKey: 'incidents' },
   { re: /^\/payrolls\/([^/]+)\/status$/, action: 'payroll', stateKey: 'payrolls' },

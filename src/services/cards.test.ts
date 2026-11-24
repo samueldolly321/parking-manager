@@ -66,3 +66,17 @@ test('réouverture : totaux remis à zéro, fond de caisse', () => {
     { status: 'ouverte', opening: 125000, cash: 0, mm: 0, inHand: 125000, cashier: 'Fara' }
   );
 });
+
+test('contrôle d’une carte à la barrière', async () => {
+  const { checkCard, findCardByCode } = await import('./cards.ts');
+  const card = { id: 'c', cardNumber: 'CRD-2026-0001', qrToken: 'uuid:abc', status: 'actif', expirationDate: '24/11/2027' } as MembershipCard;
+  assert.equal(checkCard(card, '24/11/2026').valid, true);
+  assert.equal(checkCard(card, '25/11/2027').label, 'CARTE EXPIRÉE');
+  assert.equal(checkCard({ ...card, status: 'bloquee_perdue' }, '24/11/2026').valid, false);
+  assert.equal(checkCard({ ...card, status: 'revoquee' }, '24/11/2026').label, 'CARTE RÉVOQUÉE');
+  assert.equal(checkCard({ ...card, status: 'a_renouveler' }, '24/11/2026').valid, true);
+  assert.equal(findCardByCode([card], 'uuid:abc'), card);
+  assert.equal(findCardByCode([card], 'abc'), card);
+  assert.equal(findCardByCode([card], ' crd-2026-0001 '), card);
+  assert.equal(findCardByCode([card], 'inconnu'), undefined);
+});

@@ -61,3 +61,36 @@ export function buildCard(
     status: 'actif'
   };
 }
+
+/** "JJ/MM/AAAA" -> sortable "AAAAMMJJ" ('' when unreadable). */
+const sortableFr = (d: string) => {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(d || '');
+  return m ? `${m[3]}${m[2]}${m[1]}` : '';
+};
+
+export interface CardCheck {
+  valid: boolean;
+  /** Short label shown in big: AUTORISÉ, EXPIRÉE… */
+  label: string;
+  message: string;
+}
+
+/** Is this card accepted at a gate today? (status + expiry date) */
+export function checkCard(card: MembershipCard, today: string): CardCheck {
+  if (card.status === 'bloquee_perdue') return { valid: false, label: 'CARTE BLOQUÉE', message: 'Carte déclarée perdue ou bloquée.' };
+  if (card.status === 'revoquee') return { valid: false, label: 'CARTE RÉVOQUÉE', message: 'Carte remplacée par une nouvelle carte.' };
+  const exp = sortableFr(card.expirationDate);
+  if (exp && exp < sortableFr(today)) return { valid: false, label: 'CARTE EXPIRÉE', message: `Expirée depuis le ${card.expirationDate}.` };
+  if (card.status === 'a_renouveler') {
+    return { valid: true, label: 'AUTORISÉ', message: `Carte à renouveler (expire le ${card.expirationDate}).` };
+  }
+  return { valid: true, label: 'AUTORISÉ', message: `Valable jusqu’au ${card.expirationDate}.` };
+}
+
+/** Card matching a scanned or typed code: QR token (with or without "uuid:") or card number. */
+export function findCardByCode(cards: MembershipCard[], code: string): MembershipCard | undefined {
+  const c = code.trim();
+  if (!c) return undefined;
+  const upper = c.toUpperCase();
+  return cards.find((k) => k.qrToken === c || k.qrToken === `uuid:${c}` || k.cardNumber.toUpperCase() === upper);
+}
