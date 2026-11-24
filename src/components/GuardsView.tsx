@@ -2,8 +2,12 @@ import React, { useState } from 'react';
 import { initialsAvatar } from '../services/avatar';
 import { EntityActions } from './EntityActions';
 import { PhotoInput } from './PhotoInput';
-import { GuardPersonnel, Site, GuardDayCode, GUARD_DAY_CODES, WeekDayKey } from '../types';
-import { updateGuardOrders, updateProfileAvatar, addGuardRecord, updateGuardShiftDays, NewGuardInput } from '../services/storage';
+import { Equipment, GuardPersonnel, Site, GuardDayCode, GUARD_DAY_CODES, User, WeekDayKey } from '../types';
+import { updateGuardOrders, updateProfileAvatar, addGuardRecord, updateGuardShiftDays, addGuardLogEntry, NewGuardInput } from '../services/storage';
+import { GUARD_STATUS, LOG_TYPES, currentGuardDay, equipmentOf, logTypeLabel, onDutyNow } from '../services/guards';
+import { roleCan } from '../services/permissions';
+import { notify } from '../services/notify';
+import { escapeHtml, printHtmlDocument } from '../services/printHtml';
 import { todayInTana } from '../services/dashboardMetrics';
 
 const WEEK_KEYS: WeekDayKey[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
@@ -59,6 +63,9 @@ const emptyNewGuard = (siteId: string): NewGuardInput => ({
 
 interface GuardsViewProps {
   guards: GuardPersonnel[];
+  /** Inventory: the equipment entrusted to each guard comes from here */
+  equipments: Equipment[];
+  currentUser: User;
   sites: Site[];
   selectedSiteId: string;
   /** Text pre-filled in the search field (from the header search) */
@@ -67,7 +74,8 @@ interface GuardsViewProps {
   initialSelectedId?: string;
 }
 
-export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedSiteId, initialSearch, initialSelectedId }) => {
+export const GuardsView: React.FC<GuardsViewProps> = ({ guards, equipments, currentUser, sites, selectedSiteId, initialSearch, initialSelectedId }) => {
+  const canWrite = roleCan(currentUser.role, 'write');
   const [viewMode, setViewMode] = useState<'hierarchie' | 'annuaire' | 'planning'>('hierarchie');
   const [selectedMatricule, setSelectedMatricule] = useState<string>(initialSelectedId || guards[0]?.matricule || 'GRD-2024-001');
   const [filterSite, setFilterSite] = useState<string>(selectedSiteId || 'all');
@@ -82,16 +90,6 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
   const [photoModalTarget, setPhotoModalTarget] = useState<{ id: string; name: string; currentPhoto: string } | null>(null);
   const [customPhotoUrl, setCustomPhotoUrl] = useState('');
 
-  const sampleAvatars = [
-    'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=400&q=80',
-    'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=400&q=80'
-  ];
 
   const filteredGuards = guards.filter((g) => {
     const matchesSite = filterSite === 'all' || g.siteId === filterSite;
@@ -104,14 +102,23 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
     return matchesSite && matchesStatus && matchesQuery;
   });
 
-  const selectedAgent = guards.find((g) => g.matricule === selectedMatricule) || guards[0];
+  const selectedAgent = guards.find((g) => g.matricule === selectedMatricule) || filteredGuards[0] || guards[0];
 
-  // Regroupement par équipe/brigade
+  // Figures of the site chosen in the filter
+  const siteGuards = guards.filter((g) => filterSite === 'all' || g.siteId === filterSite);
+  const guardDay = currentGuardDay();
+  const onDuty = onDutyNow(siteGuards);
+  const filtering = searchQuery.trim() !== '' || filterStatus !== 'all';
+  const matching = new Set(filteredGuards.map((g) => g.id));
+
+  // Regroupement par équipe/brigade (a team is shown when one of its members matches the search / status)
   const teamsMap = new Map<string, { leader?: GuardPersonnel; subordinates: GuardPersonnel[]; siteId: string; teamName: string }>();
+  const teamsWithMatch = new Set(filteredGuards.map((g) => g.teamId || 'autre'));
 
-  guards.forEach((guard) => {
-    if (filterSite !== 'all' && guard.siteId !== filterSite) return;
+  siteGuards.forEach((guard) => {
     const tId = guard.teamId || 'autre';
+    if (!teamsWithMatch.has(tId)) return;
+    if (!guard.isTeamLeader && filtering && !matching.has(guard.id)) return;
     if (!teamsMap.has(tId)) {
       teamsMap.set(tId, { subordinates: [], siteId: guard.siteId, teamName: guard.teamName });
     }
@@ -139,6 +146,10 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
     setPhotoModalTarget(null);
   };
 
+  // ---------- Journal de faction ----------
+  const [logForm, setLogForm] = useState<{ type: string; title: string; notes: string }>({ type: 'ronde', title: '', notes: '' });
+  const [logSaving, setLogSaving] = useState(false);
+
   // ---------- Planning des gardes 24h (modifiable) ----------
   const week = currentWeek();
   const [planningDraft, setPlanningDraft] = useState<Record<string, GuardPersonnel['shiftDays']> | null>(null);
@@ -155,6 +166,42 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
     updateGuardShiftDays(changedGuards.map((g) => ({ id: g.id, shiftDays: planningDraft[g.id] })));
     setPlanningDraft(null);
   };
+  /** Printable duty roster of the week (agents shown by the filters). */
+  const printRoster = () => {
+    const siteLabel = filterSite === 'all' ? 'Tous les sites' : sites.find((x) => x.id === filterSite)?.name || filterSite;
+    const short = (code: string) => GUARD_DAY_CODES.find((c) => c.code === code)?.short || code || '—';
+    const COLORS: Record<string, string> = { GARDE: '#CFFAFE', CONGE: '#FEF3C7', ABSENT: '#FFE4E6', REPOS: '#F1F5F9' };
+    const head = week.days.map((d) => `<th>${d.short}<br><small>${d.label}</small></th>`).join('');
+    const rows = filteredGuards
+      .map((g) => {
+        const cells = WEEK_KEYS.map((k) => {
+          const code = g.shiftDays?.[k] || 'REPOS';
+          return `<td style="background:${COLORS[code] || '#fff'}">${escapeHtml(short(code))}</td>`;
+        }).join('');
+        const count = WEEK_KEYS.filter((k) => g.shiftDays?.[k] === 'GARDE').length;
+        return `<tr><td class="name"><b>${escapeHtml(g.fullName)}</b>${g.isTeamLeader ? ' (chef)' : ''}<br><small>${escapeHtml(g.matricule)} · ${escapeHtml(g.teamName)}</small></td>${cells}<td><b>${count}</b></td><td class="sign"></td></tr>`;
+      })
+      .join('');
+    const coverage = week.days
+      .map((d) => `<td>${filteredGuards.filter((g) => g.shiftDays?.[d.key] === 'GARDE').length}</td>`)
+      .join('');
+    printHtmlDocument(
+      `Tableau de garde S${week.number}`,
+      `<style>
+        h1{font-size:16px;margin:0 0 2px} p{margin:0 0 8px;color:#475569}
+        table{width:100%;border-collapse:collapse} th,td{border:1px solid #94A3B8;padding:4px 5px;text-align:center}
+        th{background:#0F172A;color:#fff;font-size:10px} td.name{text-align:left} td.sign{width:70px}
+        tfoot td{font-weight:bold;background:#F8FAFC} small{color:#64748B;font-weight:normal}
+      </style>
+      <h1>Tableau de garde — semaine S${week.number} (${week.days[0].label} → ${week.days[6].label})</h1>
+      <p>${escapeHtml(siteLabel)} · Garde de 24 h : de 06h00 le jour indiqué à 06h00 le lendemain · ${filteredGuards.length} agent(s)</p>
+      <table><thead><tr><th style="text-align:left">Agent / brigade</th>${head}<th>Gardes</th><th>Émargement</th></tr></thead>
+      <tbody>${rows || '<tr><td colspan="10">Aucun agent</td></tr>'}</tbody>
+      <tfoot><tr><td style="text-align:left">De garde</td>${coverage}<td></td><td></td></tr></tfoot></table>
+      <p style="margin-top:10px">Légende : ${GUARD_DAY_CODES.map((c) => `${escapeHtml(c.short)} = ${escapeHtml(c.label)}`).join(' · ')}</p>`
+    );
+  };
+
   const hasLegacyCodes = filteredGuards.some((g) => WEEK_KEYS.some((k) => !isDayCode(g.shiftDays[k] || 'REPOS')));
 
   // ---------- Nouveau personnel ----------
@@ -266,7 +313,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={printRoster}
             type="button"
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white text-[#0F172A] border border-[#E2E8F0] shadow-sm hover:bg-slate-50 text-xs font-semibold"
           >
@@ -289,55 +336,50 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
             <span className="font-headline text-3xl font-bold text-[#0F172A]">{teamsMap.size}</span>
             <span className="font-mono-data text-xs text-slate-500">équipes</span>
           </div>
-          <p className="text-xs text-slate-400">1 Chef + 2 à 3 gardiens par brigade</p>
+          <p className="text-xs text-slate-400">{filterSite === 'all' ? 'Tous les sites' : sites.find((x) => x.id === filterSite)?.name}</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E2E8F0] space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Chefs de Poste / Équipe</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-data font-bold bg-amber-100 text-amber-700">
-              <span className="material-symbols-outlined text-[12px]">star</span> Assermentés
-            </span>
           </div>
           <div className="flex items-baseline gap-1 pt-1">
             <span className="font-headline text-3xl font-bold text-[#0F172A]">
-              {guards.filter(g => g.isTeamLeader).length}
+              {siteGuards.filter((g) => g.isTeamLeader).length}
             </span>
             <span className="font-mono-data text-xs text-slate-500">commandants</span>
           </div>
-          <p className="text-xs text-slate-400">Responsables de faction et de relève</p>
+          <p className="text-xs text-slate-400">Responsables de brigade</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E2E8F0] space-y-1">
           <div className="flex items-center justify-between">
             <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">Gardiens Subordonnés</span>
-            <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono-data font-bold bg-emerald-100 text-[#16A34A]">
-              Aux ordres
-            </span>
           </div>
           <div className="flex items-baseline gap-1 pt-1">
             <span className="font-headline text-3xl font-bold text-[#0F172A]">
-              {guards.filter(g => !g.isTeamLeader).length}
+              {siteGuards.filter((g) => !g.isTeamLeader).length}
             </span>
             <span className="font-mono-data text-xs text-slate-500">agents de faction</span>
           </div>
-          <p className="text-xs text-slate-400">Affectés aux barrières, rondes et voies</p>
+          <p className="text-xs text-slate-400">
+            {siteGuards.filter((g) => g.status === 'en_conge').length} en congé · {siteGuards.filter((g) => g.status === 'absent').length} absent(s)
+          </p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm border border-[#E2E8F0] space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">En Poste Actuellement</span>
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono-data font-bold bg-emerald-100 text-[#16A34A]">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#16A34A] animate-ping"></span> LIVE
-            </span>
+            <span className="text-[11px] uppercase tracking-wider text-slate-500 font-semibold">De garde aujourd’hui</span>
           </div>
           <div className="flex items-baseline gap-1 pt-1">
             <span className="font-headline text-3xl font-bold text-[#16A34A]">
-              {guards.filter(g => g.status === 'en_poste').length}
+              {onDuty.length}
             </span>
-            <span className="font-mono-data text-xs text-slate-500">/ {guards.length}</span>
+            <span className="font-mono-data text-xs text-slate-500">/ {siteGuards.length}</span>
           </div>
-          <p className="text-xs text-slate-400">Badges RFID vérifiés</p>
+          <p className="text-xs text-slate-400 truncate" title={onDuty.map((g) => g.fullName).join(', ')}>
+            {onDuty.length ? `Garde du ${guardDay.date} (06h → 06h)` : `Personne au planning le ${guardDay.date}`}
+          </p>
         </div>
       </div>
 
@@ -375,6 +417,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
             <option value="en_poste">En poste</option>
             <option value="de_repos">De repos</option>
             <option value="en_conge">En congé</option>
+            <option value="absent">Absent</option>
           </select>
         </div>
       </div>
@@ -407,7 +450,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                       </div>
                       <p className="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
                         <span className="material-symbols-outlined text-[14px] text-cyan-400">domain</span>
-                        {site ? site.name : group.siteId} • 1 Chef de Groupe + {subordinates.length} Gardiens aux ordres
+                        {site ? site.name : group.siteId} • {leader ? '1 chef de brigade' : 'sans chef'} + {subordinates.length} gardien{subordinates.length > 1 ? 's' : ''}{filtering ? ' (filtrés)' : ''}
                       </p>
                     </div>
                   </div>
@@ -455,10 +498,8 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                                 CHEF DE POSTE / GROUPE
                               </span>
                               <span className="font-mono text-xs font-bold text-slate-500">{leader.matricule}</span>
-                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                leader.status === 'en_poste' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                              }`}>
-                                {leader.status === 'en_poste' ? 'En faction' : 'Repos'}
+                              <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${GUARD_STATUS[leader.status]?.cls || ''}`}>
+                                {GUARD_STATUS[leader.status]?.label || leader.status}
                               </span>
                             </div>
                             <h4 className="font-bold text-lg text-slate-900 mt-0.5">{leader.fullName}</h4>
@@ -556,10 +597,8 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                             </div>
                           </div>
 
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                            sub.status === 'en_poste' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-200 text-slate-700'
-                          }`}>
-                            {sub.status === 'en_poste' ? 'En poste' : 'Repos'}
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${GUARD_STATUS[sub.status]?.cls || ''}`}>
+                            {GUARD_STATUS[sub.status]?.label || sub.status}
                           </span>
                         </div>
 
@@ -579,17 +618,19 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                           </div>
                         </div>
 
-                        {/* Matériel doté */}
+                        {/* Matériel confié (inventaire) */}
                         <div>
-                          <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">
-                            Dotations de service signées :
-                          </span>
+                          <span className="text-[10px] uppercase font-bold text-slate-400 block mb-1">Matériel confié :</span>
                           <div className="flex flex-wrap gap-1">
-                            {sub.assignedEquipments.map((eq, i) => (
-                              <span key={i} className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium border border-slate-200">
-                                {eq.designation}
-                              </span>
-                            ))}
+                            {equipmentOf(equipments, sub).length === 0 ? (
+                              <span className="text-[10px] text-slate-400">Aucun</span>
+                            ) : (
+                              equipmentOf(equipments, sub).map((eq) => (
+                                <span key={eq.id} className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 text-[10px] font-medium border border-slate-200">
+                                  {eq.designation}{eq.quantity > 1 ? ` ×${eq.quantity}` : ''}
+                                </span>
+                              ))
+                            )}
                           </div>
                         </div>
 
@@ -648,10 +689,8 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                       <p className="text-[11px] text-slate-500">{g.title}</p>
                     </div>
                   </div>
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                    g.status === 'en_poste' ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {g.status === 'en_poste' ? 'En poste' : 'Repos'}
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${GUARD_STATUS[g.status]?.cls || ''}`}>
+                    {GUARD_STATUS[g.status]?.label || g.status}
                   </span>
                 </div>
               ))}
@@ -724,46 +763,80 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
 
             {/* Matériels assignés */}
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Équipements &amp; Dotations signées
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {selectedAgent.assignedEquipments.map((eq, i) => (
-                  <div key={i} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between text-xs">
-                    <div>
-                      <span className="font-mono font-bold text-cyan-700 text-[11px] block">{eq.inventoryCode}</span>
-                      <span className="font-medium text-slate-800">{eq.designation}</span>
+              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Matériel confié (inventaire)</h4>
+              {equipmentOf(equipments, selectedAgent).length === 0 ? (
+                <p className="text-xs text-slate-400 italic">
+                  Aucun matériel confié. Dans « Matériels &amp; équipements », choisissez la catégorie « Confiés aux gardiens » et indiquez
+                  « {selectedAgent.fullName} » comme responsable.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {equipmentOf(equipments, selectedAgent).map((eq) => (
+                    <div key={eq.id} className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-2 text-xs">
+                      <div className="min-w-0">
+                        <span className="font-mono font-bold text-cyan-700 text-[11px] block">{eq.inventoryCode}</span>
+                        <span className="font-medium text-slate-800">{eq.designation}{eq.quantity > 1 ? ` ×${eq.quantity}` : ''}</span>
+                      </div>
+                      <span className={`shrink-0 text-[10px] font-bold ${eq.status === 'operationnel' ? 'text-emerald-700' : 'text-rose-600'}`}>
+                        {eq.status === 'operationnel' ? 'Opérationnel' : 'À réparer'}
+                      </span>
                     </div>
-                    <span className="material-symbols-outlined text-emerald-600 text-[18px]">verified</span>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Journal de faction */}
             <div>
-              <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-                Mains Courantes &amp; Pointages du Jour
-              </h4>
-              <div className="space-y-2">
+              <div className="flex items-center justify-between mb-2">
+                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Journal de faction</h4>
+                <span className="text-[10px] text-slate-400">{selectedAgent.todayLog?.length || 0} entrée(s)</span>
+              </div>
+              {canWrite && (
+                <form
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    setLogSaving(true);
+                    try {
+                      await addGuardLogEntry(selectedAgent.id, logForm);
+                      setLogForm({ type: logForm.type, title: '', notes: '' });
+                      notify('Entrée ajoutée au journal.', 'success');
+                    } catch (err) {
+                      notify(err instanceof Error ? err.message : 'Enregistrement impossible.', 'error');
+                    } finally {
+                      setLogSaving(false);
+                    }
+                  }}
+                  className="p-3 mb-3 rounded-xl border border-slate-200 bg-slate-50 grid grid-cols-1 sm:grid-cols-6 gap-2 text-xs"
+                >
+                  <select value={logForm.type} onChange={(e) => setLogForm({ ...logForm, type: e.target.value })} className="sm:col-span-2 px-2 py-1.5 rounded-lg border border-slate-300 bg-white">
+                    {LOG_TYPES.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
+                  </select>
+                  <input maxLength={150} value={logForm.title} onChange={(e) => setLogForm({ ...logForm, title: e.target.value })} placeholder="Objet (facultatif)" className="sm:col-span-4 px-2 py-1.5 rounded-lg border border-slate-300 bg-white" />
+                  <input maxLength={500} value={logForm.notes} onChange={(e) => setLogForm({ ...logForm, notes: e.target.value })} placeholder="Observations" className="sm:col-span-5 px-2 py-1.5 rounded-lg border border-slate-300 bg-white" />
+                  <button type="submit" disabled={logSaving} className="px-3 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold disabled:opacity-50">
+                    {logSaving ? '…' : 'Ajouter'}
+                  </button>
+                  <p className="sm:col-span-6 text-[10px] text-slate-400">La date et l’heure sont enregistrées automatiquement, avec votre nom.</p>
+                </form>
+              )}
+              <div className="space-y-2 max-h-80 overflow-y-auto">
                 {selectedAgent.todayLog && selectedAgent.todayLog.length > 0 ? (
                   selectedAgent.todayLog.map((log, i) => (
                     <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs space-y-1">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                          <span className="font-mono text-cyan-600 font-semibold">{log.time}</span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-slate-900 flex items-center gap-1.5 min-w-0">
+                          <span className="font-mono text-cyan-600 font-semibold shrink-0">{log.time.includes('/') ? log.time : `${log.time} (date non notée)`}</span>
                           <span>•</span>
-                          <span>{log.title}</span>
+                          <span className="truncate">{log.title}</span>
                         </span>
-                        <span className="px-2 py-0.5 rounded bg-white text-slate-600 font-mono text-[10px] border border-slate-200">
-                          {log.type}
-                        </span>
+                        <span className="px-2 py-0.5 rounded bg-white text-slate-600 text-[10px] border border-slate-200 shrink-0">{logTypeLabel(log.type)}</span>
                       </div>
-                      <p className="text-slate-600 text-[11px] leading-relaxed">{log.notes}</p>
+                      {log.notes && <p className="text-slate-600 text-[11px] leading-relaxed">{log.notes}</p>}
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-400 italic">Aucun événement particulier consigné pour cette vacation.</p>
+                  <p className="text-xs text-slate-400 italic">Aucune entrée dans le journal de faction.</p>
                 )}
               </div>
             </div>
@@ -1182,7 +1255,7 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
 
             <div className="flex items-center justify-center py-2">
               <img
-                src={customPhotoUrl || photoModalTarget.currentPhoto}
+                src={customPhotoUrl || photoModalTarget.currentPhoto || initialsAvatar(photoModalTarget.name)}
                 alt="Aperçu"
                 className="w-24 h-24 rounded-2xl object-cover border-2 border-cyan-500 shadow-md"
               />
@@ -1213,24 +1286,6 @@ export const GuardsView: React.FC<GuardsViewProps> = ({ guards, sites, selectedS
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-2">
-                  Ou choisir parmi la galerie de portraits professionnels :
-                </label>
-                <div className="grid grid-cols-4 gap-2">
-                  {sampleAvatars.map((url, i) => (
-                    <img
-                      key={i}
-                      src={url}
-                      alt={`Avatar ${i}`}
-                      onClick={() => setCustomPhotoUrl(url)}
-                      className={`w-14 h-14 rounded-xl object-cover cursor-pointer border-2 transition-all ${
-                        customPhotoUrl === url ? 'border-cyan-500 scale-105 shadow-md' : 'border-slate-200 hover:border-slate-400'
-                      }`}
-                    />
-                  ))}
-                </div>
-              </div>
 
               <div className="pt-2 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button

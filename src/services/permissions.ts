@@ -145,7 +145,8 @@ const RECORD_ROUTES: { re: RegExp; action: Action; stateKey: string }[] = [
   { re: /^\/expenses\/([^/]+)\/(approve|reject)$/, action: 'expense_approve', stateKey: 'expenses' },
   { re: /^\/incidents\/([^/]+)$/, action: 'write', stateKey: 'incidents' },
   { re: /^\/payrolls\/([^/]+)\/status$/, action: 'payroll', stateKey: 'payrolls' },
-  { re: /^\/equipments\/([^/]+)\/events$/, action: 'write', stateKey: 'equipments' }
+  { re: /^\/equipments\/([^/]+)\/events$/, action: 'write', stateKey: 'equipments' },
+  { re: /^\/guards\/([^/]+)\/log$/, action: 'write', stateKey: 'guards' }
 ];
 
 const CREATE_ROUTES: Record<string, { action: Action; siteField?: string }> = {

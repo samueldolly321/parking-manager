@@ -76,6 +76,7 @@ import {
 import { USER_ROLES, ADMIN_ROLES } from './src/types/index.ts';
 import { pickYearlyNumber, currentYear } from './src/services/numbering.ts';
 import { SPOT_TYPE_LABELS, formatEntryTime } from './src/services/spots.ts';
+import { LOG_TYPES } from './src/services/guards.ts';
 import { EQUIPMENT_CATEGORIES, EQUIPMENT_STATUS_LABELS, applyEquipmentEvent, isoToFr, nextInventoryCode, type EquipmentEvent } from './src/services/equipment.ts';
 import { forbiddenMessage, recordSiteId, roleCan, scopeState, userSite, writeRule } from './src/services/permissions.ts';
 
@@ -998,6 +999,29 @@ async function startServer() {
       return res.json({ updatedCount });
     } catch (error) {
       return res.status(500).json({ error: 'Impossible de diffuser l\'ordre' });
+    }
+  });
+
+  // Duty log of a guard: service start, round, incident handled, handover (dated, newest first)
+  app.post('/api/v1/guards/:id/log', async (req, res) => {
+    try {
+      const state = await getFullState();
+      const guard = state.guards.find((g) => g.id === req.params.id);
+      if (!guard) return res.status(404).json({ error: 'Agent introuvable.' });
+      const b = req.body || {};
+      const text = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+      const type = LOG_TYPES.find((t) => t.id === b.type)?.id;
+      const title = text(b.title, 150) || LOG_TYPES.find((t) => t.id === type)?.label || '';
+      if (!type) return res.status(400).json({ error: 'Type d’entrée inconnu.' });
+      const by = res.locals.user?.fullName || '';
+      const entry = { time: formatEntryTime(), type, title, notes: [text(b.notes, 500), by ? `Saisi par ${by}` : ''].filter(Boolean).join(' — ') };
+      const todayLog = [entry, ...(guard.todayLog || [])].slice(0, 200);
+      await updateRecord('guards', guard.id, { todayLog });
+      await recordAudit('JOURNAL_FACTION', 'Sécurité & Gardiennage', `${guard.fullName} (${guard.matricule}) — ${title}`, guard.siteId);
+      return res.status(201).json({ guard: { ...guard, todayLog } });
+    } catch (error) {
+      console.error('Guard log error:', error);
+      return res.status(500).json({ error: 'Impossible d’enregistrer cette entrée.' });
     }
   });
 

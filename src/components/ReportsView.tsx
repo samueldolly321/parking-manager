@@ -403,7 +403,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card
           title="Impayés"
-          subtitle="Situation actuelle (soldes des membres aujourd'hui)"
+          subtitle="Situation actuelle : mois d’abonnement dus et non payés (depuis janvier 2026) et restes à payer"
           right={<span className="font-mono-data text-sm font-bold text-[#DC2626]">{ar(report.unpaid.totalAr)}</span>}
         >
           <div className="flex flex-wrap gap-2 mb-3 text-[11px]">
@@ -418,13 +418,14 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead className="text-[10px] uppercase text-slate-500 bg-slate-50">
-                  <tr><th className="text-left py-2 px-2">Membre</th><th className="text-left py-2 px-2">Site</th><th className="text-right py-2 px-2">Montant dû</th></tr>
+                  <tr><th className="text-left py-2 px-2">Membre</th><th className="text-left py-2 px-2">Site</th><th className="text-right py-2 px-2">Mois impayés</th><th className="text-right py-2 px-2">Montant dû</th></tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {report.unpaid.members.map((m) => (
                     <tr key={m.number}>
                       <td className="py-1.5 px-2"><span className="font-semibold text-[#0F172A]">{m.name}</span> <span className="font-mono-data text-[10px] text-slate-400">{m.number}</span></td>
                       <td className="py-1.5 px-2 text-slate-600">{m.site}</td>
+                      <td className="py-1.5 px-2 text-right font-mono-data text-slate-600">{m.months || 'partiel'}</td>
                       <td className="py-1.5 px-2 text-right font-mono-data font-bold text-[#DC2626]">{ar(m.balanceAr)}</td>
                     </tr>
                   ))}
@@ -435,7 +436,7 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
           <p className="mt-3 text-[11px] text-slate-500">Revenu mensuel attendu des abonnements actifs : <strong className="font-mono-data text-[#0F172A]">{ar(report.subscriptions.revenuMensuelAr)}</strong></p>
         </Card>
 
-        <Card title="Occupation des sites" subtitle="Situation actuelle (places occupées / capacité déclarée)">
+        <Card title="Occupation des sites" subtitle="Situation actuelle (places occupées / places configurées)">
           <ul className="space-y-4">
             {report.occupancy.map((o) => (
               <li key={o.site}>
@@ -446,7 +447,10 @@ export const ReportsView: React.FC<ReportsViewProps> = ({ state, selectedSiteId 
                 <div className="mt-1 h-2 rounded bg-slate-100 overflow-hidden">
                   <div className="h-full rounded" style={{ width: `${Math.min(100, o.rate * 100)}%`, backgroundColor: BAR_HUE }} />
                 </div>
-                <span className="text-[10px] text-slate-400">{o.reserved} réservée{o.reserved > 1 ? 's' : ''} · {o.maintenance} en maintenance</span>
+                <span className="text-[10px] text-slate-400">
+                  {o.reserved} réservée{o.reserved > 1 ? 's' : ''} · {o.maintenance} en maintenance
+                  {o.declared !== o.capacity ? ` · capacité déclarée : ${o.declared}` : ''}
+                </span>
               </li>
             ))}
           </ul>

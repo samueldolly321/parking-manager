@@ -58,13 +58,13 @@ export function exportReportCsv(r: ReportData, siteLabel: string, appName = 'Par
   breakdown('MASSE SALARIALE PAR TYPE', r.payrollByType);
 
   section('IMPAYÉS (SITUATION ACTUELLE)');
-  rows.push(['Membre', 'N° membre', 'Site', 'Montant dû (Ar)']);
-  r.unpaid.members.forEach((m) => rows.push([m.name, m.number, m.site, m.balanceAr]));
-  rows.push(['TOTAL', '', '', r.unpaid.totalAr]);
+  rows.push(['Membre', 'N° membre', 'Site', 'Mois impayés', 'Montant dû (Ar)']);
+  r.unpaid.members.forEach((m) => rows.push([m.name, m.number, m.site, m.months, m.balanceAr]));
+  rows.push(['TOTAL', '', '', r.unpaid.months, r.unpaid.totalAr]);
 
   section('OCCUPATION (SITUATION ACTUELLE)');
-  rows.push(['Site', 'Capacité', 'Occupées', 'Réservées', 'Maintenance', 'Taux (%)']);
-  r.occupancy.forEach((o) => rows.push([o.site, o.capacity, o.occupied, o.reserved, o.maintenance, Math.round(o.rate * 1000) / 10]));
+  rows.push(['Site', 'Places configurées', 'Capacité déclarée', 'Occupées', 'Réservées', 'Maintenance', 'Taux (%)']);
+  r.occupancy.forEach((o) => rows.push([o.site, o.capacity, o.declared, o.occupied, o.reserved, o.maintenance, Math.round(o.rate * 1000) / 10]));
 
   const esc = (v: string | number) => {
     const s = String(v);
@@ -177,16 +177,16 @@ export function exportReportPdf(r: ReportData, siteLabel: string, appName = 'Par
 
   title('Impayés — situation actuelle');
   table(
-    ['Membre', 'N° membre', 'Site', 'Montant dû'],
-    [...r.unpaid.members.map((m) => [m.name, m.number, m.site, ar(m.balanceAr)]), ['TOTAL', '', '', ar(r.unpaid.totalAr)]],
-    [70, 36, 40, 36]
+    ['Membre', 'N° membre', 'Site', 'Mois', 'Montant dû'],
+    [...r.unpaid.members.map((m) => [m.name, m.number, m.site, String(m.months), ar(m.balanceAr)]), ['TOTAL', '', '', String(r.unpaid.months), ar(r.unpaid.totalAr)]],
+    [62, 32, 38, 14, 36]
   );
 
   title('Occupation — situation actuelle');
   table(
-    ['Site', 'Capacité', 'Occupées', 'Réservées', 'Maint.', 'Taux'],
-    r.occupancy.map((o) => [o.site, o.capacity, o.occupied, o.reserved, o.maintenance, `${Math.round(o.rate * 1000) / 10} %`]),
-    [62, 24, 24, 24, 24, 24]
+    ['Site', 'Places', 'Déclarées', 'Occupées', 'Réservées', 'Maint.', 'Taux'],
+    r.occupancy.map((o) => [o.site, o.capacity, o.declared, o.occupied, o.reserved, o.maintenance, `${Math.round(o.rate * 1000) / 10} %`]),
+    [50, 22, 22, 22, 22, 22, 22]
   );
 
   // Page numbers

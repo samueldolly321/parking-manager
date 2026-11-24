@@ -2,6 +2,7 @@
 import type { AppState, Member, PaymentReceipt, ExpenseRecord, PayrollRecord } from '../types';
 import { MONTH_NAMES, MONTH_SHORT, monthKey, splitKey } from './months';
 import { monthKeyOf, todayInTana } from './dashboardMetrics';
+import { subscriptionHealth } from './subscriptionCalendar';
 
 export type Granularity = 'mois' | 'trimestre' | 'annee';
 
@@ -147,9 +148,10 @@ export interface ReportData {
   expensesByCategory: Breakdown[];
   payrollByType: Breakdown[];
   // Snapshots (state today, not tied to the period)
-  unpaid: { totalAr: number; members: { name: string; number: string; balanceAr: number; site: string }[] };
+  unpaid: { totalAr: number; months: number; members: { name: string; number: string; balanceAr: number; months: number; site: string }[] };
   subscriptions: { aJour: number; procheEcheance: number; enRetard: number; expire: number; revenuMensuelAr: number };
-  occupancy: { site: string; capacity: number; occupied: number; reserved: number; maintenance: number; rate: number }[];
+  /** capacity = spots configured (same basis as the dashboard), declared = capacity written on the site file */
+  occupancy: { site: string; capacity: number; declared: number; occupied: number; reserved: number; maintenance: number; rate: number }[];
   activity: { newMembers: number; incidents: number; incidentsOpen: number; incidentsBySeverity: Breakdown[] };
 }
 
@@ -206,10 +208,25 @@ export function buildReport(state: AppState, period: Period, siteId: string): Re
   });
 
   const members = state.members.filter((m) => inSite(siteId, m.primarySiteId));
-  const unpaidMembers = members
-    .filter((m) => m.currentBalanceAr < 0)
-    .sort((a, b) => a.currentBalanceAr - b.currentBalanceAr);
   const subs = state.subscriptions.filter((s) => inSite(siteId, s.siteId));
+  // Subscriptions state and arrears: same computation as the dashboard and the payment calendar
+  const today = todayInTana();
+  const health = subs.map((s) => ({ s, h: subscriptionHealth(s, state.receipts, today) }));
+  const owed = new Map<string, { balanceAr: number; months: number; siteId: string }>();
+  for (const { s, h } of health) {
+    if (h.arrearsAr <= 0) continue;
+    const cur = owed.get(s.memberId) || { balanceAr: 0, months: 0, siteId: s.siteId };
+    cur.balanceAr += h.arrearsAr;
+    cur.months += h.unpaid.length;
+    owed.set(s.memberId, cur);
+  }
+  const unpaidMembers = Array.from(owed.entries())
+    .map(([memberId, o]) => {
+      const m = memberById.get(memberId);
+      return { name: m?.fullName || 'Membre supprimé', number: m?.memberNumber || '—', balanceAr: o.balanceAr, months: o.months, site: siteName(m?.primarySiteId || o.siteId) };
+    })
+    .sort((a, b) => b.balanceAr - a.balanceAr);
+  const countState = (st: string) => health.filter((x) => x.h.state === st).length;
   const incidents = state.incidents.filter((i) => inSite(siteId, i.siteId) && months.includes(monthKeyOf(i.date) || ''));
   const SEVERITY: Record<string, string> = { critique: 'Critique', eleve: 'Élevée', moyen: 'Moyenne', faible: 'Faible' };
 
@@ -239,15 +256,16 @@ export function buildReport(state: AppState, period: Period, siteId: string): Re
     expensesByCategory: group(cur.approved, (e) => e.category, (e) => e.amountAr),
     payrollByType: group(cur.payrolls, (p) => (p.beneficiaryType === 'bureau' ? 'Membres du bureau' : 'Personnel terrain'), (p) => p.grossSalaryAr),
     unpaid: {
-      totalAr: unpaidMembers.reduce((s, m) => s + Math.abs(m.currentBalanceAr), 0),
-      members: unpaidMembers.map((m) => ({ name: m.fullName, number: m.memberNumber, balanceAr: Math.abs(m.currentBalanceAr), site: siteName(m.primarySiteId) }))
+      totalAr: unpaidMembers.reduce((s, m) => s + m.balanceAr, 0),
+      months: unpaidMembers.reduce((s, m) => s + m.months, 0),
+      members: unpaidMembers
     },
     subscriptions: {
-      aJour: subs.filter((s) => s.status === 'a_jour').length,
-      procheEcheance: subs.filter((s) => s.status === 'proche_echeance').length,
-      enRetard: subs.filter((s) => s.status === 'en_retard').length,
-      expire: subs.filter((s) => s.status === 'expire').length,
-      revenuMensuelAr: subs.filter((s) => s.status !== 'expire').reduce((sum, s) => sum + s.monthlyAmountAr, 0)
+      aJour: countState('a_jour'),
+      procheEcheance: countState('proche_echeance'),
+      enRetard: countState('en_retard'),
+      expire: countState('expire'),
+      revenuMensuelAr: health.filter((x) => x.h.state !== 'expire').reduce((sum, x) => sum + x.s.monthlyAmountAr, 0)
     },
     occupancy: state.sites
       .filter((s) => inSite(siteId, s.id))
@@ -256,11 +274,12 @@ export function buildReport(state: AppState, period: Period, siteId: string): Re
         const occupied = spots.filter((sp) => sp.status === 'occupe').length;
         return {
           site: siteName(s.id),
-          capacity: s.totalCapacity,
+          capacity: spots.length,
+          declared: Number(s.totalCapacity) || 0,
           occupied,
           reserved: spots.filter((sp) => sp.status === 'reserve').length,
           maintenance: spots.filter((sp) => sp.status === 'maintenance').length,
-          rate: s.totalCapacity > 0 ? occupied / s.totalCapacity : 0
+          rate: spots.length > 0 ? occupied / spots.length : 0
         };
       }),
     activity: {

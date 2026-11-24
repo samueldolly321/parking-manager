@@ -2662,3 +2662,16 @@ export async function recordEquipmentEvent(id: string, event: Record<string, unk
   saveState(state);
   return equipment;
 }
+
+/** Adds a dated entry to a guard's duty log (server first). */
+export async function addGuardLogEntry(id: string, entry: { type: string; title?: string; notes?: string }): Promise<GuardPersonnel> {
+  const { guard } = (await postJson(
+    `/api/v1/guards/${encodeURIComponent(id)}/log`,
+    entry,
+    'Serveur injoignable : l’entrée n’a pas été enregistrée.'
+  )) as { guard: GuardPersonnel };
+  const state = loadState();
+  state.guards = state.guards.map((g) => (g.id === guard.id ? guard : g));
+  saveState(state);
+  return guard;
+}

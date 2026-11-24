@@ -579,6 +579,8 @@ export default function App() {
       case 'personnel-et-gardiens':
         return (
           <GuardsView
+            equipments={state.equipments}
+            currentUser={state.currentUser}
             key={viewKey}
             initialSearch={focus.query}
             initialSelectedId={focus.selectId}
